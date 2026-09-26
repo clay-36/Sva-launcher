@@ -4,6 +4,8 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public final class YouTubeCardTest {
     @Test public void parsesWatchAndShortVideoLinksToCanonicalVideoCards() {
@@ -30,5 +32,13 @@ public final class YouTubeCardTest {
         assertNull(YouTubeCard.parse("https://example.com/playlist?list=PL1234567890abcd"));
         assertNull(YouTubeCard.parse("https://www.youtube.com/watch?v=too-short"));
         assertNull(YouTubeCard.parse("not a link"));
+    }
+
+    @Test public void playlistCanUseVideoArtwork() {
+        YouTubeCard card = YouTubeCard.parse("https://youtube.com/playlist?list=PL1234567890abcd");
+        assertFalse(card.useArtworkFromVideo("https://youtube.com/playlist?list=PL1234567890abcd"));
+        assertTrue(card.useArtworkFromVideo("https://youtu.be/dQw4w9WgXcQ"));
+        assertTrue(card.customThumbnail);
+        assertEquals("https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg", card.thumbnailUrl);
     }
 }

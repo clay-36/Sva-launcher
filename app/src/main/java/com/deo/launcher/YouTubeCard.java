@@ -17,8 +17,17 @@ final class YouTubeCard {
     String title;
     String autoTitle;
     boolean customTitle;
+    boolean customThumbnail;
     String thumbnailUrl;
     long metadataCheckedAt;
+
+    boolean useArtworkFromVideo(String videoUrl) {
+        YouTubeCard artwork = parse(videoUrl);
+        if (artwork == null || !VIDEO.equals(artwork.type)) return false;
+        thumbnailUrl = artwork.thumbnailUrl;
+        customThumbnail = true;
+        return true;
+    }
 
     private YouTubeCard(String url, String type, String videoId, String playlistId) {
         this.url = url;

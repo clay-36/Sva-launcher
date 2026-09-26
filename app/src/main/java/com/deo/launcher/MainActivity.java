@@ -76,12 +76,11 @@ public final class MainActivity extends Activity {
     private static final int PICK_BACKUP_EXPORT = 4109;
     private static final int PICK_BACKUP_IMPORT = 4110;
     private static final long SLIDESHOW_INTERVAL_MS = 5000L;
-    // Translucent surfaces keep the backdrop visible while preserving contrast.
-    private static final int PANEL = 0xC9161D2A;
-    private static final int PANEL_FOCUSED = 0xF0263444;
-    private static final int MUTED = Color.rgb(161, 174, 196);
-    private static final int ACCENT = Color.rgb(110, 232, 211);
-    private static final int LAVENDER = Color.rgb(174, 180, 255);
+    private static final int PANEL = 0xF21B1B1B;
+    private static final int PANEL_FOCUSED = 0xFF2A2A2A;
+    private static final int MUTED = 0xFFB7B7B7;
+    private static final int ACCENT = 0xFFE50914;
+    private static final int LAVENDER = 0xFFB7B7B7;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<IptvRepository.Channel> channels = new ArrayList<>();
     private final Set<String> hiddenChannelKeys = new HashSet<>();
@@ -336,8 +335,8 @@ public final class MainActivity extends Activity {
         heroFrame = new FrameLayout(this);
         heroFrame.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 light
-                        ? new int[]{0xFF8798A9, 0xFFBCC7D2, 0xFFF1F4F7}
-                        : new int[]{0xFF26374A, 0xFF111925, 0xFF090C13}));
+                        ? new int[]{0xFF757575, 0xFFB8B8B8, 0xFFF5F5F3}
+                        : new int[]{0xFF323232, 0xFF191919, 0xFF090909}));
         wallpaperImage = backgroundImage();
         slideA = backgroundImage();
         slideB = backgroundImage();
@@ -356,8 +355,8 @@ public final class MainActivity extends Activity {
         View bottomFade = new View(this);
         bottomFade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 light
-                        ? new int[]{0x00F1F4F7, 0x22F1F4F7, 0x88F1F4F7, 0xFFF1F4F7}
-                        : new int[]{0x00070A10, 0x22070A10, 0x88070A10, 0xFF070A10}));
+                        ? new int[]{0x00F5F5F3, 0x22F5F5F3, 0x88F5F5F3, 0xFFF5F5F3}
+                        : new int[]{0x00090909, 0x22090909, 0x99090909, 0xFF090909}));
         FrameLayout.LayoutParams bottomFadeParams = new FrameLayout.LayoutParams(-1,
                 dp(Math.round(heroHeightDp() * .48f)), Gravity.BOTTOM);
         heroFrame.addView(bottomFade, bottomFadeParams);
@@ -371,18 +370,18 @@ public final class MainActivity extends Activity {
         timeStack.setOrientation(LinearLayout.VERTICAL);
         timeStack.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
         timeStack.setPadding(dp(16), dp(9), dp(18), dp(9));
-        timeStack.setBackground(roundedShape(light ? 0xBDF8FAFC : 0xA8172230,
-                light ? 0x99FFFFFF : 0x55FFFFFF, 1, 17));
+        timeStack.setBackground(roundedShape(light ? 0xEBFFFFFF : 0xC9191919,
+                light ? 0xFFCCCCCC : 0xFF777777, 1, 10));
         LinearLayout.LayoutParams timeParams = new LinearLayout.LayoutParams(-2, -2);
         top.addView(timeStack, timeParams);
         clock = new TextView(this);
-        clock.setTextColor(light ? 0xFF17212B : Color.WHITE);
+        clock.setTextColor(LiquidTheme.text(this));
         clock.setTextSize(29);
         clock.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         clock.setGravity(Gravity.LEFT);
         timeStack.addView(clock);
         date = new TextView(this);
-        date.setTextColor(light ? 0xFF536273 : 0xFFB8C3D2);
+        date.setTextColor(LiquidTheme.secondaryText(this));
         date.setTextSize(11);
         date.setLetterSpacing(.05f);
         date.setGravity(Gravity.LEFT);
@@ -400,15 +399,14 @@ public final class MainActivity extends Activity {
         LinearLayout heroBottom = new LinearLayout(this);
         heroBottom.setOrientation(LinearLayout.VERTICAL);
         heroBottom.setPadding(dp(48), 0, dp(48), dp(20));
-        TextView eyebrow = label("YOUR SPACE  ·  MADE FOR TONIGHT", 12, ACCENT, true);
+        TextView eyebrow = label("YOUR SPACE  ·  MADE FOR TONIGHT", 12, LiquidTheme.text(this), true);
         eyebrow.setLetterSpacing(.16f);
         heroBottom.addView(eyebrow, new LinearLayout.LayoutParams(-1, dp(26)));
-        greeting = label("", 39, light ? 0xFF17212B : Color.WHITE, true);
-        greeting.setTextColor(light ? 0xFF17212B : Color.WHITE);
+        greeting = label("", 44, LiquidTheme.text(this), true);
         greeting.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         greeting.setShadowLayer(dp(12), 0, dp(2), light ? 0x22000000 : 0x77000000);
         heroBottom.addView(greeting);
-        greetingSubtitle = label("", 17, light ? 0xFF536273 : 0xFFE1E8F1, false);
+        greetingSubtitle = label("", 18, LiquidTheme.secondaryText(this), false);
         heroBottom.addView(greetingSubtitle);
 
         heroFrame.addView(heroBottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
@@ -424,7 +422,7 @@ public final class MainActivity extends Activity {
         LinearLayout appsHeading = new LinearLayout(this);
         appsHeading.setGravity(Gravity.CENTER_VERTICAL);
         homeContent.addView(appsHeading, new LinearLayout.LayoutParams(-1, dp(28)));
-        TextView appsTitle = label("YOUR APPS", 13, LiquidTheme.text(this), true);
+        TextView appsTitle = label("YOUR APPS", 19, LiquidTheme.text(this), true);
         appsTitle.setLetterSpacing(.15f);
         appsHeading.addView(appsTitle, new LinearLayout.LayoutParams(0, -2, 1));
         TextView appsHint = label("SELECT TO OPEN", 10, LiquidTheme.lavender(this), true);
@@ -439,13 +437,13 @@ public final class MainActivity extends Activity {
         appRow.setClipChildren(false);
         appRow.setClipToPadding(false);
         appScroll.addView(appRow);
-        homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(164)));
+        homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(218)));
 
         youtubeSection = new LinearLayout(this);
         youtubeSection.setOrientation(LinearLayout.VERTICAL);
         LinearLayout youtubeTitleRow = new LinearLayout(this);
         youtubeTitleRow.setGravity(Gravity.CENTER_VERTICAL);
-        youtubeHeading = label("YOUTUBE PICKS", 13, LiquidTheme.lavender(this), true);
+        youtubeHeading = label("YOUTUBE PICKS", 19, LiquidTheme.text(this), true);
         youtubeHeading.setLetterSpacing(.15f);
         youtubeTitleRow.addView(youtubeHeading, new LinearLayout.LayoutParams(0, -2, 1));
         TextView youtubeHint = label("VIDEOS & PLAYLISTS", 10, LiquidTheme.secondaryText(this), true);
@@ -462,7 +460,7 @@ public final class MainActivity extends Activity {
         youtubeRow.setClipChildren(false);
         youtubeRow.setClipToPadding(false);
         youtubeScroll.addView(youtubeRow);
-        youtubeSection.addView(youtubeScroll, new LinearLayout.LayoutParams(-1, dp(176)));
+        youtubeSection.addView(youtubeScroll, new LinearLayout.LayoutParams(-1, dp(230)));
         homeContent.addView(youtubeSection, new LinearLayout.LayoutParams(-1, -2));
         renderYouTubeCards();
         applyWallpaper();
@@ -470,7 +468,7 @@ public final class MainActivity extends Activity {
         LinearLayout liveHeading = new LinearLayout(this);
         liveHeading.setGravity(Gravity.CENTER_VERTICAL);
         homeContent.addView(liveHeading, new LinearLayout.LayoutParams(-1, dp(56)));
-        channelHeader = label("LIVE TV", 13, LiquidTheme.accent(this), true);
+        channelHeader = label("LIVE TV", 19, LiquidTheme.text(this), true);
         channelHeader.setLetterSpacing(.14f);
         liveHeading.addView(channelHeader, new LinearLayout.LayoutParams(0, -2, 1));
         channelRows = new LinearLayout(this);
@@ -491,7 +489,9 @@ public final class MainActivity extends Activity {
         channelRows.addView(channelCategoryScroll, new LinearLayout.LayoutParams(-1, dp(58)));
         channelsEmpty = label("Add a playlist in Settings to browse live TV.", 15, MUTED, false);
         channelsEmpty.setPadding(0, dp(16), 0, dp(20));
-        status = label("Add an M3U and optional XMLTV URL in Settings to get started.", 15, MUTED, false);
+        status = label(channels.isEmpty()
+                ? "Add an M3U and optional XMLTV URL in Settings to get started."
+                : "Channels loaded from device cache.", 15, MUTED, false);
         status.setPadding(0, dp(12), 0, 0);
         homeContent.addView(status);
         calendarEventBar = new LinearLayout(this);
@@ -501,7 +501,7 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams calendarBarParams = new LinearLayout.LayoutParams(-1, -2);
         calendarBarParams.setMargins(0, dp(18), 0, dp(12));
         homeContent.addView(calendarEventBar, calendarBarParams);
-        TextView calendarTitle = label("HAPPENING NOW", 11, LiquidTheme.accent(this), true);
+        TextView calendarTitle = label("HAPPENING NOW", 11, LiquidTheme.text(this), true);
         calendarTitle.setLetterSpacing(.14f);
         calendarEventBar.addView(calendarTitle, new LinearLayout.LayoutParams(-1, dp(22)));
         HorizontalScrollView calendarScroll = new HorizontalScrollView(this);
@@ -533,8 +533,8 @@ public final class MainActivity extends Activity {
 
         HomePageBackdrop(int heroHeight, boolean light) {
             this.heroHeight = heroHeight;
-            seamColor = light ? 0xFFF1F4F7 : 0xFF070A10;
-            bottomColor = light ? 0xFFE7EDF4 : 0xFF111925;
+            seamColor = light ? 0xFFF5F5F3 : 0xFF090909;
+            bottomColor = light ? 0xFFF5F5F3 : 0xFF111111;
             paint.setColor(seamColor);
         }
 
@@ -641,11 +641,11 @@ public final class MainActivity extends Activity {
 
     private void stylePrimaryButton(Button button) {
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0xFF263747, ACCENT, 2, 15));
-        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(0xFF263747, ACCENT, 2, 15));
-        states.addState(new int[]{}, gradientShape(0xFF8AF0D8, 0xFF58CDBB, 0xFF8AF0D8, 1, 15));
+        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0xFFB20710, LiquidTheme.text(this), 2, 10));
+        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(0xFFB20710, LiquidTheme.text(this), 2, 10));
+        states.addState(new int[]{}, roundedShape(LiquidTheme.accent(this), LiquidTheme.accent(this), 1, 10));
         button.setBackground(states);
-        button.setTextColor(0xFF07121A);
+        button.setTextColor(Color.WHITE);
         button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         button.setLetterSpacing(.035f);
         button.setOnFocusChangeListener((view, focused) -> view.animate()
@@ -847,30 +847,32 @@ public final class MainActivity extends Activity {
             tile.setClickable(true);
             StateListDrawable appTileStates = new StateListDrawable();
             boolean light = LiquidTheme.isLight(this);
-            appTileStates.addState(new int[]{android.R.attr.state_focused}, gradientShape(
-                    light ? 0xFFF8FFFF : 0xED354D61, light ? 0xE7E5F3F2 : 0xE51A2634, LiquidTheme.accent(this), 2, 23));
-            appTileStates.addState(new int[]{android.R.attr.state_pressed}, gradientShape(
-                    light ? 0xFFF8FFFF : 0xED354D61, light ? 0xE7E5F3F2 : 0xE51A2634, LiquidTheme.accent(this), 2, 23));
-            appTileStates.addState(new int[]{}, gradientShape(
-                    light ? 0xDDFEFFFF : 0xA62C3C50, light ? 0xDDEAF0F4 : 0xA20E141E, LiquidTheme.border(this), 1, 23));
+            appTileStates.addState(new int[]{android.R.attr.state_focused},
+                    roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
+            appTileStates.addState(new int[]{android.R.attr.state_pressed},
+                    roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
+            appTileStates.addState(new int[]{},
+                    roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 11));
             tile.setBackground(appTileStates);
             tile.setFocusableInTouchMode(false);
             tile.setElevation(dp(2));
             tile.setOnFocusChangeListener((view, focused) -> view.animate()
                     .scaleX(focused ? 1.045f : 1f).scaleY(focused ? 1.045f : 1f)
                     .translationZ(focused ? dp(8) : 0).setDuration(150).start());
-            tile.setPadding(dp(10), dp(10), dp(10), dp(8));
+            tile.setPadding(dp(12), dp(18), dp(12), dp(12));
             ImageView icon = new ImageView(this);
             icon.setImageDrawable(entry.icon);
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            tile.addView(icon, new LinearLayout.LayoutParams(dp(56), dp(56)));
-            TextView name = label(entry.label, 14, LiquidTheme.text(this), true);
+            tile.addView(icon, new LinearLayout.LayoutParams(dp(76), dp(76)));
+            TextView name = label(entry.label, 15, LiquidTheme.text(this), true);
             name.setGravity(Gravity.CENTER);
             name.setMaxLines(2);
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            tile.addView(name, new LinearLayout.LayoutParams(dp(112), dp(40)));
+            LinearLayout.LayoutParams appNameParams = new LinearLayout.LayoutParams(dp(124), dp(48));
+            appNameParams.topMargin = dp(16);
+            tile.addView(name, appNameParams);
             tile.setOnClickListener(v -> launchApp(entry.packageName));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(132), dp(158));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(148), dp(206));
             lp.setMargins(0, 0, dp(18), 0);
             appRow.addView(tile, lp);
         }
@@ -894,6 +896,7 @@ public final class MainActivity extends Activity {
                 parsed.title = value.optString("title", parsed.title);
                 parsed.autoTitle = value.optString("autoTitle", parsed.title);
                 parsed.customTitle = value.optBoolean("customTitle", false);
+                parsed.customThumbnail = value.optBoolean("customThumbnail", false);
                 String savedThumbnail = value.optString("thumbnailUrl", "");
                 if (!savedThumbnail.isEmpty()) parsed.thumbnailUrl = savedThumbnail;
                 parsed.metadataCheckedAt = value.optLong("metadataCheckedAt", 0L);
@@ -912,6 +915,7 @@ public final class MainActivity extends Activity {
                 value.put("title", card.title);
                 value.put("autoTitle", card.autoTitle);
                 value.put("customTitle", card.customTitle);
+                value.put("customThumbnail", card.customThumbnail);
                 value.put("thumbnailUrl", card.thumbnailUrl == null ? "" : card.thumbnailUrl);
                 value.put("metadataCheckedAt", card.metadataCheckedAt);
                 values.put(value);
@@ -925,6 +929,8 @@ public final class MainActivity extends Activity {
         youtubeRow.removeAllViews();
         List<YouTubeCard> cards = savedYouTubeCards();
         youtubeSection.setVisibility(cards.isEmpty() ? View.GONE : View.VISIBLE);
+        boolean retryMissingArtwork = !preferences.getBoolean("youtubeArtworkFeedFallbackTried", false);
+        if (retryMissingArtwork) preferences.edit().putBoolean("youtubeArtworkFeedFallbackTried", true).apply();
         for (YouTubeCard card : cards) {
             LinearLayout tile = new LinearLayout(this);
             tile.setOrientation(LinearLayout.VERTICAL);
@@ -935,15 +941,12 @@ public final class MainActivity extends Activity {
             tile.setPadding(dp(8), dp(8), dp(8), dp(7));
             StateListDrawable states = new StateListDrawable();
             boolean light = LiquidTheme.isLight(this);
-            states.addState(new int[]{android.R.attr.state_focused}, gradientShape(
-                    light ? 0xFFF8FFFF : 0xED354D61, light ? 0xE7E5F3F2 : 0xE51A2634,
-                    LiquidTheme.accent(this), 2, 19));
-            states.addState(new int[]{android.R.attr.state_pressed}, gradientShape(
-                    light ? 0xFFF8FFFF : 0xED354D61, light ? 0xE7E5F3F2 : 0xE51A2634,
-                    LiquidTheme.accent(this), 2, 19));
-            states.addState(new int[]{}, gradientShape(
-                    light ? 0xDDFEFFFF : 0xA62C3C50, light ? 0xDDEAF0F4 : 0xA20E141E,
-                    LiquidTheme.border(this), 1, 19));
+            states.addState(new int[]{android.R.attr.state_focused},
+                    roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
+            states.addState(new int[]{android.R.attr.state_pressed},
+                    roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
+            states.addState(new int[]{},
+                    roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 11));
             tile.setBackground(states);
             tile.setElevation(dp(2));
             tile.setOnFocusChangeListener((view, focused) -> view.animate()
@@ -951,39 +954,45 @@ public final class MainActivity extends Activity {
                     .translationZ(focused ? dp(8) : 0).setDuration(150).start());
 
             FrameLayout poster = new FrameLayout(this);
-            poster.setBackground(roundedShape(0xFF1B2633, LiquidTheme.border(this), 1, 13));
+            poster.setBackground(roundedShape(light ? 0xFFE6E6E6 : 0xFF101010,
+                    LiquidTheme.border(this), 1, 7));
             poster.setClipToOutline(true);
             ImageView thumbnail = new ImageView(this);
-            thumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            thumbnail.setScaleType(ImageView.ScaleType.FIT_CENTER);
             thumbnail.setTag(card.url);
             poster.addView(thumbnail, new FrameLayout.LayoutParams(-1, -1));
             TextView fallback = label("▶", 34, Color.WHITE, true);
+            fallback.setTextColor(Color.WHITE);
             fallback.setGravity(Gravity.CENTER);
             fallback.setShadowLayer(dp(8), 0, dp(2), Color.BLACK);
             poster.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
             TextView type = label(YouTubeCard.VIDEO.equals(card.type) ? "VIDEO" : "PLAYLIST",
                     9, Color.WHITE, true);
+            type.setTextColor(Color.WHITE);
             type.setLetterSpacing(.10f);
             type.setPadding(dp(9), dp(5), dp(9), dp(5));
-            type.setBackground(roundedShape(0xCC101820, 0x557F91A6, 1, 9));
+            type.setBackground(roundedShape(0xDB121212, LiquidTheme.accent(this), 1, 5));
             FrameLayout.LayoutParams typeParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
             typeParams.setMargins(dp(8), dp(8), 0, 0);
             poster.addView(type, typeParams);
-            tile.addView(poster, new LinearLayout.LayoutParams(dp(226), dp(116)));
-            TextView title = label(card.title, 13, LiquidTheme.text(this), true);
+            tile.addView(poster, new LinearLayout.LayoutParams(dp(148), dp(142)));
+            TextView title = label(card.title, 14, LiquidTheme.text(this), true);
             title.setMaxLines(2);
             title.setEllipsize(android.text.TextUtils.TruncateAt.END);
             title.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
             title.setPadding(dp(3), dp(6), dp(3), 0);
-            tile.addView(title, new LinearLayout.LayoutParams(dp(226), dp(39)));
+            tile.addView(title, new LinearLayout.LayoutParams(dp(148), dp(55)));
             tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? "Play video: " : "Open playlist: ") + card.title);
             tile.setOnClickListener(view -> launchYouTubeCard(card));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(244), dp(166));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(164), dp(216));
             params.setMargins(0, dp(2), dp(16), dp(8));
             youtubeRow.addView(tile, params);
-            loadYouTubeThumbnail(card, thumbnail);
+            loadYouTubeThumbnail(card, thumbnail, fallback);
+            long refreshAfter = card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()
+                    ? 60L * 60L * 1000L : 24L * 60L * 60L * 1000L;
             if (card.metadataCheckedAt == 0L
-                    || System.currentTimeMillis() - card.metadataCheckedAt > 24L * 60L * 60L * 1000L) {
+                    || System.currentTimeMillis() - card.metadataCheckedAt > refreshAfter
+                    || (retryMissingArtwork && (card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()))) {
                 fetchYouTubeMetadata(card.url);
             }
         }
@@ -1043,6 +1052,10 @@ public final class MainActivity extends Activity {
             } finally {
                 if (connection != null) connection.disconnect();
             }
+            YouTubeCard parsed = YouTubeCard.parse(url);
+            if (thumbnail == null && parsed != null && YouTubeCard.PLAYLIST.equals(parsed.type)) {
+                thumbnail = playlistFeedThumbnail(parsed.playlistId);
+            }
             final String resultTitle = title, resultThumbnail = thumbnail;
             handler.post(() -> {
                 synchronized (youtubeMetadataInFlight) { youtubeMetadataInFlight.remove(url); }
@@ -1054,7 +1067,7 @@ public final class MainActivity extends Activity {
                         card.autoTitle = resultTitle;
                         if (!card.customTitle) card.title = resultTitle;
                     }
-                    if (resultThumbnail != null) card.thumbnailUrl = resultThumbnail;
+                    if (resultThumbnail != null && !card.customThumbnail) card.thumbnailUrl = resultThumbnail;
                     card.metadataCheckedAt = System.currentTimeMillis();
                     changed = true;
                     break;
@@ -1077,11 +1090,43 @@ public final class MainActivity extends Activity {
         } catch (Exception ignored) { return false; }
     }
 
-    private void loadYouTubeThumbnail(YouTubeCard card, ImageView image) {
+    private String playlistFeedThumbnail(String playlistId) {
+        if (playlistId == null || !playlistId.matches("[A-Za-z0-9_-]{8,}")) return null;
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new java.net.URL(
+                    "https://www.youtube.com/feeds/videos.xml?playlist_id=" + playlistId).openConnection();
+            connection.setConnectTimeout(6000);
+            connection.setReadTimeout(8000);
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return null;
+            try (java.io.InputStream input = connection.getInputStream()) {
+                org.xmlpull.v1.XmlPullParser parser = android.util.Xml.newPullParser();
+                parser.setInput(input, "UTF-8");
+                while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                    if (parser.getEventType() != org.xmlpull.v1.XmlPullParser.START_TAG) continue;
+                    if ("thumbnail".equals(parser.getName())) {
+                        String imageUrl = parser.getAttributeValue(null, "url");
+                        if (isSafeYouTubeThumbnail(imageUrl)) return imageUrl;
+                    } else if ("videoId".equals(parser.getName())) {
+                        String videoId = parser.nextText();
+                        if (videoId.matches("[A-Za-z0-9_-]{11}"))
+                            return "https://i.ytimg.com/vi/" + videoId + "/hqdefault.jpg";
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+        return null;
+    }
+
+    private void loadYouTubeThumbnail(YouTubeCard card, ImageView image, TextView fallback) {
         if (card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()) return;
         android.graphics.Bitmap cached = youtubeThumbnailCache.get(card.thumbnailUrl);
         if (cached != null && !cached.isRecycled()) {
             image.setImageBitmap(cached);
+            fallback.setVisibility(View.GONE);
             return;
         }
         youtubeWorker.execute(() -> {
@@ -1126,7 +1171,10 @@ public final class MainActivity extends Activity {
             youtubeThumbnailCache.put(card.thumbnailUrl, bitmap);
             android.graphics.Bitmap result = bitmap;
             handler.post(() -> {
-                if (card.url.equals(image.getTag())) image.setImageBitmap(result);
+                if (card.url.equals(image.getTag())) {
+                    image.setImageBitmap(result);
+                    fallback.setVisibility(View.GONE);
+                }
             });
         });
     }
@@ -1173,9 +1221,9 @@ public final class MainActivity extends Activity {
         icon.setContentDescription(title);
         icon.setTooltipText(title);
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0xE62C4156, ACCENT, 2, 24));
-        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(0xE62C4156, ACCENT, 2, 24));
-        states.addState(new int[]{}, roundedShape(0x99151E2B, 0x55FFFFFF, 1, 24));
+        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0xF22A2A2A, ACCENT, 2, 9));
+        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(0xF22A2A2A, ACCENT, 2, 9));
+        states.addState(new int[]{}, roundedShape(0xD2191919, 0xAAFFFFFF, 1, 9));
         icon.setBackground(states);
         icon.setFocusable(true);
         icon.setClickable(true);
@@ -1393,12 +1441,14 @@ public final class MainActivity extends Activity {
             boolean selected = entry.getKey().equals(selectedChannelCategory);
             Button tab = entry.getValue();
             android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
-            states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0xFF263747, LiquidTheme.accent(this), 2, 22));
+            states.addState(new int[]{android.R.attr.state_focused}, roundedShape(
+                    selected ? LiquidTheme.accent(this) : LiquidTheme.raisedSurface(this),
+                    LiquidTheme.accent(this), 2, 8));
             states.addState(new int[]{}, selected
-                    ? roundedShape(0x553BE0C1, LiquidTheme.accent(this), 1, 22)
-                    : roundedShape(PANEL, 0x668DA2AC, 1, 22));
+                    ? roundedShape(LiquidTheme.accent(this), LiquidTheme.accent(this), 1, 8)
+                    : roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 8));
             tab.setBackground(states);
-            tab.setTextColor(selected ? LiquidTheme.accent(this) : LiquidTheme.text(this));
+            tab.setTextColor(selected ? Color.WHITE : LiquidTheme.text(this));
             tab.setTypeface(Typeface.create(selected ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
         }
     }
@@ -1418,7 +1468,7 @@ public final class MainActivity extends Activity {
         list.setOverScrollMode(View.OVER_SCROLL_NEVER);
         ChannelAdapter adapter = new ChannelAdapter(this, logoLoader, this::playChannel);
         list.setAdapter(adapter);
-        container.addView(list, new LinearLayout.LayoutParams(-1, dp(216)));
+        container.addView(list, new LinearLayout.LayoutParams(-1, dp(238)));
         return new ChannelRow(container, adapter);
     }
 
@@ -1704,7 +1754,7 @@ public final class MainActivity extends Activity {
         private int section = LIVE;
         private View firstControl;
         private EditText playlistField, guideField, licenseField, headersField, calendarUrlField;
-        private EditText youtubeUrlField, youtubeTitleField;
+        private EditText youtubeUrlField, youtubeTitleField, youtubeArtField;
         private TextView liveFeedback, cacheSummary, guideSummary, youtubeFeedback, calendarFeedback, calendarSummary;
         private LinearLayout youtubeSavedList;
         private ChannelSettingsAdapter channelAdapter;
@@ -1718,6 +1768,7 @@ public final class MainActivity extends Activity {
         private String draftHeaders = iptv.drmHeaderText();
         private String draftYoutubeUrl = "";
         private String draftYoutubeTitle = "";
+        private String draftYoutubeArt = "";
         private String draftCalendarUrl = preferences.getString("publicCalendarUrl", "");
 
         void show() {
@@ -1726,17 +1777,17 @@ public final class MainActivity extends Activity {
             shell.setPadding(dp(42), dp(24), dp(42), dp(28));
             shell.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                     LiquidTheme.isLight(MainActivity.this)
-                            ? new int[]{0xEAF7FAFC, 0xE6EDF2F6, 0xEAF9FBFC}
-                            : new int[]{0xD5172231, 0xD90C111B, 0xDC080B12}));
+                            ? new int[]{0xFFF5F5F3, 0xFFF0F0EE, 0xFFF5F5F3}
+                            : new int[]{0xFF161616, 0xFF090909, 0xFF090909}));
 
             LinearLayout heading = new LinearLayout(MainActivity.this);
             heading.setGravity(Gravity.CENTER_VERTICAL);
             shell.addView(heading, new LinearLayout.LayoutParams(-1, dp(82)));
-            TextView brand = label("DUO", 22, LiquidTheme.accent(MainActivity.this), true);
+            TextView brand = label("DUO", 22, LiquidTheme.text(MainActivity.this), true);
             brand.setLetterSpacing(.16f);
             heading.addView(brand, new LinearLayout.LayoutParams(dp(72), -2));
             View divider = new View(MainActivity.this);
-            divider.setBackgroundColor(0x667F91A6);
+            divider.setBackgroundColor(LiquidTheme.border(MainActivity.this));
             LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(dp(1), dp(38));
             dividerParams.setMargins(0, 0, dp(18), 0);
             heading.addView(divider, dividerParams);
@@ -1786,10 +1837,8 @@ public final class MainActivity extends Activity {
                 params.setMargins(0, 0, 0, dp(5));
                 rail.addView(tab, params);
             }
-            detail.setBackground(gradientShape(
-                    LiquidTheme.isLight(MainActivity.this) ? 0xE9FFFFFF : 0xCF253546,
-                    LiquidTheme.isLight(MainActivity.this) ? 0xE6F0F4F7 : 0xD0111722,
-                    LiquidTheme.border(MainActivity.this), 1, 23));
+            detail.setBackground(roundedShape(LiquidTheme.surface(MainActivity.this),
+                    LiquidTheme.border(MainActivity.this), 1, 12));
             body.addView(detail, new LinearLayout.LayoutParams(0, -1, 1));
 
             dialog.setContentView(shell);
@@ -1836,9 +1885,10 @@ public final class MainActivity extends Activity {
             if (headersField != null) draftHeaders = headersField.getText().toString();
             if (youtubeUrlField != null) draftYoutubeUrl = youtubeUrlField.getText().toString();
             if (youtubeTitleField != null) draftYoutubeTitle = youtubeTitleField.getText().toString();
+            if (youtubeArtField != null) draftYoutubeArt = youtubeArtField.getText().toString();
             if (calendarUrlField != null) draftCalendarUrl = calendarUrlField.getText().toString();
             playlistField = guideField = licenseField = headersField = null;
-            youtubeUrlField = youtubeTitleField = null;
+            youtubeUrlField = youtubeTitleField = youtubeArtField = null;
             calendarUrlField = null;
             liveFeedback = null;
         }
@@ -1867,15 +1917,15 @@ public final class MainActivity extends Activity {
             boolean light = LiquidTheme.isLight(MainActivity.this);
             for (int i = 0; i < tabs.length; i++) {
                 boolean selected = i == section;
-                tabs[i].setTextColor(selected ? LiquidTheme.accent(MainActivity.this) : LiquidTheme.text(MainActivity.this));
+                tabs[i].setTextColor(LiquidTheme.text(MainActivity.this));
                 tabs[i].setTypeface(Typeface.create(selected ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
                 StateListDrawable tabStates = new StateListDrawable();
                 tabStates.addState(new int[]{android.R.attr.state_focused}, roundedShape(
-                        light ? 0xFFF1FAF8 : 0xFF273548, LiquidTheme.accent(MainActivity.this), 2, 15));
+                        LiquidTheme.raisedSurface(MainActivity.this), LiquidTheme.accent(MainActivity.this), 2, 8));
                 tabStates.addState(new int[]{android.R.attr.state_selected}, roundedShape(
-                        light ? 0xFFE4F3F0 : 0xFF1C2938, LiquidTheme.border(MainActivity.this), 1, 15));
+                        LiquidTheme.raisedSurface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 8));
                 tabStates.addState(new int[]{}, roundedShape(
-                        light ? 0x77FFFFFF : 0x221E2837, LiquidTheme.border(MainActivity.this), 1, 15));
+                        LiquidTheme.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 8));
                 tabs[i].setSelected(selected);
                 tabs[i].setBackground(tabStates);
             }
@@ -1947,12 +1997,14 @@ public final class MainActivity extends Activity {
 
         private void renderYouTubeSettings(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormHint(form, "Paste a public YouTube video or playlist link to add a wide card to Home. Add an optional title; the artwork thumbnail stays visible on the card.");
+            addFormHint(form, "Paste a public YouTube video or playlist link to add a portrait card to Home. Add an optional title; the full artwork thumbnail stays visible on the card.");
             youtubeUrlField = addInput(form, "Video or playlist link", "https://www.youtube.com/watch?v=…", draftYoutubeUrl, false);
             youtubeTitleField = addInput(form, "Card title · optional", "Use the YouTube title", draftYoutubeTitle, false);
+            youtubeArtField = addInput(form, "Artwork video link · optional", "Use for playlist artwork", draftYoutubeArt, false);
             addFormButton(form, "Add to Home", view -> {
                 String value = youtubeUrlField == null ? draftYoutubeUrl : youtubeUrlField.getText().toString();
                 String customTitle = youtubeTitleField == null ? draftYoutubeTitle : youtubeTitleField.getText().toString().trim();
+                String artworkVideo = youtubeArtField == null ? draftYoutubeArt : youtubeArtField.getText().toString().trim();
                 YouTubeCard parsed = YouTubeCard.parse(value);
                 if (parsed == null) {
                     if (youtubeFeedback != null) youtubeFeedback.setText("Enter a valid YouTube video or playlist link.");
@@ -1969,13 +2021,19 @@ public final class MainActivity extends Activity {
                     parsed.title = customTitle;
                     parsed.customTitle = true;
                 }
+                if (!artworkVideo.isEmpty() && !parsed.useArtworkFromVideo(artworkVideo)) {
+                    if (youtubeFeedback != null) youtubeFeedback.setText("Artwork must be a YouTube video link.");
+                    return;
+                }
                 cards.add(parsed);
                 saveYouTubeCards(cards);
                 youtubeChanged = true;
                 draftYoutubeUrl = "";
                 draftYoutubeTitle = "";
+                draftYoutubeArt = "";
                 if (youtubeUrlField != null) youtubeUrlField.setText("");
                 if (youtubeTitleField != null) youtubeTitleField.setText("");
+                if (youtubeArtField != null) youtubeArtField.setText("");
                 if (youtubeFeedback != null) youtubeFeedback.setText("Added to Home.");
                 renderYouTubeSavedList();
                 if (youtubeUrlField != null) youtubeUrlField.requestFocus();
@@ -1983,7 +2041,7 @@ public final class MainActivity extends Activity {
             youtubeFeedback = label("", 13, LiquidTheme.secondaryText(MainActivity.this), false);
             youtubeFeedback.setPadding(0, dp(4), 0, dp(8));
             form.addView(youtubeFeedback);
-            TextView savedTitle = label("SAVED CARDS", 12, LiquidTheme.accent(MainActivity.this), true);
+            TextView savedTitle = label("SAVED CARDS", 12, LiquidTheme.text(MainActivity.this), true);
             savedTitle.setLetterSpacing(.12f);
             LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, dp(36));
             titleParams.topMargin = dp(10);
@@ -2016,6 +2074,7 @@ public final class MainActivity extends Activity {
                 title.setEllipsize(android.text.TextUtils.TruncateAt.END);
                 copy.addView(title);
                 TextView detail = label((YouTubeCard.VIDEO.equals(card.type) ? "VIDEO" : "PLAYLIST")
+                        + ((card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()) ? "  ·  Add art" : "")
                         + "  ·  " + card.url, 11, LiquidTheme.secondaryText(MainActivity.this), false);
                 detail.setSingleLine(true);
                 detail.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
@@ -2025,13 +2084,19 @@ public final class MainActivity extends Activity {
                 remove.setContentDescription("Remove " + card.title + " from Home");
                 Button editTitle = actionButton("Title");
                 editTitle.setContentDescription("Edit title for " + card.title);
+                Button editArt = actionButton("Art");
+                editArt.setContentDescription("Edit artwork for " + card.title);
                 LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(dp(88), dp(46));
                 editParams.setMargins(dp(8), 0, 0, 0);
                 row.addView(editTitle, editParams);
+                LinearLayout.LayoutParams artParams = new LinearLayout.LayoutParams(dp(78), dp(46));
+                artParams.setMargins(dp(6), 0, 0, 0);
+                row.addView(editArt, artParams);
                 LinearLayout.LayoutParams removeParams = new LinearLayout.LayoutParams(dp(100), dp(46));
                 removeParams.setMargins(dp(6), 0, 0, 0);
                 row.addView(remove, removeParams);
                 editTitle.setOnClickListener(view -> editYouTubeTitle(card));
+                editArt.setOnClickListener(view -> editYouTubeArtwork(card));
                 remove.setOnClickListener(view -> {
                     List<YouTubeCard> latest = savedYouTubeCards();
                     ArrayList<YouTubeCard> retained = new ArrayList<>();
@@ -2047,6 +2112,51 @@ public final class MainActivity extends Activity {
             }
         }
 
+        private void editYouTubeArtwork(YouTubeCard selected) {
+            EditText artworkInput = new EditText(MainActivity.this);
+            artworkInput.setSingleLine(true);
+            artworkInput.setHint("YouTube video link");
+            artworkInput.setTextColor(LiquidTheme.text(MainActivity.this));
+            artworkInput.setHintTextColor(LiquidTheme.secondaryText(MainActivity.this));
+            artworkInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+            artworkInput.setPadding(dp(24), dp(12), dp(24), dp(12));
+            artworkInput.setBackground(roundedShape(LiquidTheme.surface(MainActivity.this),
+                    LiquidTheme.border(MainActivity.this), 1, 12));
+            AlertDialog artworkDialog = new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Card artwork")
+                    .setMessage("Paste a YouTube video link to use its thumbnail. Leave empty to retry automatic artwork.")
+                    .setView(artworkInput)
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Save", null)
+                    .create();
+            artworkDialog.setOnShowListener(ignored -> artworkDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener(view -> {
+                        String videoLink = artworkInput.getText().toString().trim();
+                        YouTubeCard image = videoLink.isEmpty() ? null : YouTubeCard.parse(videoLink);
+                        if (!videoLink.isEmpty() && (image == null || !YouTubeCard.VIDEO.equals(image.type))) {
+                            artworkInput.setError("Enter a YouTube video link");
+                            return;
+                        }
+                        List<YouTubeCard> cards = savedYouTubeCards();
+                        for (YouTubeCard card : cards) {
+                            if (!card.url.equals(selected.url)) continue;
+                            card.customThumbnail = image != null;
+                            card.thumbnailUrl = image == null
+                                    ? (YouTubeCard.VIDEO.equals(card.type)
+                                    ? "https://i.ytimg.com/vi/" + card.videoId + "/hqdefault.jpg" : null)
+                                    : image.thumbnailUrl;
+                            card.metadataCheckedAt = 0L;
+                            break;
+                        }
+                        saveYouTubeCards(cards);
+                        youtubeChanged = true;
+                        renderYouTubeSavedList();
+                        renderYouTubeCards();
+                        artworkDialog.dismiss();
+                    }));
+            artworkDialog.show();
+        }
+
         private void editYouTubeTitle(YouTubeCard selected) {
             EditText titleInput = new EditText(MainActivity.this);
             titleInput.setSingleLine(true);
@@ -2059,7 +2169,7 @@ public final class MainActivity extends Activity {
             int inset = dp(24);
             titleInput.setPadding(inset, dp(12), inset, dp(12));
             titleInput.setBackground(roundedShape(
-                    LiquidTheme.isLight(MainActivity.this) ? 0xCCFFFFFF : 0xA51B2735,
+                    LiquidTheme.surface(MainActivity.this),
                     LiquidTheme.border(MainActivity.this), 1, 12));
             new AlertDialog.Builder(MainActivity.this)
                     .setTitle("Card title")
@@ -2192,10 +2302,10 @@ public final class MainActivity extends Activity {
             field.setPadding(dp(16), dp(8), dp(16), dp(8));
             StateListDrawable states = new StateListDrawable();
             states.addState(new int[]{android.R.attr.state_focused}, gradientShape(
-                    light ? 0xFFFFFFFF : 0xD12C4055, light ? 0xFFEAF1F5 : 0xD0151E2A,
+                    LiquidTheme.raisedSurface(MainActivity.this), LiquidTheme.raisedSurface(MainActivity.this),
                     LiquidTheme.accent(MainActivity.this), 2, 15));
             states.addState(new int[]{}, gradientShape(
-                    light ? 0xCCFFFFFF : 0xA51B2735, light ? 0xCCEAF0F4 : 0xA20D131D,
+                    LiquidTheme.surface(MainActivity.this), LiquidTheme.surface(MainActivity.this),
                     LiquidTheme.border(MainActivity.this), 1, 15));
             field.setBackground(states);
             LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(-1, dp(multiline ? 102 : 56));
@@ -2220,7 +2330,7 @@ public final class MainActivity extends Activity {
             TextView hint = label(value, 13, LiquidTheme.secondaryText(MainActivity.this), false);
             hint.setLineSpacing(dp(2), 1f);
             hint.setPadding(dp(14), dp(11), dp(14), dp(11));
-            hint.setBackground(roundedShape(light ? 0x99FFFFFF : 0x5C202D3C,
+            hint.setBackground(roundedShape(light ? 0xEEFFFFFF : 0xDD252525,
                     LiquidTheme.border(MainActivity.this), 1, 12));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
             params.setMargins(0, dp(3), 0, dp(8));
@@ -2335,13 +2445,13 @@ public final class MainActivity extends Activity {
 
         private void renderAppearance(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormHint(form, "Liquid glass adapts its translucent surfaces and text contrast to your chosen appearance.");
+            addFormHint(form, "Choose a cinematic light or dark appearance for Home, Settings, and the TV player.");
             String mode = preferences.getString(LiquidTheme.PREF_MODE, LiquidTheme.SYSTEM);
             addFormButton(form, "System default" + (LiquidTheme.SYSTEM.equals(mode) ? "  ·  Selected" : ""),
                     v -> changeLiquidGlassMode(LiquidTheme.SYSTEM));
-            addFormButton(form, "Light glass" + (LiquidTheme.LIGHT.equals(mode) ? "  ·  Selected" : ""),
+            addFormButton(form, "Light" + (LiquidTheme.LIGHT.equals(mode) ? "  ·  Selected" : ""),
                     v -> changeLiquidGlassMode(LiquidTheme.LIGHT));
-            addFormButton(form, "Dark glass" + (LiquidTheme.DARK.equals(mode) ? "  ·  Selected" : ""),
+            addFormButton(form, "Dark" + (LiquidTheme.DARK.equals(mode) ? "  ·  Selected" : ""),
                     v -> changeLiquidGlassMode(LiquidTheme.DARK));
             addFormHint(form, "A selected photo folder or Google Photos public album cycles images every five seconds and takes priority over a single wallpaper.");
             boolean hasFolder = !preferences.getString("wallpaperFolder", "").isEmpty();
@@ -2382,7 +2492,7 @@ public final class MainActivity extends Activity {
                 renderSection();
             });
             View separator = new View(MainActivity.this);
-            separator.setBackgroundColor(0xFF364149);
+            separator.setBackgroundColor(LiquidTheme.border(MainActivity.this));
             LinearLayout.LayoutParams separatorParams = new LinearLayout.LayoutParams(-1, dp(1));
             separatorParams.setMargins(0, dp(18), 0, dp(18));
             form.addView(separator, separatorParams);
@@ -2528,7 +2638,7 @@ public final class MainActivity extends Activity {
                 TextView group = label("", 13, MUTED, false);
                 group.setSingleLine(true);
                 text.addView(group);
-                TextView state = label("", 14, ACCENT, true);
+                TextView state = label("", 14, LiquidTheme.text(MainActivity.this), true);
                 row.addView(state);
                 return new Holder(row, name, group, state);
             }
@@ -2539,7 +2649,8 @@ public final class MainActivity extends Activity {
                 holder.group.setText(channel.group.isEmpty() ? "Uncategorized" : channel.group);
                 boolean shown = !hiddenChannelKeys.contains(channel.stableKey());
                 holder.state.setText(shown ? "Shown" : "Hidden");
-                holder.state.setTextColor(shown ? ACCENT : MUTED);
+                holder.state.setTextColor(shown ? LiquidTheme.text(MainActivity.this)
+                        : LiquidTheme.secondaryText(MainActivity.this));
                 holder.itemView.setOnClickListener(v -> {
                     String key = channel.stableKey();
                     if (hiddenChannelKeys.contains(key)) hiddenChannelKeys.remove(key);
@@ -2640,7 +2751,7 @@ public final class MainActivity extends Activity {
                 AppEntry entry = rows.get(position);
                 int selected = selectedOrder.indexOf(entry.packageName);
                 holder.toggle.setText((selected >= 0 ? "✓  " : "+  ") + entry.label);
-                holder.toggle.setTextColor(selected >= 0 ? ACCENT : Color.WHITE);
+                holder.toggle.setTextColor(LiquidTheme.text(MainActivity.this));
                 holder.toggle.setOnClickListener(v -> {
                     if (selectedOrder.contains(entry.packageName)) selectedOrder.remove(entry.packageName);
                     else selectedOrder.add(entry.packageName);

@@ -82,21 +82,21 @@ public final class PlaybackActivity extends Activity {
         frame.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
         infoPanel = new LinearLayout(this);
         infoPanel.setOrientation(LinearLayout.VERTICAL);
-        infoPanel.setPadding(dp(24), dp(18), dp(24), dp(18));
+        infoPanel.setPadding(dp(26), dp(19), dp(26), dp(18));
         boolean light = LiquidTheme.isLight(this);
         GradientDrawable messageBackground = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                light ? new int[]{0xEFFFFFFF, 0xE8EAF0F4} : new int[]{0xDB28394C, 0xDA101721});
-        messageBackground.setCornerRadius(dp(20));
+                light ? new int[]{0xF7FFFFFF, 0xF2E8E8E8} : new int[]{0xF2181818, 0xF2090909});
+        messageBackground.setCornerRadius(dp(10));
         messageBackground.setStroke(dp(1), LiquidTheme.border(this));
         infoPanel.setBackground(messageBackground);
         infoPanel.setElevation(dp(8));
         message = new TextView(this);
         message.setText("Loading " + currentChannelName + "…");
-        message.setTextColor(LiquidTheme.accent(this));
+        message.setTextColor(LiquidTheme.text(this));
         message.setTextSize(12);
         message.setLetterSpacing(.08f);
         message.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
-        message.setShadowLayer(dp(8), 0, 0, light ? 0x44087F73 : 0x8870E8D3);
+        message.setShadowLayer(dp(8), 0, 0, 0x44000000);
         infoPanel.addView(message);
         programmeTitle = new TextView(this);
         programmeTitle.setTextColor(LiquidTheme.text(this));
@@ -119,7 +119,7 @@ public final class PlaybackActivity extends Activity {
         timesParams.topMargin = dp(5);
         infoPanel.addView(programmeTimes, timesParams);
         nextProgramme = new TextView(this);
-        nextProgramme.setTextColor(LiquidTheme.lavender(this));
+        nextProgramme.setTextColor(LiquidTheme.secondaryText(this));
         nextProgramme.setTextSize(13);
         LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(-1, -2);
         nextParams.topMargin = dp(5);

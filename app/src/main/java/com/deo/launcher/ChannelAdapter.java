@@ -22,11 +22,6 @@ import java.util.Locale;
 final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
     interface OnChannelClick { void onClick(IptvRepository.Channel channel); }
 
-    private static final int PANEL = 0xA9161D2A;
-    private static final int PANEL_FOCUSED = 0xEA263748;
-    private static final int MUTED = Color.rgb(161, 174, 196);
-    private static final int ACCENT = Color.rgb(110, 232, 211);
-    private static final int LAVENDER = Color.rgb(174, 180, 255);
 
     private final Activity activity;
     private final ChannelLogoLoader logos;
@@ -105,18 +100,18 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         tile.setFocusable(true);
         tile.setFocusableInTouchMode(false);
         tile.setClickable(true);
-        RecyclerView.LayoutParams tileParams = new RecyclerView.LayoutParams(dp(164, density), dp(204, density));
+        RecyclerView.LayoutParams tileParams = new RecyclerView.LayoutParams(dp(164, density), dp(226, density));
         tileParams.setMargins(0, 0, dp(14, density), 0);
         tile.setLayoutParams(tileParams);
 
         StateListDrawable states = new StateListDrawable();
         int accent = LiquidTheme.accent(activity);
-        states.addState(new int[]{android.R.attr.state_focused}, gradientShape(
-                light ? 0xFFFFFFFF : 0xFF253647, light ? 0xFFE5F2EF : PANEL_FOCUSED, accent, 2, density));
+        states.addState(new int[]{android.R.attr.state_focused}, shape(
+                LiquidTheme.raisedSurface(activity), accent, 3, density));
         states.addState(new int[]{android.R.attr.state_pressed}, shape(
-                light ? 0xFFF1F8F6 : PANEL_FOCUSED, accent, 2, density));
-        states.addState(new int[]{}, gradientShape(
-                light ? 0xEFFFFFFF : 0xA9334357, LiquidTheme.surface(activity), LiquidTheme.border(activity), 1, density));
+                LiquidTheme.raisedSurface(activity), accent, 3, density));
+        states.addState(new int[]{}, shape(
+                LiquidTheme.surface(activity), LiquidTheme.border(activity), 1, density));
         tile.setBackground(states);
         tile.setElevation(dp(2, density));
         tile.setOnFocusChangeListener((view, focused) -> view.animate()
@@ -125,17 +120,17 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
 
         FrameLayout logoBox = new FrameLayout(activity);
         GradientDrawable logoBackground = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                light ? new int[]{0xE9FFFFFF, 0xDDE8EEF3} : new int[]{0xD12D3A4C, 0xD1111823});
-        logoBackground.setCornerRadius(dp(15, density));
+                light ? new int[]{0xFFFFFFFF, 0xFFE8E8E8} : new int[]{0xFF2A2A2A, 0xFF101010});
+        logoBackground.setCornerRadius(dp(8, density));
         logoBackground.setStroke(dp(1, density), LiquidTheme.border(activity));
         logoBox.setBackground(logoBackground);
-        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(70, density), dp(70, density));
-        logoParams.setMargins(0, 0, 0, dp(7, density));
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(146, density), dp(104, density));
+        logoParams.setMargins(0, 0, 0, dp(9, density));
         tile.addView(logoBox, logoParams);
 
         TextView fallback = new TextView(activity);
         fallback.setGravity(Gravity.CENTER);
-        fallback.setTextColor(accent);
+        fallback.setTextColor(LiquidTheme.text(activity));
         fallback.setTextSize(27);
         fallback.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
         logoBox.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
@@ -158,14 +153,14 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         name.setMaxLines(2);
         text.addView(name);
         TextView now = new TextView(activity);
-        now.setTextColor(accent);
+        now.setTextColor(LiquidTheme.text(activity));
         now.setTextSize(12);
         now.setGravity(Gravity.CENTER);
         now.setMaxLines(2);
         now.setPadding(0, dp(3, density), 0, 0);
         text.addView(now);
         TextView next = new TextView(activity);
-        next.setTextColor(LiquidTheme.lavender(activity));
+        next.setTextColor(LiquidTheme.secondaryText(activity));
         next.setTextSize(11);
         next.setGravity(Gravity.CENTER);
         next.setMaxLines(2);
@@ -189,7 +184,7 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
     private static GradientDrawable shape(int color, int border, int width, float density) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(color);
-        drawable.setCornerRadius(dp(16, density));
+        drawable.setCornerRadius(dp(10, density));
         if (width > 0) drawable.setStroke(dp(width, density), border);
         return drawable;
     }

@@ -3,7 +3,7 @@ package com.deo.launcher;
 import android.content.Context;
 import android.content.res.Configuration;
 
-/** Shared liquid-glass palette and saved appearance preference. */
+/** Shared cinematic palette and saved appearance preference. */
 final class LiquidTheme {
     static final String PREF_MODE = "liquidGlassMode";
     static final String SYSTEM = "system";
@@ -21,11 +21,12 @@ final class LiquidTheme {
         return nightMask == Configuration.UI_MODE_NIGHT_NO;
     }
 
-    static int surface(Context context) { return isLight(context) ? 0xDDF8FAFC : 0xC9161D2A; }
-    static int raisedSurface(Context context) { return isLight(context) ? 0xF2FFFFFF : 0xF0263444; }
-    static int text(Context context) { return isLight(context) ? 0xFF17212B : 0xFFF4F6FA; }
-    static int secondaryText(Context context) { return isLight(context) ? 0xFF536273 : 0xFFA1AEC4; }
-    static int border(Context context) { return isLight(context) ? 0x6693A5B8 : 0x557F91A6; }
-    static int accent(Context context) { return isLight(context) ? 0xFF087F73 : 0xFF6EE8D3; }
-    static int lavender(Context context) { return isLight(context) ? 0xFF6256A6 : 0xFFAEB4FF; }
+    static int background(Context context) { return isLight(context) ? 0xFFF5F5F3 : 0xFF090909; }
+    static int surface(Context context) { return isLight(context) ? 0xF2FFFFFF : 0xF21B1B1B; }
+    static int raisedSurface(Context context) { return isLight(context) ? 0xFFFFFFFF : 0xFF2A2A2A; }
+    static int text(Context context) { return isLight(context) ? 0xFF171717 : 0xFFF5F5F5; }
+    static int secondaryText(Context context) { return isLight(context) ? 0xFF626262 : 0xFFB7B7B7; }
+    static int border(Context context) { return isLight(context) ? 0xFFCCCCCC : 0xFF505050; }
+    static int accent(Context context) { return isLight(context) ? 0xFFC8101A : 0xFFE50914; }
+    static int lavender(Context context) { return secondaryText(context); }
 }
