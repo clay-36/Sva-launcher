@@ -24,12 +24,14 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
 
 
     private final Activity activity;
+    private final GlassBackdrop backdrop;
     private final ChannelLogoLoader logos;
     private final OnChannelClick listener;
     private final List<IptvRepository.Channel> items = new ArrayList<>();
 
-    ChannelAdapter(Activity activity, ChannelLogoLoader logos, OnChannelClick listener) {
+    ChannelAdapter(Activity activity, ChannelLogoLoader logos, GlassBackdrop backdrop, OnChannelClick listener) {
         this.activity = activity;
+        this.backdrop = backdrop;
         this.logos = logos;
         this.listener = listener;
         setHasStableIds(false);
@@ -100,7 +102,7 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         tile.setFocusable(true);
         tile.setFocusableInTouchMode(false);
         tile.setClickable(true);
-        RecyclerView.LayoutParams tileParams = new RecyclerView.LayoutParams(dp(164, density), dp(226, density));
+        RecyclerView.LayoutParams tileParams = new RecyclerView.LayoutParams(dp(196, density), dp(216, density));
         tileParams.setMargins(0, 0, dp(14, density), 0);
         tile.setLayoutParams(tileParams);
 
@@ -114,17 +116,15 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
                 LiquidTheme.surface(activity), LiquidTheme.border(activity), 1, density));
         tile.setBackground(states);
         tile.setElevation(dp(2, density));
-        tile.setOnFocusChangeListener((view, focused) -> view.animate()
-                .scaleX(focused ? 1.035f : 1f).scaleY(focused ? 1.035f : 1f)
-                .translationZ(focused ? dp(7, density) : 0).setDuration(150).start());
+        tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
 
         FrameLayout logoBox = new FrameLayout(activity);
         GradientDrawable logoBackground = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                light ? new int[]{0xFFFFFFFF, 0xFFE8E8E8} : new int[]{0xFF2A2A2A, 0xFF101010});
-        logoBackground.setCornerRadius(dp(8, density));
+                light ? new int[]{0xD9FFFFFF, 0x88DDEAF2} : new int[]{0x77415A6E, 0x88202E40});
+        logoBackground.setCornerRadius(dp(14, density));
         logoBackground.setStroke(dp(1, density), LiquidTheme.border(activity));
         logoBox.setBackground(logoBackground);
-        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(146, density), dp(104, density));
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(176, density), dp(92, density));
         logoParams.setMargins(0, 0, 0, dp(9, density));
         tile.addView(logoBox, logoParams);
 
@@ -181,20 +181,8 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
 
     @Override public int getItemCount() { return items.size(); }
 
-    private static GradientDrawable shape(int color, int border, int width, float density) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(color);
-        drawable.setCornerRadius(dp(10, density));
-        if (width > 0) drawable.setStroke(dp(width, density), border);
-        return drawable;
-    }
-
-    private static GradientDrawable gradientShape(int startColor, int endColor, int border, int width, float density) {
-        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{startColor, endColor});
-        drawable.setCornerRadius(dp(17, density));
-        if (width > 0) drawable.setStroke(dp(width, density), border);
-        return drawable;
+    private android.graphics.drawable.Drawable shape(int color, int border, int width, float density) {
+        return new GlassDrawable(activity, backdrop, color, border, width, 20);
     }
 
     private static int dp(int value, float density) { return Math.round(value * density); }

@@ -83,12 +83,8 @@ public final class PlaybackActivity extends Activity {
         infoPanel = new LinearLayout(this);
         infoPanel.setOrientation(LinearLayout.VERTICAL);
         infoPanel.setPadding(dp(26), dp(19), dp(26), dp(18));
-        boolean light = LiquidTheme.isLight(this);
-        GradientDrawable messageBackground = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                light ? new int[]{0xF7FFFFFF, 0xF2E8E8E8} : new int[]{0xF2181818, 0xF2090909});
-        messageBackground.setCornerRadius(dp(10));
-        messageBackground.setStroke(dp(1), LiquidTheme.border(this));
-        infoPanel.setBackground(messageBackground);
+        infoPanel.setBackground(new GlassDrawable(this, null, LiquidTheme.surface(this),
+                LiquidTheme.border(this), 1, 24));
         infoPanel.setElevation(dp(8));
         message = new TextView(this);
         message.setText("Loading " + currentChannelName + "…");
@@ -109,7 +105,7 @@ public final class PlaybackActivity extends Activity {
         programmeProgress.setMax(1000);
         programmeProgress.setProgressTintList(ColorStateList.valueOf(LiquidTheme.accent(this)));
         programmeProgress.setProgressBackgroundTintList(ColorStateList.valueOf(LiquidTheme.border(this)));
-        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(dp(470), dp(7));
+        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(-1, dp(4));
         progressParams.topMargin = dp(8);
         infoPanel.addView(programmeProgress, progressParams);
         programmeTimes = new TextView(this);
@@ -124,8 +120,8 @@ public final class PlaybackActivity extends Activity {
         LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(-1, -2);
         nextParams.topMargin = dp(5);
         infoPanel.addView(nextProgramme, nextParams);
-        FrameLayout.LayoutParams messageParams = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.START);
-        messageParams.setMargins(dp(28), 0, dp(28), dp(26));
+        FrameLayout.LayoutParams messageParams = new FrameLayout.LayoutParams(Math.min(dp(520), getResources().getDisplayMetrics().widthPixels - dp(64)), -2, Gravity.BOTTOM | Gravity.START);
+        messageParams.setMargins(dp(32), 0, dp(32), dp(28));
         frame.addView(infoPanel, messageParams);
         setContentView(frame);
         if (!updateProgrammeFromCache()) {

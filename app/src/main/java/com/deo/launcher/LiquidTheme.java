@@ -21,12 +21,24 @@ final class LiquidTheme {
         return nightMask == Configuration.UI_MODE_NIGHT_NO;
     }
 
-    static int background(Context context) { return isLight(context) ? 0xFFF5F5F3 : 0xFF090909; }
-    static int surface(Context context) { return isLight(context) ? 0xF2FFFFFF : 0xF21B1B1B; }
-    static int raisedSurface(Context context) { return isLight(context) ? 0xFFFFFFFF : 0xFF2A2A2A; }
-    static int text(Context context) { return isLight(context) ? 0xFF171717 : 0xFFF5F5F5; }
-    static int secondaryText(Context context) { return isLight(context) ? 0xFF626262 : 0xFFB7B7B7; }
-    static int border(Context context) { return isLight(context) ? 0xFFCCCCCC : 0xFF505050; }
-    static int accent(Context context) { return isLight(context) ? 0xFFC8101A : 0xFFE50914; }
+    static int background(Context context) { return isLight(context) ? 0xFFE7EDF1 : 0xFF0B1420; }
+    static int surface(Context context) { return isLight(context) ? 0xD9EDF3F7 : 0xBA101E2C; }
+    static int raisedSurface(Context context) { return isLight(context) ? 0xF2FFFFFF : 0xD940596D; }
+    static int text(Context context) { return isLight(context) ? 0xFF152A3B : 0xFFF3F8FC; }
+    static int secondaryText(Context context) { return isLight(context) ? 0xFF415668 : 0xFFBECDD9; }
+    static int border(Context context) { return isLight(context) ? 0x88FFFFFF : 0x55D8EBFA; }
+    static int accent(Context context) { return isLight(context) ? 0xFF246080 : 0xFFBCE7FF; }
     static int lavender(Context context) { return secondaryText(context); }
+
+    static int dp(Context context, float value) {
+        return Math.round(value * context.getResources().getDisplayMetrics().density);
+    }
+
+    static void animateFocus(android.view.View view, boolean focused) {
+        view.animate().cancel();
+        view.animate().scaleX(focused ? 1.05f : 1f).scaleY(focused ? 1.05f : 1f)
+                .translationZ(focused ? dp(view.getContext(), 8) : 0)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 180 : 0).start();
+    }
 }

@@ -79,7 +79,7 @@ public final class MainActivity extends Activity {
     private static final int PANEL = 0xF21B1B1B;
     private static final int PANEL_FOCUSED = 0xFF2A2A2A;
     private static final int MUTED = 0xFFB7B7B7;
-    private static final int ACCENT = 0xFFE50914;
+    private static final int ACCENT = 0xFFBCE7FF;
     private static final int LAVENDER = 0xFFB7B7B7;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<IptvRepository.Channel> channels = new ArrayList<>();
@@ -105,6 +105,11 @@ public final class MainActivity extends Activity {
     private SharedPreferences preferences;
     private LinearLayout root, homeContent, appRow, youtubeRow, youtubeSection;
     private FrameLayout heroFrame;
+    private final GlassBackdrop glassBackdrop = new GlassBackdrop();
+    private ScrollView homeScroll;
+    private boolean initialAppFocus;
+    private String focusedPackage;
+    private int restoredScroll;
     private ImageView wallpaperImage, slideA, slideB;
     private TextView clock, date, status, channelHeader, greeting, greetingSubtitle, youtubeHeading;
     private LinearLayout calendarEventBar, calendarEventItems;
@@ -140,6 +145,10 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         preferences = getSharedPreferences("launcher", MODE_PRIVATE);
+        if (state != null) {
+            focusedPackage = state.getString("focusedPackage");
+            restoredScroll = state.getInt("homeScroll", 0);
+        }
         iptv = new IptvRepository(this);
         logoLoader = new ChannelLogoLoader(this);
         hiddenChannelKeys.addAll(preferences.getStringSet("hiddenChannels", Collections.emptySet()));
@@ -193,6 +202,10 @@ public final class MainActivity extends Activity {
             outState.putBoolean("restoreSettings", true);
             outState.putInt("restoreSettingsSection", settingsScreen.section);
         }
+        View selectedApp = appRow == null ? null : appRow.findFocus();
+        if (selectedApp != null && selectedApp.getTag() instanceof String) focusedPackage = (String) selectedApp.getTag();
+        outState.putString("focusedPackage", focusedPackage);
+        outState.putInt("homeScroll", homeScroll == null ? 0 : homeScroll.getScrollY());
         super.onSaveInstanceState(outState);
     }
 
@@ -316,6 +329,7 @@ public final class MainActivity extends Activity {
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
         if (calendarRefreshTick != null) handler.removeCallbacks(calendarRefreshTick);
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
+        glassBackdrop.close();
         super.onDestroy();
     }
 
@@ -323,14 +337,18 @@ public final class MainActivity extends Activity {
         boolean light = LiquidTheme.isLight(this);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackground(new HomePageBackdrop(dp(heroHeightDp()), light));
+        root.setBackgroundColor(Color.TRANSPARENT);
         root.setClipChildren(false);
         ScrollView page = new ScrollView(this);
         page.setFillViewport(true);
         page.setClipToPadding(false);
         page.setBackgroundColor(Color.TRANSPARENT);
         page.addView(root);
-        setContentView(page);
+        homeScroll = page;
+        page.setVerticalScrollBarEnabled(false);
+        page.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        FrameLayout scene = new FrameLayout(this);
+        setContentView(scene);
 
         heroFrame = new FrameLayout(this);
         heroFrame.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
@@ -354,29 +372,35 @@ public final class MainActivity extends Activity {
         heroFrame.addView(sideShade, new FrameLayout.LayoutParams(-1, -1));
         View bottomFade = new View(this);
         bottomFade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                light
-                        ? new int[]{0x00F5F5F3, 0x22F5F5F3, 0x88F5F5F3, 0xFFF5F5F3}
-                        : new int[]{0x00090909, 0x22090909, 0x99090909, 0xFF090909}));
-        FrameLayout.LayoutParams bottomFadeParams = new FrameLayout.LayoutParams(-1,
-                dp(Math.round(heroHeightDp() * .48f)), Gravity.BOTTOM);
-        heroFrame.addView(bottomFade, bottomFadeParams);
-        root.addView(heroFrame, new LinearLayout.LayoutParams(-1, dp(heroHeightDp())));
+                new int[]{0x000A1420, 0x180A1420, 0xD90A1420}));
+        heroFrame.addView(bottomFade, new FrameLayout.LayoutParams(-1, -1));
+        scene.addView(heroFrame, new FrameLayout.LayoutParams(-1, -1));
+        View browsingShade = new View(this);
+        browsingShade.setBackgroundColor(0xFF091421);
+        browsingShade.setAlpha(0f);
+        scene.addView(browsingShade, new FrameLayout.LayoutParams(-1, -1));
+        scene.addView(page, new FrameLayout.LayoutParams(-1, -1));
+        page.setOnScrollChangeListener((v, x, y, oldX, oldY) -> {
+            browsingShade.setAlpha(Math.min(.72f, (float) y / dp(320) * .72f));
+            glassBackdrop.invalidate();
+        });
+        FrameLayout heroContent = new FrameLayout(this);
+        root.addView(heroContent, new LinearLayout.LayoutParams(-1, dp(Math.max(210, heroHeightDp() - 190))));
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(dp(48), dp(28), dp(48), dp(12));
-        heroFrame.addView(top, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
+        top.setPadding(dp(42), dp(28), dp(42), dp(12));
+        heroContent.addView(top, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
         LinearLayout timeStack = new LinearLayout(this);
         timeStack.setOrientation(LinearLayout.VERTICAL);
         timeStack.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
         timeStack.setPadding(dp(16), dp(9), dp(18), dp(9));
-        timeStack.setBackground(roundedShape(light ? 0xEBFFFFFF : 0xC9191919,
-                light ? 0xFFCCCCCC : 0xFF777777, 1, 10));
+        timeStack.setBackground(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 22));
         LinearLayout.LayoutParams timeParams = new LinearLayout.LayoutParams(-2, -2);
         top.addView(timeStack, timeParams);
         clock = new TextView(this);
         clock.setTextColor(LiquidTheme.text(this));
-        clock.setTextSize(29);
+        clock.setTextSize(25);
         clock.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         clock.setGravity(Gravity.LEFT);
         timeStack.addView(clock);
@@ -389,6 +413,8 @@ public final class MainActivity extends Activity {
         top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
         LinearLayout systemShortcuts = new LinearLayout(this);
         systemShortcuts.setGravity(Gravity.CENTER_VERTICAL);
+        systemShortcuts.setPadding(dp(5), dp(4), dp(5), dp(4));
+        systemShortcuts.setBackground(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 28));
         LinearLayout.LayoutParams shortcutParams = new LinearLayout.LayoutParams(-2, dp(52));
         shortcutParams.setMargins(dp(8), 0, 0, 0);
         top.addView(systemShortcuts, shortcutParams);
@@ -398,18 +424,17 @@ public final class MainActivity extends Activity {
 
         LinearLayout heroBottom = new LinearLayout(this);
         heroBottom.setOrientation(LinearLayout.VERTICAL);
-        heroBottom.setPadding(dp(48), 0, dp(48), dp(20));
-        TextView eyebrow = label("YOUR SPACE  ·  MADE FOR TONIGHT", 12, LiquidTheme.text(this), true);
-        eyebrow.setLetterSpacing(.16f);
-        heroBottom.addView(eyebrow, new LinearLayout.LayoutParams(-1, dp(26)));
-        greeting = label("", 44, LiquidTheme.text(this), true);
+        heroBottom.setPadding(dp(48), 0, dp(48), dp(22));
+        greeting = label("", 32, Color.WHITE, true);
+        greeting.setTextColor(Color.WHITE);
         greeting.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         greeting.setShadowLayer(dp(12), 0, dp(2), light ? 0x22000000 : 0x77000000);
         heroBottom.addView(greeting);
-        greetingSubtitle = label("", 18, LiquidTheme.secondaryText(this), false);
+        greetingSubtitle = label("", 14, Color.WHITE, false);
+        greetingSubtitle.setTextColor(0xFFD4DFE8);
         heroBottom.addView(greetingSubtitle);
 
-        heroFrame.addView(heroBottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        heroContent.addView(heroBottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
 
         homeContent = new LinearLayout(this);
         homeContent.setOrientation(LinearLayout.VERTICAL);
@@ -422,14 +447,16 @@ public final class MainActivity extends Activity {
         LinearLayout appsHeading = new LinearLayout(this);
         appsHeading.setGravity(Gravity.CENTER_VERTICAL);
         homeContent.addView(appsHeading, new LinearLayout.LayoutParams(-1, dp(28)));
-        TextView appsTitle = label("YOUR APPS", 19, LiquidTheme.text(this), true);
-        appsTitle.setLetterSpacing(.15f);
+        TextView appsTitle = label("Your apps", 14, Color.WHITE, true);
+        appsTitle.setTextColor(0xFFE3EDF5);
+        appsTitle.setLetterSpacing(.02f);
         appsHeading.addView(appsTitle, new LinearLayout.LayoutParams(0, -2, 1));
         TextView appsHint = label("SELECT TO OPEN", 10, LiquidTheme.lavender(this), true);
         appsHint.setLetterSpacing(.12f);
-        appsHeading.addView(appsHint);
+
         HorizontalScrollView appScroll = new HorizontalScrollView(this);
         appScroll.setHorizontalScrollBarEnabled(false);
+        appScroll.setPadding(dp(8), dp(10), dp(8), dp(10));
         appScroll.setClipChildren(false);
         appScroll.setClipToPadding(false);
         appRow = new LinearLayout(this);
@@ -437,22 +464,24 @@ public final class MainActivity extends Activity {
         appRow.setClipChildren(false);
         appRow.setClipToPadding(false);
         appScroll.addView(appRow);
-        homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(218)));
+        homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(132)));
 
         youtubeSection = new LinearLayout(this);
         youtubeSection.setOrientation(LinearLayout.VERTICAL);
         LinearLayout youtubeTitleRow = new LinearLayout(this);
         youtubeTitleRow.setGravity(Gravity.CENTER_VERTICAL);
-        youtubeHeading = label("YOUTUBE PICKS", 19, LiquidTheme.text(this), true);
-        youtubeHeading.setLetterSpacing(.15f);
+        youtubeHeading = label("Made for your downtime", 22, Color.WHITE, true);
+        youtubeHeading.setTextColor(Color.WHITE);
+        youtubeHeading.setLetterSpacing(.01f);
         youtubeTitleRow.addView(youtubeHeading, new LinearLayout.LayoutParams(0, -2, 1));
         TextView youtubeHint = label("VIDEOS & PLAYLISTS", 10, LiquidTheme.secondaryText(this), true);
         youtubeHint.setLetterSpacing(.12f);
-        youtubeTitleRow.addView(youtubeHint);
+
         youtubeTitleRow.setPadding(0, dp(8), 0, 0);
-        youtubeSection.addView(youtubeTitleRow, new LinearLayout.LayoutParams(-1, dp(34)));
+        youtubeSection.addView(youtubeTitleRow, new LinearLayout.LayoutParams(-1, dp(56)));
         HorizontalScrollView youtubeScroll = new HorizontalScrollView(this);
         youtubeScroll.setHorizontalScrollBarEnabled(false);
+        youtubeScroll.setPadding(dp(8), dp(10), dp(8), dp(10));
         youtubeScroll.setClipChildren(false);
         youtubeScroll.setClipToPadding(false);
         youtubeRow = new LinearLayout(this);
@@ -468,8 +497,9 @@ public final class MainActivity extends Activity {
         LinearLayout liveHeading = new LinearLayout(this);
         liveHeading.setGravity(Gravity.CENTER_VERTICAL);
         homeContent.addView(liveHeading, new LinearLayout.LayoutParams(-1, dp(56)));
-        channelHeader = label("LIVE TV", 19, LiquidTheme.text(this), true);
-        channelHeader.setLetterSpacing(.14f);
+        channelHeader = label("Live, right now", 22, Color.WHITE, true);
+        channelHeader.setTextColor(Color.WHITE);
+        channelHeader.setLetterSpacing(.01f);
         liveHeading.addView(channelHeader, new LinearLayout.LayoutParams(0, -2, 1));
         channelRows = new LinearLayout(this);
         channelRows.setOrientation(LinearLayout.VERTICAL);
@@ -520,48 +550,7 @@ public final class MainActivity extends Activity {
     private int heroHeightDp() {
         float density = getResources().getDisplayMetrics().density;
         int screenHeightDp = Math.round(getResources().getDisplayMetrics().heightPixels / density);
-        return Math.round(screenHeightDp * .70f);
-    }
-
-    private static final class HomePageBackdrop extends Drawable {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final int heroHeight;
-        private final int seamColor;
-        private final int bottomColor;
-        private Shader lowerGradient;
-        private int seamY;
-
-        HomePageBackdrop(int heroHeight, boolean light) {
-            this.heroHeight = heroHeight;
-            seamColor = light ? 0xFFF5F5F3 : 0xFF090909;
-            bottomColor = light ? 0xFFF5F5F3 : 0xFF111111;
-            paint.setColor(seamColor);
-        }
-
-        @Override protected void onBoundsChange(Rect bounds) {
-            super.onBoundsChange(bounds);
-            seamY = Math.min(bounds.bottom, bounds.top + heroHeight);
-            lowerGradient = bounds.bottom > seamY
-                    ? new LinearGradient(bounds.left, seamY, bounds.left, bounds.bottom,
-                    seamColor, bottomColor, Shader.TileMode.CLAMP)
-                    : null;
-        }
-
-        @Override public void draw(Canvas canvas) {
-            Rect bounds = getBounds();
-            if (bounds.isEmpty()) return;
-            paint.setShader(null);
-            paint.setColor(seamColor);
-            canvas.drawRect(bounds, paint);
-            if (lowerGradient == null) return;
-            paint.setShader(lowerGradient);
-            canvas.drawRect(bounds.left, seamY, bounds.right, bounds.bottom, paint);
-            paint.setShader(null);
-        }
-
-        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); invalidateSelf(); }
-        @Override public void setColorFilter(android.graphics.ColorFilter filter) { paint.setColorFilter(filter); invalidateSelf(); }
-        @Override public int getOpacity() { return PixelFormat.OPAQUE; }
+        return screenHeightDp;
     }
 
     private ImageView backgroundImage() {
@@ -641,16 +630,14 @@ public final class MainActivity extends Activity {
 
     private void stylePrimaryButton(Button button) {
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0xFFB20710, LiquidTheme.text(this), 2, 10));
-        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(0xFFB20710, LiquidTheme.text(this), 2, 10));
-        states.addState(new int[]{}, roundedShape(LiquidTheme.accent(this), LiquidTheme.accent(this), 1, 10));
+        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 18));
+        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 18));
+        states.addState(new int[]{}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 1, 18));
         button.setBackground(states);
-        button.setTextColor(Color.WHITE);
+        button.setTextColor(LiquidTheme.text(this));
         button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         button.setLetterSpacing(.035f);
-        button.setOnFocusChangeListener((view, focused) -> view.animate()
-                .scaleX(focused ? 1.035f : 1f).scaleY(focused ? 1.035f : 1f)
-                .translationZ(focused ? dp(5) : 0).setDuration(130).start());
+        button.setOnFocusChangeListener(LiquidTheme::animateFocus);
     }
 
     private void updateClock() {
@@ -832,7 +819,11 @@ public final class MainActivity extends Activity {
         if (appRow == null || isFinishing()) return;
         appsLoading = false;
         appsLoaded = true;
+        View previous = appRow.findFocus();
+        if (previous != null && previous.getTag() instanceof String) focusedPackage = (String) previous.getTag();
         appRow.removeAllViews();
+        int available = Math.round(getResources().getDisplayMetrics().widthPixels / getResources().getDisplayMetrics().density) - 112;
+        int tileWidth = Math.max(76, Math.min(102, (available - 7 * 8) / 8));
         List<String> selected = selectedPackages(all);
         if (selected.isEmpty() && !preferences.getBoolean("customApps", false)) {
             for (int i = 0; i < Math.min(8, all.size()); i++) selected.add(all.get(i).packageName);
@@ -856,25 +847,32 @@ public final class MainActivity extends Activity {
             tile.setBackground(appTileStates);
             tile.setFocusableInTouchMode(false);
             tile.setElevation(dp(2));
-            tile.setOnFocusChangeListener((view, focused) -> view.animate()
-                    .scaleX(focused ? 1.045f : 1f).scaleY(focused ? 1.045f : 1f)
-                    .translationZ(focused ? dp(8) : 0).setDuration(150).start());
-            tile.setPadding(dp(12), dp(18), dp(12), dp(12));
+            tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+            tile.setPadding(dp(6), dp(10), dp(6), dp(6));
+            tile.setTag(packageName);
             ImageView icon = new ImageView(this);
             icon.setImageDrawable(entry.icon);
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            tile.addView(icon, new LinearLayout.LayoutParams(dp(76), dp(76)));
-            TextView name = label(entry.label, 15, LiquidTheme.text(this), true);
+            tile.addView(icon, new LinearLayout.LayoutParams(dp(48), dp(48)));
+            TextView name = label(entry.label, 11, LiquidTheme.text(this), true);
             name.setGravity(Gravity.CENTER);
             name.setMaxLines(2);
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            LinearLayout.LayoutParams appNameParams = new LinearLayout.LayoutParams(dp(124), dp(48));
-            appNameParams.topMargin = dp(16);
+            LinearLayout.LayoutParams appNameParams = new LinearLayout.LayoutParams(dp(tileWidth - 10), dp(34));
+            appNameParams.topMargin = dp(4);
             tile.addView(name, appNameParams);
             tile.setOnClickListener(v -> launchApp(entry.packageName));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(148), dp(206));
-            lp.setMargins(0, 0, dp(18), 0);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(tileWidth), dp(108));
+            lp.setMargins(0, 0, dp(8), 0);
             appRow.addView(tile, lp);
+            if (settingsScreen == null && packageName.equals(focusedPackage)) tile.requestFocus();
+        }
+        if (!initialAppFocus && appRow.getChildCount() > 0) {
+            initialAppFocus = true;
+            appRow.post(() -> {
+                if (settingsScreen == null && focusedPackage == null) appRow.getChildAt(0).requestFocus();
+                if (restoredScroll > 0) homeScroll.scrollTo(0, restoredScroll);
+            });
         }
         if (selected.isEmpty()) {
             TextView empty = label("No apps selected", 15, MUTED, false);
@@ -932,6 +930,7 @@ public final class MainActivity extends Activity {
         boolean retryMissingArtwork = !preferences.getBoolean("youtubeArtworkFeedFallbackTried", false);
         if (retryMissingArtwork) preferences.edit().putBoolean("youtubeArtworkFeedFallbackTried", true).apply();
         for (YouTubeCard card : cards) {
+            boolean hasThumbnail = card.thumbnailUrl != null && !card.thumbnailUrl.isEmpty();
             LinearLayout tile = new LinearLayout(this);
             tile.setOrientation(LinearLayout.VERTICAL);
             tile.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -949,22 +948,31 @@ public final class MainActivity extends Activity {
                     roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 11));
             tile.setBackground(states);
             tile.setElevation(dp(2));
-            tile.setOnFocusChangeListener((view, focused) -> view.animate()
-                    .scaleX(focused ? 1.045f : 1f).scaleY(focused ? 1.045f : 1f)
-                    .translationZ(focused ? dp(8) : 0).setDuration(150).start());
+            tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
 
             FrameLayout poster = new FrameLayout(this);
-            poster.setBackground(roundedShape(light ? 0xFFE6E6E6 : 0xFF101010,
-                    LiquidTheme.border(this), 1, 7));
+            GradientDrawable posterBackground = new GradientDrawable(
+                    GradientDrawable.Orientation.TL_BR,
+                    light
+                            ? new int[]{0xFF47677A, 0xFF243B50, 0xFF182534}
+                            : new int[]{0xFF46647A, 0xFF1B3044, 0xFF101B2A});
+            posterBackground.setCornerRadius(dp(16));
+            posterBackground.setStroke(dp(1), LiquidTheme.border(this));
+            poster.setBackground(posterBackground);
             poster.setClipToOutline(true);
             ImageView thumbnail = new ImageView(this);
-            thumbnail.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            thumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
             thumbnail.setTag(card.url);
             poster.addView(thumbnail, new FrameLayout.LayoutParams(-1, -1));
-            TextView fallback = label("▶", 34, Color.WHITE, true);
+            // The title becomes the artwork when YouTube has no usable thumbnail.
+            TextView fallback = label(card.title, 20, Color.WHITE, true);
             fallback.setTextColor(Color.WHITE);
-            fallback.setGravity(Gravity.CENTER);
+            fallback.setGravity(Gravity.BOTTOM | Gravity.LEFT);
+            fallback.setMaxLines(3);
+            fallback.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            fallback.setPadding(dp(15), dp(34), dp(15), dp(14));
             fallback.setShadowLayer(dp(8), 0, dp(2), Color.BLACK);
+            fallback.setContentDescription("Artwork: " + card.title);
             poster.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
             TextView type = label(YouTubeCard.VIDEO.equals(card.type) ? "VIDEO" : "PLAYLIST",
                     9, Color.WHITE, true);
@@ -975,16 +983,18 @@ public final class MainActivity extends Activity {
             FrameLayout.LayoutParams typeParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
             typeParams.setMargins(dp(8), dp(8), 0, 0);
             poster.addView(type, typeParams);
-            tile.addView(poster, new LinearLayout.LayoutParams(dp(148), dp(142)));
-            TextView title = label(card.title, 14, LiquidTheme.text(this), true);
-            title.setMaxLines(2);
-            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            title.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
-            title.setPadding(dp(3), dp(6), dp(3), 0);
-            tile.addView(title, new LinearLayout.LayoutParams(dp(148), dp(55)));
+            tile.addView(poster, new LinearLayout.LayoutParams(dp(224), dp(hasThumbnail ? 126 : 178)));
+            if (hasThumbnail) {
+                TextView title = label(card.title, 14, LiquidTheme.text(this), true);
+                title.setMaxLines(2);
+                title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                title.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+                title.setPadding(dp(3), dp(6), dp(3), 0);
+                tile.addView(title, new LinearLayout.LayoutParams(dp(224), dp(52)));
+            }
             tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? "Play video: " : "Open playlist: ") + card.title);
             tile.setOnClickListener(view -> launchYouTubeCard(card));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(164), dp(216));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(240), dp(198));
             params.setMargins(0, dp(2), dp(16), dp(8));
             youtubeRow.addView(tile, params);
             loadYouTubeThumbnail(card, thumbnail, fallback);
@@ -1216,23 +1226,22 @@ public final class MainActivity extends Activity {
     private void addTopIcon(LinearLayout container, String title, int iconResource, Runnable action) {
         ImageView icon = new ImageView(this);
         icon.setImageResource(iconResource);
+        icon.setColorFilter(LiquidTheme.text(this));
         icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         icon.setPadding(dp(11), dp(11), dp(11), dp(11));
         icon.setContentDescription(title);
         icon.setTooltipText(title);
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0xF22A2A2A, ACCENT, 2, 9));
-        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(0xF22A2A2A, ACCENT, 2, 9));
-        states.addState(new int[]{}, roundedShape(0xD2191919, 0xAAFFFFFF, 1, 9));
+        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 22));
+        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 22));
+        states.addState(new int[]{}, new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
         icon.setBackground(states);
         icon.setFocusable(true);
         icon.setClickable(true);
-        icon.setOnFocusChangeListener((view, focused) -> view.animate()
-                .scaleX(focused ? 1.08f : 1f).scaleY(focused ? 1.08f : 1f)
-                .translationZ(focused ? dp(6) : 0).setDuration(130).start());
+        icon.setOnFocusChangeListener(LiquidTheme::animateFocus);
         icon.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(44), dp(44));
-        lp.setMargins(dp(6), 0, 0, 0);
+        lp.setMargins(dp(2), 0, dp(2), 0);
         container.addView(icon, lp);
     }
 
@@ -1264,28 +1273,16 @@ public final class MainActivity extends Activity {
         return false;
     }
 
-    private GradientDrawable tileShape(int color, int strokeColor, int strokeWidth) {
-        GradientDrawable d = new GradientDrawable();
-        d.setColor(color);
-        d.setCornerRadius(dp(16));
-        if (strokeWidth > 0) d.setStroke(dp(strokeWidth), strokeColor);
-        return d;
+    private Drawable tileShape(int color, int strokeColor, int strokeWidth) {
+        return roundedShape(color, strokeColor, strokeWidth, 18);
     }
 
-    private GradientDrawable roundedShape(int color, int strokeColor, int strokeWidth, int radiusDp) {
-        GradientDrawable d = new GradientDrawable();
-        d.setColor(color);
-        d.setCornerRadius(dp(radiusDp));
-        if (strokeWidth > 0) d.setStroke(dp(strokeWidth), strokeColor);
-        return d;
+    private Drawable roundedShape(int color, int strokeColor, int strokeWidth, int radiusDp) {
+        return new GlassDrawable(this, glassBackdrop, color, strokeColor, strokeWidth, Math.max(16, radiusDp));
     }
 
-    private GradientDrawable gradientShape(int startColor, int endColor, int strokeColor, int strokeWidth, int radiusDp) {
-        GradientDrawable d = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{startColor, endColor});
-        d.setCornerRadius(dp(radiusDp));
-        if (strokeWidth > 0) d.setStroke(dp(strokeWidth), strokeColor);
-        return d;
+    private Drawable gradientShape(int startColor, int endColor, int strokeColor, int strokeWidth, int radiusDp) {
+        return roundedShape(startColor, strokeColor, strokeWidth, radiusDp);
     }
 
     private void styleFocusableTile(View tile) {
@@ -1297,9 +1294,7 @@ public final class MainActivity extends Activity {
         tile.setFocusable(true);
         tile.setFocusableInTouchMode(false);
         tile.setClickable(true);
-        tile.setOnFocusChangeListener((view, focused) -> view.animate()
-                .scaleX(focused ? 1.035f : 1f).scaleY(focused ? 1.035f : 1f)
-                .translationZ(focused ? dp(6) : 0).setDuration(140).start());
+        tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
     }
 
     private void launchApp(String packageName) {
@@ -1353,7 +1348,8 @@ public final class MainActivity extends Activity {
         }
         int visibleCount = 0;
         for (List<IptvRepository.Channel> list : grouped.values()) visibleCount += list.size();
-        if (channelHeader != null) channelHeader.setText(channels.isEmpty() ? "LIVE TV" : "LIVE TV  ·  " + visibleCount + " CHANNELS");
+        if (channelHeader != null) channelHeader.setText(channels.isEmpty()
+                ? "Live, right now" : "Live, right now  ·  " + visibleCount + " channels");
         if (grouped.isEmpty()) {
             channelsEmpty.setText(channels.isEmpty()
                     ? "Add a playlist in Settings to browse live TV."
@@ -1442,13 +1438,13 @@ public final class MainActivity extends Activity {
             Button tab = entry.getValue();
             android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
             states.addState(new int[]{android.R.attr.state_focused}, roundedShape(
-                    selected ? LiquidTheme.accent(this) : LiquidTheme.raisedSurface(this),
+                    LiquidTheme.raisedSurface(this),
                     LiquidTheme.accent(this), 2, 8));
             states.addState(new int[]{}, selected
-                    ? roundedShape(LiquidTheme.accent(this), LiquidTheme.accent(this), 1, 8)
+                    ? roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 1, 24)
                     : roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 8));
             tab.setBackground(states);
-            tab.setTextColor(selected ? Color.WHITE : LiquidTheme.text(this));
+            tab.setTextColor(LiquidTheme.text(this));
             tab.setTypeface(Typeface.create(selected ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
         }
     }
@@ -1466,7 +1462,7 @@ public final class MainActivity extends Activity {
         list.setHasFixedSize(true);
         list.setItemViewCacheSize(4);
         list.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        ChannelAdapter adapter = new ChannelAdapter(this, logoLoader, this::playChannel);
+        ChannelAdapter adapter = new ChannelAdapter(this, logoLoader, glassBackdrop, this::playChannel);
         list.setAdapter(adapter);
         container.addView(list, new LinearLayout.LayoutParams(-1, dp(238)));
         return new ChannelRow(container, adapter);
@@ -1608,16 +1604,19 @@ public final class MainActivity extends Activity {
                     scheduleNextBackgroundPhoto();
                     return;
                 }
+                glassBackdrop.prepare(bitmap, true, () -> {
+                if (generation != backgroundImageGeneration || !screenActive || isFinishing()) return;
                 incoming.setImageBitmap(bitmap);
                 incoming.setVisibility(View.VISIBLE);
                 incoming.setAlpha(0f);
-                incoming.animate().alpha(1f).setDuration(900).start();
-                outgoing.animate().alpha(0f).setDuration(900).withEndAction(() -> {
+                incoming.animate().alpha(1f).setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 900 : 0).start();
+                outgoing.animate().alpha(0f).setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 900 : 0).withEndAction(() -> {
                     outgoing.setVisibility(View.GONE);
                     outgoing.setImageDrawable(null);
                 }).start();
                 slideAActive = !slideAActive;
                 scheduleNextBackgroundPhoto();
+                });
             });
         }, "background-photo-decode").start();
     }
@@ -1730,6 +1729,22 @@ public final class MainActivity extends Activity {
 
     private SettingsScreen settingsScreen;
 
+    private void styleDialog(AlertDialog dialog) {
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 26));
+            window.setDimAmount(.35f);
+        }
+        for (int which : new int[]{AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL}) {
+            Button button = dialog.getButton(which);
+            if (button != null) {
+                styleFocusableTile(button);
+                button.setTextColor(LiquidTheme.text(this));
+                button.setAllCaps(false);
+            }
+        }
+    }
+
     private void showSettings() {
         if (settingsScreen != null) return;
         settingsScreen = new SettingsScreen();
@@ -1775,10 +1790,8 @@ public final class MainActivity extends Activity {
             LinearLayout shell = new LinearLayout(MainActivity.this);
             shell.setOrientation(LinearLayout.VERTICAL);
             shell.setPadding(dp(42), dp(24), dp(42), dp(28));
-            shell.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    LiquidTheme.isLight(MainActivity.this)
-                            ? new int[]{0xFFF5F5F3, 0xFFF0F0EE, 0xFFF5F5F3}
-                            : new int[]{0xFF161616, 0xFF090909, 0xFF090909}));
+            // Let the paused home photograph remain part of the Settings composition.
+            shell.setBackgroundColor(LiquidTheme.isLight(MainActivity.this) ? 0x334B6373 : 0x52040C16);
 
             LinearLayout heading = new LinearLayout(MainActivity.this);
             heading.setGravity(Gravity.CENTER_VERTICAL);
@@ -1810,15 +1823,21 @@ public final class MainActivity extends Activity {
             shell.addView(body, bodyParams);
             LinearLayout rail = new LinearLayout(MainActivity.this);
             rail.setOrientation(LinearLayout.VERTICAL);
-            rail.setPadding(0, dp(10), dp(20), 0);
+            rail.setPadding(dp(12), dp(12), dp(12), dp(12));
+            rail.setBackground(roundedShape(LiquidTheme.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 24));
             ScrollView railScroll = new ScrollView(MainActivity.this);
             railScroll.setFillViewport(true);
             railScroll.setSmoothScrollingEnabled(true);
+            railScroll.setClipChildren(false);
+            railScroll.setClipToPadding(false);
+            railScroll.setPadding(dp(10), dp(10), dp(10), dp(10));
             railScroll.setVerticalScrollBarEnabled(true);
             railScroll.setScrollbarFadingEnabled(false);
             railScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
             railScroll.addView(rail, new ScrollView.LayoutParams(-1, -2));
-            body.addView(railScroll, new LinearLayout.LayoutParams(dp(250), -1));
+            LinearLayout.LayoutParams railParams = new LinearLayout.LayoutParams(dp(250), -1);
+            railParams.rightMargin = dp(12);
+            body.addView(railScroll, railParams);
             for (int i = 0; i < sections.length; i++) {
                 final int target = i;
                 Button tab = actionButton(sections[i]);
@@ -1838,7 +1857,7 @@ public final class MainActivity extends Activity {
                 rail.addView(tab, params);
             }
             detail.setBackground(roundedShape(LiquidTheme.surface(MainActivity.this),
-                    LiquidTheme.border(MainActivity.this), 1, 12));
+                    LiquidTheme.border(MainActivity.this), 1, 26));
             body.addView(detail, new LinearLayout.LayoutParams(0, -1, 1));
 
             dialog.setContentView(shell);
@@ -1869,13 +1888,13 @@ public final class MainActivity extends Activity {
                 window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
                 window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
                 WindowManager.LayoutParams windowAttributes = window.getAttributes();
-                windowAttributes.dimAmount = .24f;
+                windowAttributes.dimAmount = .12f;
                 window.setAttributes(windowAttributes);
                 window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
                         | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
             }
-            tabs[LIVE].requestFocus();
+            tabs[section].requestFocus();
         }
 
         private void captureDrafts() {
@@ -1904,11 +1923,13 @@ public final class MainActivity extends Activity {
 
         private void requestClose() {
             if (!hasUnsavedEdits()) { dialog.dismiss(); return; }
-            new AlertDialog.Builder(MainActivity.this)
+            AlertDialog prompt = new AlertDialog.Builder(new android.view.ContextThemeWrapper(MainActivity.this,
+                    LiquidTheme.isLight(MainActivity.this) ? android.R.style.Theme_Material_Light_Dialog_Alert : android.R.style.Theme_Material_Dialog_Alert))
                     .setTitle("Discard unsaved edits?")
                     .setMessage("Playlist, DRM, or calendar changes have not been saved.")
                     .setPositiveButton("Discard", (ignored, which) -> dialog.dismiss())
                     .setNegativeButton("Keep editing", null).show();
+            styleDialog(prompt);
         }
 
         private void renderSection() {
@@ -2122,7 +2143,8 @@ public final class MainActivity extends Activity {
             artworkInput.setPadding(dp(24), dp(12), dp(24), dp(12));
             artworkInput.setBackground(roundedShape(LiquidTheme.surface(MainActivity.this),
                     LiquidTheme.border(MainActivity.this), 1, 12));
-            AlertDialog artworkDialog = new AlertDialog.Builder(MainActivity.this)
+            AlertDialog artworkDialog = new AlertDialog.Builder(new android.view.ContextThemeWrapper(MainActivity.this,
+                    LiquidTheme.isLight(MainActivity.this) ? android.R.style.Theme_Material_Light_Dialog_Alert : android.R.style.Theme_Material_Dialog_Alert))
                     .setTitle("Card artwork")
                     .setMessage("Paste a YouTube video link to use its thumbnail. Leave empty to retry automatic artwork.")
                     .setView(artworkInput)
@@ -2155,6 +2177,7 @@ public final class MainActivity extends Activity {
                         artworkDialog.dismiss();
                     }));
             artworkDialog.show();
+            styleDialog(artworkDialog);
         }
 
         private void editYouTubeTitle(YouTubeCard selected) {
@@ -2171,7 +2194,8 @@ public final class MainActivity extends Activity {
             titleInput.setBackground(roundedShape(
                     LiquidTheme.surface(MainActivity.this),
                     LiquidTheme.border(MainActivity.this), 1, 12));
-            new AlertDialog.Builder(MainActivity.this)
+            AlertDialog prompt = new AlertDialog.Builder(new android.view.ContextThemeWrapper(MainActivity.this,
+                    LiquidTheme.isLight(MainActivity.this) ? android.R.style.Theme_Material_Light_Dialog_Alert : android.R.style.Theme_Material_Dialog_Alert))
                     .setTitle("Card title")
                     .setMessage("Clear the title to use the title provided by YouTube when available.")
                     .setView(titleInput)
@@ -2190,6 +2214,7 @@ public final class MainActivity extends Activity {
                         youtubeChanged = true;
                         renderYouTubeSavedList();
                     }).show();
+            styleDialog(prompt);
         }
 
         private void renderCalendarSettings(LinearLayout page) {
@@ -2819,27 +2844,29 @@ public final class MainActivity extends Activity {
 
     private void applyWallpaper() {
         if (wallpaperImage == null || heroFrame == null) return;
-        String uriValue = preferences == null ? null : preferences.getString("wallpaper", null);
-        if (uriValue == null) {
-            wallpaperImage.setImageResource(R.drawable.default_wallpaper);
-            wallpaperImage.setVisibility(backgroundPhotos.isEmpty() ? View.VISIBLE : View.GONE);
-            return;
-        }
-        wallpaperImage.setVisibility(View.GONE);
-        int targetWidth = getResources().getDisplayMetrics().widthPixels;
-        int targetHeight = dp(heroHeightDp());
+        String uriValue = preferences.getString("wallpaper", null);
+        int targetWidth = Math.min(getResources().getDisplayMetrics().widthPixels, 1920);
+        int targetHeight = Math.min(dp(heroHeightDp()), 1080);
         new Thread(() -> {
-            android.graphics.Bitmap bitmap = decodeWallpaper(Uri.parse(uriValue), targetWidth, targetHeight);
+            android.graphics.Bitmap decoded = uriValue == null ? null : decodeWallpaper(Uri.parse(uriValue), targetWidth, targetHeight);
+            if (decoded == null) {
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inSampleSize = 2;
+                decoded = BitmapFactory.decodeResource(getResources(), R.drawable.default_wallpaper, options);
+            }
+            final android.graphics.Bitmap bitmap = decoded;
             handler.post(() -> {
-                if (wallpaperImage == null || isFinishing() || !uriValue.equals(preferences.getString("wallpaper", null))) return;
-                if (bitmap == null) {
-                    preferences.edit().remove("wallpaper").apply();
-                    wallpaperImage.setImageResource(R.drawable.default_wallpaper);
-                    wallpaperImage.setVisibility(backgroundPhotos.isEmpty() ? View.VISIBLE : View.GONE);
+                if (isFinishing() || isDestroyed() || !java.util.Objects.equals(uriValue, preferences.getString("wallpaper", null))) return;
+                if (bitmap == null) return;
+                if (!backgroundPhotos.isEmpty()) {
+                    wallpaperImage.setImageBitmap(bitmap);
+                    wallpaperImage.setVisibility(View.GONE);
                     return;
                 }
-                wallpaperImage.setImageBitmap(bitmap);
-                wallpaperImage.setVisibility(backgroundPhotos.isEmpty() ? View.VISIBLE : View.GONE);
+                glassBackdrop.prepare(bitmap, false, () -> {
+                    wallpaperImage.setImageBitmap(bitmap);
+                    wallpaperImage.setVisibility(View.VISIBLE);
+                });
             });
         }, "wallpaper-decode").start();
     }
