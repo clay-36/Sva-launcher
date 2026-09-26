@@ -1,18 +1,38 @@
-# Duo Launcher
+<p align="center">
+  <img src="app/src/main/res/drawable/duo_image.png" alt="Duo Launcher" width="144" />
+</p>
 
-A lightweight Android TV home launcher with customizable app shortcuts, a clock, and URL-based IPTV playlists with XMLTV guide data, channel logos, category rows, and channel visibility controls. The launcher uses the Duo TV logo as its app icon.
+<h1 align="center">Duo Launcher</h1>
 
-## Features
+<p align="center"><strong>A calmer, more personal home for your TV.</strong><br />Your photos, your apps, and live TV—together in one remote-friendly space.</p>
 
-- 🏠 Android TV home screen designed for remote control, with an optional Accessibility-based Home button override for devices that keep opening their built-in launcher.
-- 🌅 Dynamic greetings with subtitles, plus a clock and optional date.
-- 🖼️ Custom wallpaper, photo-folder slideshow, or public Google Photos album backdrop.
-- 📱 Choose and reorder app shortcuts; quick icons open Wi-Fi, Android, and launcher settings.
-- 📺 IPTV playlists with XMLTV programme data, channel logos, category rows, and controls to hide or restore channels.
-- ▶️ Live playback with programme progress, channel zapping, and Hindi audio preferred when the stream offers it.
-- 🔐 Widevine DRM settings with global or per-channel license URLs and request headers; playback support depends on the TV and stream.
+<p align="center">
+  <img alt="Android TV" src="https://img.shields.io/badge/ANDROID_TV-Ready-35CDB5?style=for-the-badge&logo=android&logoColor=white" />
+  <img alt="Minimum Android version" src="https://img.shields.io/badge/ANDROID-8.0%2B-29333D?style=for-the-badge&logo=android&logoColor=white" />
+  <img alt="IPTV and live TV" src="https://img.shields.io/badge/LIVE_TV-IPTV-29333D?style=for-the-badge" />
+</p>
 
-## Build
+## ✨ Make the big screen yours
+
+<table>
+  <tr>
+    <td width="50%"><strong>🌅 A home with a little life</strong><br />Dynamic, laid-back greetings meet a clear clock and date over a photo-forward backdrop.</td>
+    <td width="50%"><strong>🖼️ Your photos, front and center</strong><br />Use a wallpaper, cycle a photo folder, or bring in a public Google Photos album.</td>
+  </tr>
+  <tr>
+    <td width="50%"><strong>📺 Live TV, neatly organized</strong><br />Browse IPTV channels by category, with guide data, logos, and controls for the channels you want to see.</td>
+    <td width="50%"><strong>▶️ Settle into the show</strong><br />See current-program progress, change channels with Up/Down, and prefer Hindi audio when a stream offers it.</td>
+  </tr>
+  <tr>
+    <td width="50%"><strong>📱 Your apps, your order</strong><br />Choose and arrange home shortcuts, with quick access to Wi-Fi, Android settings, and Duo settings.</td>
+    <td width="50%"><strong>🎮 Made for the remote</strong><br />TV-friendly focus states and an optional Accessibility-based Home button override help Duo feel at home on your device.</td>
+  </tr>
+  <tr>
+    <td colspan="2"><strong>🔐 Flexible playback</strong><br />Configure global or per-channel Widevine license URLs and request headers. Stream, DRM, and codec support depends on the TV.</td>
+  </tr>
+</table>
+
+## 🛠️ Build from source
 
 Open the project in Android Studio, or run:
 
@@ -22,21 +42,24 @@ Open the project in Android Studio, or run:
 
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. The project targets Android 15 and supports Android 8.0 (API 26) and newer. Android Studio may ask you to select your Android SDK.
 
-## Use
+## 🚀 Set up your space
 
-After installing, choose Duo Launcher as the device's Home app. Open the full-screen **Settings** page and select **Live TV** to enter an M3U/M3U8 playlist URL and an optional XMLTV URL. Plain `.xml` and gzip-compressed `.xml.gz` guides are supported. Guide entries match channels by `tvg-id`. A configured playlist and guide refresh automatically whenever the launcher starts; **Refresh now** requests another immediate update. Cached channels remain visible while the refresh runs.
+After installing, choose Duo Launcher as the device's Home app. If the TV keeps opening its built-in launcher, open Duo's **Home button** settings and enable the Duo Accessibility service from Android's Accessibility settings.
 
-Choose apps and set their order in the **Apps** section; selections and arrow-button moves apply immediately. If no custom list is saved, the home screen shows up to eight installed apps. The **Clock** section controls 12/24-hour display and date visibility.
+Open Duo's full-screen **Settings** page to personalize the launcher:
 
-Channel logos are loaded from M3U `tvg-logo` values and cached in memory and on disk. Browse channels in horizontal rows by M3U `group-title`; use **Manage hidden channels** in Settings to search by name and hide or restore channels. Select a photo folder or paste a Google Photos public album link in Settings to cycle through its images every five seconds. Google Photos albums must be shared with anyone who has the link. The backdrop covers 70% of the screen, with app tiles along its bottom edge. Below it, the home screen stays black. IPTV tiles stay black with a subtle border; both kinds of tile show a bright focus outline for remote navigation.
+- **Live TV:** Enter an M3U/M3U8 playlist URL and optional XMLTV URL. Plain `.xml` and gzip-compressed `.xml.gz` guides are supported; guide entries match channels by `tvg-id`. Playlist and guide refresh on startup, and **Refresh now** requests an immediate update. Cached channels stay visible during refresh.
+- **Apps & Clock:** Choose and reorder shortcuts. If no custom list is saved, Duo shows up to eight installed apps. Set 12/24-hour time and toggle the date.
+- **Appearance:** Choose a single wallpaper, a photo folder, or a Google Photos public album link. Folder and album photos cycle every five seconds; albums must be shared with anyone who has the link. The photo backdrop covers 70% of the screen, with app tiles along its lower edge.
+- **Channels:** Browse horizontal rows grouped by M3U `group-title`. Logos load from `tvg-logo` values and cache in memory and on disk. Use **Manage hidden channels** to search, hide, or restore channels.
 
-During playback, Up/Down changes channels. Player controls are disabled; use Back to return to the launcher.
+## 🎬 Playback & guide
 
-Choose a custom hero wallpaper from **Settings**; the selection is retained between launches and appears when no photo folder is selected.
+During playback, Up/Down changes channels and the current programme progress appears on screen. Use Back to return to Duo.
 
-For Widevine channels, enter a global license URL and optional request headers in Settings, or include channel-specific Kodi `KODIPROP` license tags in the M3U. Per-channel values override global values. Playback uses Media3 ExoPlayer; supported DRM schemes, stream packaging, and codecs still depend on the TV device.
+For Widevine channels, set a global license URL and optional request headers in Settings, or add per-channel Kodi `KODIPROP` license tags to the M3U. Channel values override global settings. Playback uses Media3 ExoPlayer; supported DRM schemes, packaging, and codecs depend on the TV.
 
-Per-channel tags follow Kodi's common form; URL-encode the license request headers:
+Per-channel tags follow Kodi's common form. URL-encode license request headers:
 
 ```m3u
 #EXTINF:-1 tvg-id="channel.one" tvg-logo="https://img.example/logo.png" group-title="News",Channel One
@@ -45,4 +68,4 @@ Per-channel tags follow Kodi's common form; URL-encode the license request heade
 https://stream.example/channel/manifest.mpd
 ```
 
-Widevine playback supports DASH and FMP4/CMAF HLS when the Android TV device supports the stream's DRM and codecs.
+Widevine playback supports DASH and FMP4/CMAF HLS when the TV supports the stream's DRM and codecs.
