@@ -2,6 +2,16 @@
 
 A lightweight Android TV home launcher with customizable app shortcuts, a clock, and URL-based IPTV playlists with XMLTV guide data, channel logos, category rows, and channel visibility controls. The launcher uses the Duo TV logo as its app icon.
 
+## Features
+
+- 🏠 Android TV home screen designed for remote control, with an optional Accessibility-based Home button override for devices that keep opening their built-in launcher.
+- 🌅 Dynamic greetings with subtitles, plus a clock and optional date.
+- 🖼️ Custom wallpaper, photo-folder slideshow, or public Google Photos album backdrop.
+- 📱 Choose and reorder app shortcuts; quick icons open Wi-Fi, Android, and launcher settings.
+- 📺 IPTV playlists with XMLTV programme data, channel logos, category rows, and controls to hide or restore channels.
+- ▶️ Live playback with programme progress, channel zapping, and Hindi audio preferred when the stream offers it.
+- 🔐 Widevine DRM settings with global or per-channel license URLs and request headers; playback support depends on the TV and stream.
+
 ## Build
 
 Open the project in Android Studio, or run:
