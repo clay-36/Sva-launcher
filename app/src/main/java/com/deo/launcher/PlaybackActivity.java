@@ -45,13 +45,15 @@ public final class PlaybackActivity extends Activity {
     private long programmeStartMs, programmeEndMs;
     private boolean widevine;
     private JSONArray zapChannels;
+    private JSONArray programmeSchedule;
     private int zapIndex;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable hideMessage;
     private final Runnable programmeTick = new Runnable() {
         @Override public void run() {
-            updateProgrammeProgress();
-            if (programmeEndMs > programmeStartMs) handler.postDelayed(this, 30000);
+            boolean panelWasVisible = infoPanel != null && infoPanel.getVisibility() == View.VISIBLE;
+            if (!updateProgrammeFromCache()) updateProgrammeProgress();
+            if (!panelWasVisible && infoPanel != null) infoPanel.setVisibility(View.GONE);
         }
     };
 
@@ -66,6 +68,12 @@ public final class PlaybackActivity extends Activity {
         widevine = getIntent().getBooleanExtra("widevine", false);
         try { zapChannels = new JSONArray(getIntent().getStringExtra("zapChannels")); } catch (Exception ignored) { zapChannels = new JSONArray(); }
         zapIndex = getIntent().getIntExtra("zapIndex", 0);
+        JSONObject activeChannel = zapChannels.optJSONObject(zapIndex);
+        programmeSchedule = activeChannel == null ? null : activeChannel.optJSONArray("programmes");
+        if (programmeSchedule == null) {
+            try { programmeSchedule = new JSONArray(getIntent().getStringExtra("programmes")); }
+            catch (Exception ignored) { programmeSchedule = null; }
+        }
 
         FrameLayout frame = new FrameLayout(this);
         frame.setBackgroundColor(Color.BLACK);
@@ -74,38 +82,44 @@ public final class PlaybackActivity extends Activity {
         frame.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
         infoPanel = new LinearLayout(this);
         infoPanel.setOrientation(LinearLayout.VERTICAL);
-        infoPanel.setPadding(dp(22), dp(16), dp(22), dp(16));
-        GradientDrawable messageBackground = new GradientDrawable();
-        messageBackground.setColor(0xcc101722);
-        messageBackground.setCornerRadius(dp(12));
+        infoPanel.setPadding(dp(24), dp(18), dp(24), dp(18));
+        boolean light = LiquidTheme.isLight(this);
+        GradientDrawable messageBackground = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                light ? new int[]{0xEFFFFFFF, 0xE8EAF0F4} : new int[]{0xDB28394C, 0xDA101721});
+        messageBackground.setCornerRadius(dp(20));
+        messageBackground.setStroke(dp(1), LiquidTheme.border(this));
         infoPanel.setBackground(messageBackground);
+        infoPanel.setElevation(dp(8));
         message = new TextView(this);
         message.setText("Loading " + currentChannelName + "…");
-        message.setTextColor(Color.WHITE);
-        message.setTextSize(14);
+        message.setTextColor(LiquidTheme.accent(this));
+        message.setTextSize(12);
+        message.setLetterSpacing(.08f);
+        message.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
+        message.setShadowLayer(dp(8), 0, 0, light ? 0x44087F73 : 0x8870E8D3);
         infoPanel.addView(message);
         programmeTitle = new TextView(this);
-        programmeTitle.setTextColor(Color.WHITE);
-        programmeTitle.setTextSize(21);
+        programmeTitle.setTextColor(LiquidTheme.text(this));
+        programmeTitle.setTextSize(23);
         programmeTitle.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
         LinearLayout.LayoutParams programmeTitleParams = new LinearLayout.LayoutParams(-1, -2);
         programmeTitleParams.topMargin = dp(7);
         infoPanel.addView(programmeTitle, programmeTitleParams);
         programmeProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         programmeProgress.setMax(1000);
-        programmeProgress.setProgressTintList(ColorStateList.valueOf(0xFF5DE6CF));
-        programmeProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0x668DA2AC));
-        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(dp(440), dp(8));
+        programmeProgress.setProgressTintList(ColorStateList.valueOf(LiquidTheme.accent(this)));
+        programmeProgress.setProgressBackgroundTintList(ColorStateList.valueOf(LiquidTheme.border(this)));
+        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(dp(470), dp(7));
         progressParams.topMargin = dp(8);
         infoPanel.addView(programmeProgress, progressParams);
         programmeTimes = new TextView(this);
-        programmeTimes.setTextColor(0xFFD4DDE0);
+        programmeTimes.setTextColor(LiquidTheme.secondaryText(this));
         programmeTimes.setTextSize(12);
         LinearLayout.LayoutParams timesParams = new LinearLayout.LayoutParams(-1, -2);
         timesParams.topMargin = dp(5);
         infoPanel.addView(programmeTimes, timesParams);
         nextProgramme = new TextView(this);
-        nextProgramme.setTextColor(0xFFD4DDE0);
+        nextProgramme.setTextColor(LiquidTheme.lavender(this));
         nextProgramme.setTextSize(13);
         LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(-1, -2);
         nextParams.topMargin = dp(5);
@@ -114,8 +128,10 @@ public final class PlaybackActivity extends Activity {
         messageParams.setMargins(dp(28), 0, dp(28), dp(26));
         frame.addView(infoPanel, messageParams);
         setContentView(frame);
-        updateProgramInfo(getIntent().getStringExtra("now"), getIntent().getLongExtra("nowStartMs", 0),
-                getIntent().getLongExtra("nowEndMs", 0), getIntent().getStringExtra("next"));
+        if (!updateProgrammeFromCache()) {
+            updateProgramInfo(getIntent().getStringExtra("now"), getIntent().getLongExtra("nowStartMs", 0),
+                    getIntent().getLongExtra("nowEndMs", 0), getIntent().getStringExtra("next"));
+        }
 
         if (streamUrl == null || streamUrl.trim().isEmpty()) {
             showError("Missing channel stream URL.");
@@ -196,8 +212,12 @@ public final class PlaybackActivity extends Activity {
         currentChannelName = name;
         message.setText(name);
         message.setVisibility(View.VISIBLE);
-        updateProgramInfo(item.optString("now", ""), item.optLong("nowStartMs", 0),
-                item.optLong("nowEndMs", 0), item.optString("next", ""));
+        infoPanel.setVisibility(View.VISIBLE);
+        programmeSchedule = item.optJSONArray("programmes");
+        if (!updateProgrammeFromCache()) {
+            updateProgramInfo(item.optString("now", ""), item.optLong("nowStartMs", 0),
+                    item.optLong("nowEndMs", 0), item.optString("next", ""));
+        }
         hideMessageAfter(2000);
         ArrayList<String> headers = new ArrayList<>();
         JSONObject headerObject = item.optJSONObject("headers");
@@ -247,7 +267,42 @@ public final class PlaybackActivity extends Activity {
         nextProgramme.setVisibility(followingProgramme.isEmpty() ? View.GONE : View.VISIBLE);
         infoPanel.setVisibility(View.VISIBLE);
         updateProgrammeProgress();
-        if (hasTiming) handler.postDelayed(programmeTick, 30000);
+        if (hasTiming || hasUpcomingCachedProgramme()) handler.postDelayed(programmeTick, 30000);
+    }
+
+    private boolean updateProgrammeFromCache() {
+        if (programmeSchedule == null || programmeSchedule.length() == 0) return false;
+        long now = System.currentTimeMillis();
+        JSONObject current = null;
+        JSONObject next = null;
+        for (int i = 0; i < programmeSchedule.length(); i++) {
+            JSONObject programme = programmeSchedule.optJSONObject(i);
+            if (programme == null) continue;
+            long start = programme.optLong("startMs", 0);
+            long end = programme.optLong("endMs", 0);
+            if (start <= now && end > now
+                    && (current == null || start > current.optLong("startMs", 0))) {
+                current = programme;
+            } else if (start > now
+                    && (next == null || start < next.optLong("startMs", Long.MAX_VALUE))) {
+                next = programme;
+            }
+        }
+        updateProgramInfo(current == null ? "" : current.optString("title", ""),
+                current == null ? 0 : current.optLong("startMs", 0),
+                current == null ? 0 : current.optLong("endMs", 0),
+                next == null ? "" : next.optString("title", ""));
+        return true;
+    }
+
+    private boolean hasUpcomingCachedProgramme() {
+        if (programmeSchedule == null) return false;
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < programmeSchedule.length(); i++) {
+            JSONObject programme = programmeSchedule.optJSONObject(i);
+            if (programme != null && programme.optLong("endMs", 0) > now) return true;
+        }
+        return false;
     }
 
     private void updateProgrammeProgress() {

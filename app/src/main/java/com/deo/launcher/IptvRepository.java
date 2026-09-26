@@ -3,6 +3,7 @@ package com.deo.launcher;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.AtomicFile;
+import android.util.Log;
 import android.util.Xml;
 
 import org.json.JSONArray;
@@ -11,8 +12,11 @@ import org.xmlpull.v1.XmlPullParser;
 
 import java.io.BufferedReader;
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilterInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
@@ -20,20 +24,42 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.zip.GZIPInputStream;
 
-/** Small URL-backed M3U/XMLTV loader with a persisted channel/guide cache. */
+/** Small URL-backed M3U and EPG loader with a persisted channel/guide cache. */
 final class IptvRepository {
     private static final String PREFS = "iptv";
     private static final String CACHE_FILE = "iptv-channels.json";
-    private static final long REFRESH_AFTER_MS = 6L * 60L * 60L * 1000L;
+    private static final String CACHE_BACKUP_FILE = "iptv-channels-backup.json";
+    private static final long CHANNELS_REFRESH_AFTER_MS = 24L * 60L * 60L * 1000L;
+    private static final long GUIDE_REFRESH_AFTER_MS = 24L * 60L * 60L * 1000L;
+    private static final long PROGRAMME_CACHE_HORIZON_MS = 48L * 60L * 60L * 1000L;
+    private static final int MAX_CACHED_PROGRAMMES_PER_CHANNEL = 128;
     private static final int MAX_PLAYLIST_BYTES = 24 * 1024 * 1024;
+    private static final int MAX_JSON_GUIDE_BYTES = 16 * 1024 * 1024;
+    private static final String GUIDE_TIME_ZONE = "Asia/Kolkata";
+    private static final Object CACHE_REFRESH_LOCK = new Object();
+
+    static final class Programme {
+        final String title;
+        final long startMs;
+        final long endMs;
+
+        Programme(String title, long startMs, long endMs) {
+            this.title = title;
+            this.startMs = startMs;
+            this.endMs = endMs;
+        }
+    }
 
     static final class Channel {
         final String name;
@@ -48,6 +74,7 @@ final class IptvRepository {
         String next = "";
         long nowStartMs;
         long nowEndMs;
+        final List<Programme> programmes = new ArrayList<>();
 
         Channel(String name, String streamUrl, String epgId, String group, String logoUrl,
                 String drmType, String drmLicenseUrl, Map<String, String> drmHeaders) {
@@ -62,6 +89,12 @@ final class IptvRepository {
         }
 
         String stableKey() { return epgId.isEmpty() ? "url:" + streamUrl : "id:" + epgId; }
+        boolean sameRenderIdentity(Channel other) {
+            return stableKey().equals(other.stableKey()) && streamUrl.equals(other.streamUrl)
+                    && name.equals(other.name) && group.equals(other.group) && logoUrl.equals(other.logoUrl)
+                    && drmType.equals(other.drmType) && drmLicenseUrl.equals(other.drmLicenseUrl)
+                    && drmHeaders.equals(other.drmHeaders);
+        }
     }
 
     interface Callback {
@@ -82,24 +115,90 @@ final class IptvRepository {
     String drmHeaderText() { return prefs.getString("drmHeaders", ""); }
     Map<String, String> drmHeaders() { return parseHeaders(drmHeaderText()); }
     void saveUrls(String playlist, String guide) {
-        prefs.edit().putString("playlist", playlist.trim()).putString("guide", guide.trim()).apply();
+        String normalizedPlaylist = playlist.trim();
+        String normalizedGuide = guide.trim();
+        SharedPreferences.Editor editor = prefs.edit().putString("playlist", normalizedPlaylist).putString("guide", normalizedGuide);
+        if (!normalizedPlaylist.equals(playlistUrl())) editor.remove("channelsUpdated").remove("channelsAttempted");
+        if (!normalizedGuide.equals(guideUrl())) editor.remove("guideUpdated").remove("guideAttempted");
+        editor.apply();
     }
     void saveDrmSettings(String url, String headers) {
         prefs.edit().putString("drmLicenseUrl", url.trim()).putString("drmHeaders", headers.trim()).apply();
     }
 
-    boolean isStale() { return System.currentTimeMillis() - prefs.getLong("updated", 0) > REFRESH_AFTER_MS; }
+    boolean isGuideStale() {
+        return isGuideStale(System.currentTimeMillis(), lastGuideUpdatedAt(),
+                prefs.getLong("guideAttempted", lastGuideUpdatedAt()));
+    }
+    boolean isGuideStale(List<Channel> channels) {
+        long updatedAt = lastGuideUpdatedAt();
+        long attemptedAt = prefs.getLong("guideAttempted", updatedAt);
+        boolean hasProgrammeSchedule = false;
+        if (channels != null) {
+            for (Channel channel : channels) {
+                if (!channel.programmes.isEmpty()) {
+                    hasProgrammeSchedule = true;
+                    break;
+                }
+            }
+        }
+        return isGuideStale(System.currentTimeMillis(), updatedAt, attemptedAt,
+                channels != null && !channels.isEmpty(), hasProgrammeSchedule);
+    }
+    static boolean isGuideStale(long now, long updatedAt, long attemptedAt) {
+        return now - Math.max(updatedAt, attemptedAt) >= GUIDE_REFRESH_AFTER_MS;
+    }
+    static boolean isGuideStale(long now, long updatedAt, long attemptedAt,
+                                boolean hasChannels, boolean hasProgrammeSchedule) {
+        if (hasChannels && !hasProgrammeSchedule && updatedAt > 0 && attemptedAt <= updatedAt) return true;
+        return isGuideStale(now, updatedAt, attemptedAt);
+    }
+    boolean isChannelsStale() {
+        return isChannelsStale(System.currentTimeMillis(), lastUpdatedAt(),
+                prefs.getLong("channelsAttempted", lastUpdatedAt()));
+    }
+    static boolean isChannelsStale(long now, long updatedAt, long attemptedAt) {
+        return now - Math.max(updatedAt, attemptedAt) >= CHANNELS_REFRESH_AFTER_MS;
+    }
+    long lastUpdatedAt() { return prefs.getLong("channelsUpdated", prefs.getLong("updated", 0)); }
+    long lastGuideUpdatedAt() { return prefs.getLong("guideUpdated", 0); }
 
     List<Channel> cachedChannels() {
-        ArrayList<Channel> result = new ArrayList<>();
-        AtomicFile file = new AtomicFile(new java.io.File(context.getFilesDir(), CACHE_FILE));
+        return selectCachedChannels(readCache(CACHE_FILE), readCache(CACHE_BACKUP_FILE));
+    }
+
+    static List<Channel> selectCachedChannels(List<Channel> primary, List<Channel> backup) {
+        if (primary != null && !primary.isEmpty()) return primary;
+        if (backup != null && !backup.isEmpty()) return backup;
+        if (primary != null) return primary;
+        return backup != null ? backup : new ArrayList<>();
+    }
+
+    static void restoreProgrammes(Channel channel, JSONArray savedProgrammes) {
+        if (savedProgrammes == null) return;
+        for (int i = 0; i < savedProgrammes.length()
+                && channel.programmes.size() < MAX_CACHED_PROGRAMMES_PER_CHANNEL; i++) {
+            JSONObject value = savedProgrammes.optJSONObject(i);
+            if (value == null) continue;
+            String title = value.optString("title", "").trim();
+            long startMs = value.optLong("startMs", 0);
+            long endMs = value.optLong("endMs", 0);
+            if (!title.isEmpty() && startMs > 0 && endMs > startMs) {
+                channel.programmes.add(new Programme(title, startMs, endMs));
+            }
+        }
+    }
+
+    private List<Channel> readCache(String fileName) {
+        AtomicFile file = new AtomicFile(new java.io.File(context.getFilesDir(), fileName));
         try (FileInputStream input = file.openRead();
              BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
             StringBuilder raw = new StringBuilder();
             char[] buffer = new char[4096];
             int count;
             while ((count = reader.read(buffer)) != -1) raw.append(buffer, 0, count);
-            JSONArray array = new JSONArray(raw);
+            JSONArray array = new JSONArray(raw.toString());
+            ArrayList<Channel> result = new ArrayList<>(array.length());
             for (int i = 0; i < array.length(); i++) {
                 JSONObject o = array.getJSONObject(i);
                 Map<String, String> headers = new LinkedHashMap<>();
@@ -115,28 +214,191 @@ final class IptvRepository {
                 c.next = o.optString("next");
                 c.nowStartMs = o.optLong("nowStartMs");
                 c.nowEndMs = o.optLong("nowEndMs");
+                restoreProgrammes(c, o.optJSONArray("programmes"));
+                refreshProgrammeDisplay(c, System.currentTimeMillis());
                 result.add(c);
             }
-        } catch (Exception ignored) { }
-        return result;
+            return result;
+        } catch (Exception error) {
+            Log.w("IptvRepository", "Could not read channel cache " + fileName, error);
+            return null;
+        }
     }
 
-    void refresh(Callback callback) {
-        final String playlist = playlistUrl();
-        final String guide = guideUrl();
-        new Thread(() -> {
-            try {
-                if (playlist.isEmpty()) throw new IllegalStateException("Add an M3U playlist URL in Settings.");
-                List<Channel> channels = downloadPlaylist(playlist);
-                if (!guide.isEmpty()) attachGuide(channels, guide);
-                saveCache(channels);
-                prefs.edit().putLong("updated", System.currentTimeMillis()).apply();
-                callback.onLoaded(channels, channels.isEmpty() ? "No channels found in the playlist." : "Updated");
-            } catch (Exception e) {
-                List<Channel> cached = cachedChannels();
-                callback.onLoaded(cached, cached.isEmpty() ? "Could not load playlist: " + safeMessage(e) : "Showing saved channels. Refresh failed: " + safeMessage(e));
+    JSONArray exportCachedChannels() throws Exception {
+        return serializeChannels(cachedChannels());
+    }
+
+    void restoreCachedChannels(JSONArray array) throws Exception {
+        restoreCachedChannels(array, null);
+    }
+
+    void restoreCachedChannels(JSONArray array, Runnable onRestored) throws Exception {
+        if (array == null || array.length() > 50000) throw new IllegalArgumentException("Backup contains too many channels.");
+        ArrayList<Channel> restored = new ArrayList<>(array.length());
+        for (int i = 0; i < array.length(); i++) {
+            JSONObject value = array.optJSONObject(i);
+            if (value == null) throw new IllegalArgumentException("Backup contains an invalid channel entry.");
+            String name = value.optString("name", "").trim();
+            String url = value.optString("url", "").trim();
+            if (name.isEmpty() || url.isEmpty()) throw new IllegalArgumentException("Backup contains a channel without a name or stream URL.");
+            Map<String, String> headers = new LinkedHashMap<>();
+            JSONObject headerObject = value.optJSONObject("drmHeaders");
+            if (headerObject != null) {
+                java.util.Iterator<String> keys = headerObject.keys();
+                while (keys.hasNext()) {
+                    String key = keys.next();
+                    headers.put(key, headerObject.optString(key));
+                }
             }
-        }, "iptv-refresh").start();
+            Channel channel = new Channel(name, url, value.optString("id", ""),
+                    value.optString("group", ""), value.optString("logo", ""),
+                    value.optString("drmType", ""), value.optString("drmLicenseUrl", ""), headers);
+            channel.now = value.optString("now", "");
+            channel.next = value.optString("next", "");
+            channel.nowStartMs = value.optLong("nowStartMs", 0);
+            channel.nowEndMs = value.optLong("nowEndMs", 0);
+            restoreProgrammes(channel, value.optJSONArray("programmes"));
+            refreshProgrammeDisplay(channel, System.currentTimeMillis());
+            restored.add(channel);
+        }
+        synchronized (CACHE_REFRESH_LOCK) {
+            saveCache(restored);
+            if (onRestored != null) onRestored.run();
+        }
+    }
+
+    void refreshChannels(Callback callback) {
+        new Thread(() -> {
+            synchronized (CACHE_REFRESH_LOCK) {
+                List<Channel> loaded;
+                String message;
+                try {
+                    String playlist = playlistUrl();
+                    if (playlist.isEmpty()) throw new IllegalStateException("Add an M3U playlist URL in Settings.");
+                    prefs.edit().putLong("channelsAttempted", System.currentTimeMillis()).apply();
+                    List<Channel> channels = downloadPlaylist(playlist);
+                    if (channels.isEmpty()) {
+                        loaded = cachedChannels();
+                        message = loaded.isEmpty()
+                                ? "No channels found in the playlist."
+                                : "Playlist was empty. Keeping saved channels.";
+                    } else if (!playlist.equals(playlistUrl())) {
+                        loaded = cachedChannels();
+                        message = "Playlist URL changed during refresh. Refresh channels again.";
+                    } else {
+                        preserveGuideData(channels, cachedChannels());
+                        saveCache(channels);
+                        prefs.edit().putLong("channelsUpdated", System.currentTimeMillis()).apply();
+                        loaded = channels;
+                        message = "Channels updated.";
+                    }
+                } catch (Exception e) {
+                    loaded = cachedChannels();
+                    message = loaded.isEmpty()
+                            ? "Could not load playlist: " + safeMessage(e)
+                            : "Showing saved channels. Channel refresh failed: " + safeMessage(e);
+                }
+                callback.onLoaded(loaded, message);
+            }
+        }, "iptv-channel-refresh").start();
+    }
+
+    void refreshGuide(List<Channel> fallbackChannels, Callback callback) {
+        new Thread(() -> {
+            synchronized (CACHE_REFRESH_LOCK) {
+                List<Channel> cached = cacheOrFallback(cachedChannels(), fallbackChannels);
+                List<Channel> loaded;
+                String message;
+                String guide = guideUrl();
+                try {
+                    if (guide.isEmpty()) throw new IllegalStateException("Add and save a programme guide URL in Settings.");
+                    if (cached.isEmpty()) throw new IllegalStateException("Refresh channels first to load the programme guide.");
+                    prefs.edit().putLong("guideAttempted", System.currentTimeMillis()).apply();
+                    List<Channel> updated = copyChannels(cached);
+                    attachGuide(updated, guide);
+                    if (!guide.equals(guideUrl())) {
+                        prefs.edit().remove("guideUpdated").remove("guideAttempted").apply();
+                        throw new IllegalStateException("Programme guide URL changed during refresh. Refresh the guide again.");
+                    }
+                    saveCache(updated);
+                    long completedAt = System.currentTimeMillis();
+                    prefs.edit().putLong("guideUpdated", completedAt).putLong("guideAttempted", completedAt).apply();
+                    loaded = updated;
+                    message = "Programme guide updated.";
+                } catch (Exception e) {
+                    loaded = cacheOrFallback(cachedChannels(), cached);
+                    if (!guide.equals(guideUrl())) {
+                        prefs.edit().remove("guideUpdated").remove("guideAttempted").apply();
+                        message = "Programme guide URL changed during refresh. Refresh the guide again.";
+                    } else {
+                        message = loaded.isEmpty()
+                                ? safeMessage(e)
+                                : "Showing saved channels. Guide refresh failed: " + safeMessage(e);
+                    }
+                }
+                callback.onLoaded(loaded, message);
+            }
+        }, "iptv-guide-refresh").start();
+    }
+
+    static List<Channel> cacheOrFallback(List<Channel> cached, List<Channel> fallback) {
+        if (cached != null && !cached.isEmpty()) return cached;
+        return copyChannels(fallback == null ? new ArrayList<>() : fallback);
+    }
+
+    static void preserveGuideData(List<Channel> channels, List<Channel> cached) {
+        Map<String, Channel> byExactIdentity = new HashMap<>();
+        Map<String, Integer> cachedKeyCounts = new HashMap<>();
+        Map<String, Integer> freshKeyCounts = new HashMap<>();
+        for (Channel channel : cached) {
+            String key = channel.stableKey();
+            cachedKeyCounts.put(key, cachedKeyCounts.getOrDefault(key, 0) + 1);
+            byExactIdentity.put(cacheIdentity(channel), channel);
+        }
+        for (Channel channel : channels) {
+            String key = channel.stableKey();
+            freshKeyCounts.put(key, freshKeyCounts.getOrDefault(key, 0) + 1);
+        }
+        Map<String, Channel> cachedUniqueByKey = new HashMap<>();
+        for (Channel channel : cached) {
+            if (cachedKeyCounts.getOrDefault(channel.stableKey(), 0) == 1) {
+                cachedUniqueByKey.put(channel.stableKey(), channel);
+            }
+        }
+        for (Channel channel : channels) {
+            Channel previous = byExactIdentity.get(cacheIdentity(channel));
+            if (previous == null && cachedKeyCounts.getOrDefault(channel.stableKey(), 0) == 1
+                    && freshKeyCounts.getOrDefault(channel.stableKey(), 0) == 1) {
+                previous = cachedUniqueByKey.get(channel.stableKey());
+            }
+            if (previous == null) continue;
+            channel.now = previous.now;
+            channel.next = previous.next;
+            channel.nowStartMs = previous.nowStartMs;
+            channel.nowEndMs = previous.nowEndMs;
+            channel.programmes.clear();
+            channel.programmes.addAll(previous.programmes);
+        }
+    }
+
+    private static String cacheIdentity(Channel channel) {
+        return channel.stableKey() + "\u001f" + channel.streamUrl;
+    }
+
+    private static List<Channel> copyChannels(List<Channel> channels) {
+        ArrayList<Channel> copy = new ArrayList<>(channels.size());
+        for (Channel channel : channels) {
+            Channel clone = new Channel(channel.name, channel.streamUrl, channel.epgId, channel.group,
+                    channel.logoUrl, channel.drmType, channel.drmLicenseUrl, channel.drmHeaders);
+            clone.now = channel.now;
+            clone.next = channel.next;
+            clone.nowStartMs = channel.nowStartMs;
+            clone.nowEndMs = channel.nowEndMs;
+            clone.programmes.addAll(channel.programmes);
+            copy.add(clone);
+        }
+        return copy;
     }
 
     private HttpURLConnection openConnection(String address) throws Exception {
@@ -157,28 +419,26 @@ final class IptvRepository {
         try {
             int length = connection.getContentLength();
             if (length > MAX_PLAYLIST_BYTES) throw new IllegalStateException("Playlist is larger than 24 MB.");
-            try (InputStream stream = connection.getInputStream();
+            try (InputStream stream = new ByteLimitInputStream(connection.getInputStream(), MAX_PLAYLIST_BYTES);
                  BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-                return parseLines(reader, MAX_PLAYLIST_BYTES);
+                return parseLines(reader);
             }
         } finally { connection.disconnect(); }
     }
 
     static List<Channel> parseM3u(String content) {
-        try { return parseLines(new BufferedReader(new StringReader(content)), Integer.MAX_VALUE); }
+        try { return parseLines(new BufferedReader(new StringReader(content))); }
         catch (Exception ignored) { return new ArrayList<>(); }
     }
 
-    private static List<Channel> parseLines(BufferedReader reader, long byteLimit) throws Exception {
+    private static List<Channel> parseLines(BufferedReader reader) throws Exception {
         ArrayList<Channel> channels = new ArrayList<>();
         String name = null, id = "", group = "", logo = "", drmType = "", drmKey = "", line;
-        long total = 0;
         while ((line = reader.readLine()) != null) {
-            total += line.length() * 2L;
-            if (total > byteLimit) throw new IllegalStateException("Playlist is larger than 24 MB.");
             line = line.trim();
             if (line.startsWith("#EXTINF")) {
-                int comma = line.lastIndexOf(',');
+                if (name != null) throw new IllegalArgumentException("Playlist ended a channel entry before its stream URL.");
+                int comma = extinfTitleSeparator(line);
                 name = comma >= 0 ? line.substring(comma + 1).trim() : attribute(line, "tvg-name");
                 id = attribute(line, "tvg-id");
                 group = attribute(line, "group-title");
@@ -201,7 +461,47 @@ final class IptvRepository {
                 name = null; id = ""; group = ""; logo = ""; drmType = ""; drmKey = "";
             }
         }
+        if (name != null) throw new IllegalArgumentException("Playlist ended before the final channel stream URL.");
         return channels;
+    }
+
+    private static final class ByteLimitInputStream extends FilterInputStream {
+        private final long limit;
+        private long count;
+
+        ByteLimitInputStream(InputStream input, long limit) {
+            super(input);
+            this.limit = limit;
+        }
+
+        @Override public int read() throws IOException {
+            int value = super.read();
+            if (value >= 0 && ++count > limit) throw tooLarge();
+            return value;
+        }
+
+        @Override public int read(byte[] buffer, int offset, int length) throws IOException {
+            int bytes = super.read(buffer, offset, length);
+            if (bytes > 0) {
+                count += bytes;
+                if (count > limit) throw tooLarge();
+            }
+            return bytes;
+        }
+
+        private IllegalStateException tooLarge() {
+            return new IllegalStateException("Playlist is larger than 24 MB.");
+        }
+    }
+
+    private static int extinfTitleSeparator(String line) {
+        boolean quoted = false;
+        for (int i = 0; i < line.length(); i++) {
+            char value = line.charAt(i);
+            if (value == '"') quoted = !quoted;
+            else if (value == ',' && !quoted) return i;
+        }
+        return -1;
     }
 
     private static final class LicenseData {
@@ -249,41 +549,294 @@ final class IptvRepository {
     }
 
     private void attachGuide(List<Channel> channels, String address) throws Exception {
-        Map<String, Channel> byId = new HashMap<>();
-        for (Channel c : channels) if (!c.epgId.isEmpty()) byId.put(c.epgId, c);
         HttpURLConnection connection = openConnection(address);
-        XmlPullParser parser = Xml.newPullParser();
-        try (InputStream raw = connection.getInputStream();
-             InputStream stream = guideStream(raw)) {
-            parser.setInput(stream, "UTF-8");
-            long now = System.currentTimeMillis();
-            String channelId = null, title = null, start = null, stop = null;
-            int event;
-            while ((event = parser.next()) != XmlPullParser.END_DOCUMENT) {
-                if (event == XmlPullParser.START_TAG) {
-                    if ("programme".equals(parser.getName())) {
-                        channelId = parser.getAttributeValue(null, "channel");
-                        start = parser.getAttributeValue(null, "start");
-                        stop = parser.getAttributeValue(null, "stop");
-                        title = null;
-                    } else if ("title".equals(parser.getName())) {
-                        title = parser.nextText();
-                    }
-                } else if (event == XmlPullParser.END_TAG && "programme".equals(parser.getName())) {
-                    Channel channel = byId.get(channelId);
-                    long begin = xmlTime(start), end = xmlTime(stop);
-                    if (channel != null && title != null && begin > 0 && end > begin) {
-                        if (begin <= now && end > now && channel.now.isEmpty()) {
-                            channel.now = title;
-                            channel.nowStartMs = begin;
-                            channel.nowEndMs = end;
-                        }
-                        else if (begin > now && channel.next.isEmpty()) channel.next = title;
-                    }
-                    title = null;
-                }
+        try (InputStream raw = new BufferedInputStream(connection.getInputStream())) {
+            raw.mark(64);
+            int first = raw.read();
+            while (first >= 0 && Character.isWhitespace((char) first)) first = raw.read();
+            raw.reset();
+            String contentType = connection.getContentType();
+            boolean json = first == '[' || (contentType != null
+                    && contentType.toLowerCase(Locale.US).contains("json"));
+            if (json) {
+                int length = connection.getContentLength();
+                if (length > MAX_JSON_GUIDE_BYTES) throw new IllegalStateException("JSON guide is larger than 16 MB.");
+                applyJsonGuide(channels, new JSONArray(readGuideJson(raw)), System.currentTimeMillis());
+            } else {
+                attachXmlGuide(channels, guideStream(raw));
             }
         } finally { connection.disconnect(); }
+    }
+
+    private static String readGuideJson(InputStream input) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int count;
+        while ((count = input.read(buffer)) != -1) {
+            if (output.size() + count > MAX_JSON_GUIDE_BYTES) {
+                throw new IllegalStateException("JSON guide is larger than 16 MB.");
+            }
+            output.write(buffer, 0, count);
+        }
+        return new String(output.toByteArray(), StandardCharsets.UTF_8);
+    }
+
+    private static void attachXmlGuide(List<Channel> channels, InputStream stream) throws Exception {
+        List<Channel> working = copyChannels(channels);
+        clearGuideData(working);
+        Map<String, List<Channel>> byId = new HashMap<>();
+        for (Channel channel : working) {
+            if (!channel.epgId.isEmpty()) byId.computeIfAbsent(channel.epgId, ignored -> new ArrayList<>()).add(channel);
+        }
+        XmlPullParser parser = Xml.newPullParser();
+        parser.setInput(stream, "UTF-8");
+        long now = System.currentTimeMillis();
+        SimpleDateFormat timeFormat = new SimpleDateFormat("yyyyMMddHHmmssZ", Locale.US);
+        String channelId = null, title = null, start = null, stop = null;
+        int matchedProgrammes = 0;
+        int event;
+        while ((event = parser.next()) != XmlPullParser.END_DOCUMENT) {
+            if (event == XmlPullParser.START_TAG) {
+                if ("programme".equals(parser.getName())) {
+                    channelId = parser.getAttributeValue(null, "channel");
+                    start = parser.getAttributeValue(null, "start");
+                    stop = parser.getAttributeValue(null, "stop");
+                    title = null;
+                } else if ("title".equals(parser.getName())) {
+                    title = parser.nextText();
+                }
+            } else if (event == XmlPullParser.END_TAG && "programme".equals(parser.getName())) {
+                List<Channel> matched = byId.get(channelId);
+                long begin = xmlTime(start, timeFormat), end = xmlTime(stop, timeFormat);
+                if (matched != null && title != null && !title.trim().isEmpty() && begin > 0 && end > begin) {
+                    for (Channel channel : matched) recordProgramme(channel, title.trim(), begin, end, now);
+                    matchedProgrammes++;
+                }
+                title = null;
+            }
+        }
+        if (matchedProgrammes == 0) throw new IllegalArgumentException("Guide contains no valid programmes matching playlist tvg-id values.");
+        refreshProgrammeDisplay(working, now);
+        if (!hasCurrentOrUpcomingProgramme(working)) throw new IllegalArgumentException("Guide has no current or upcoming programmes.");
+        copyGuideData(working, channels);
+    }
+
+    static void applyJsonGuide(List<Channel> channels, JSONArray feed, long now) throws Exception {
+        if (feed == null || feed.length() == 0) throw new IllegalArgumentException("JSON guide contains no channels.");
+        GuideAccumulator accumulator = new GuideAccumulator(channels, now);
+        for (int i = 0; i < feed.length(); i++) {
+            JSONObject item = feed.optJSONObject(i);
+            if (item == null) continue;
+            accumulator.addJson(item);
+        }
+        accumulator.finish("JSON guide contains no channel entries.",
+                "JSON guide contains no valid programmes matching playlist channel IDs or names.");
+    }
+
+    static void applyJsonGuideEntries(List<Channel> channels, List<Map<String, Object>> feed, long now) {
+        if (feed == null || feed.isEmpty()) throw new IllegalArgumentException("JSON guide contains no channel entries.");
+        GuideAccumulator accumulator = new GuideAccumulator(channels, now);
+        for (Map<String, Object> item : feed) {
+            accumulator.addMap(item);
+        }
+        accumulator.finish("JSON guide contains no channel entries.",
+                "JSON guide contains no valid programmes matching playlist channel IDs or names.");
+    }
+
+    private static final class GuideAccumulator {
+        private final List<Channel> original;
+        private final List<Channel> working;
+        private final long now;
+        private final SimpleDateFormat timeFormat;
+        private final Map<String, Channel> byId = new HashMap<>();
+        private final java.util.Set<String> ambiguousIds = new java.util.HashSet<>();
+        private final Map<String, Channel> byName = new HashMap<>();
+        private final java.util.Set<String> ambiguousNames = new java.util.HashSet<>();
+        private int channelEntries;
+        private int matchedProgrammes;
+
+        GuideAccumulator(List<Channel> channels, long now) {
+            this.original = channels;
+            this.working = copyChannels(channels);
+            this.now = now;
+            this.timeFormat = guideTimeFormat();
+            clearGuideData(working);
+            for (Channel channel : working) {
+                addUnique(byId, ambiguousIds, channel.epgId, channel);
+                addUnique(byName, ambiguousNames, channel.name, channel);
+            }
+        }
+
+        void addJson(JSONObject item) {
+            channelEntries++;
+            Channel channel = findChannel(item.optString("service_id", ""), item.optString("unique_id", ""),
+                    item.optString("matching_key", ""), item.optString("channel", ""));
+            JSONArray schedule = item.optJSONArray("schedule");
+            if (channel == null || schedule == null) return;
+            for (int i = 0; i < schedule.length(); i++) {
+                JSONObject programme = schedule.optJSONObject(i);
+                if (programme != null) addProgramme(channel, programme.optString("title", ""),
+                        programme.optString("start", ""), programme.optString("end", ""));
+            }
+        }
+
+        void addMap(Map<String, Object> item) {
+            if (item == null) return;
+            channelEntries++;
+            Channel channel = findChannel(stringValue(item.get("service_id")), stringValue(item.get("unique_id")),
+                    stringValue(item.get("matching_key")), stringValue(item.get("channel")));
+            Object schedule = item.get("schedule");
+            if (channel == null || !(schedule instanceof List)) return;
+            for (Object value : (List<?>) schedule) {
+                if (!(value instanceof Map)) continue;
+                Map<?, ?> programme = (Map<?, ?>) value;
+                addProgramme(channel, stringValue(programme.get("title")), stringValue(programme.get("start")),
+                        stringValue(programme.get("end")));
+            }
+        }
+
+        private Channel findChannel(String serviceId, String uniqueId, String matchingKey, String name) {
+            Channel channel = uniqueMatch(byId, ambiguousIds, serviceId);
+            if (channel == null) channel = uniqueMatch(byId, ambiguousIds, uniqueId);
+            if (channel == null) channel = uniqueMatch(byId, ambiguousIds, matchingKey);
+            if (channel == null) channel = uniqueMatch(byName, ambiguousNames, name);
+            return channel;
+        }
+
+        private void addProgramme(Channel channel, String title, String start, String end) {
+            String cleanTitle = title.trim();
+            long begin = jsonTime(start, timeFormat);
+            long finish = jsonTime(end, timeFormat);
+            if (cleanTitle.isEmpty() || begin <= 0 || finish <= begin) return;
+            recordProgramme(channel, cleanTitle, begin, finish, now);
+            matchedProgrammes++;
+        }
+
+        void finish(String noEntriesMessage, String noMatchesMessage) {
+            if (channelEntries == 0) throw new IllegalArgumentException(noEntriesMessage);
+            if (matchedProgrammes == 0) throw new IllegalArgumentException(noMatchesMessage);
+            refreshProgrammeDisplay(working, now);
+            if (!hasCurrentOrUpcomingProgramme(working)) throw new IllegalArgumentException("JSON guide has no current or upcoming programmes.");
+            copyGuideData(working, original);
+        }
+    }
+
+    private static void recordProgramme(Channel channel, String title, long begin, long end, long now) {
+        if (end <= now || begin > now + PROGRAMME_CACHE_HORIZON_MS
+                || channel.programmes.size() >= MAX_CACHED_PROGRAMMES_PER_CHANNEL) return;
+        for (Programme programme : channel.programmes) {
+            if (programme.startMs == begin && programme.endMs == end && programme.title.equals(title)) return;
+        }
+        channel.programmes.add(new Programme(title, begin, end));
+    }
+
+    static void refreshProgrammeDisplay(List<Channel> channels, long now) {
+        for (Channel channel : channels) refreshProgrammeDisplay(channel, now);
+    }
+
+    static void refreshProgrammeDisplay(Channel channel, long now) {
+        if (channel.programmes.isEmpty()) {
+            // Older cache entries only contain the active and following titles.
+            if (channel.nowEndMs > 0 && channel.nowEndMs <= now) {
+                if (!channel.next.isEmpty()) {
+                    channel.now = channel.next;
+                    channel.nowStartMs = channel.nowEndMs;
+                    channel.nowEndMs = 0;
+                    channel.next = "";
+                } else {
+                    channel.now = "";
+                    channel.nowStartMs = 0;
+                    channel.nowEndMs = 0;
+                }
+            }
+            return;
+        }
+        Programme current = null;
+        Programme next = null;
+        for (Programme programme : channel.programmes) {
+            if (programme.startMs <= now && programme.endMs > now
+                    && (current == null || programme.startMs > current.startMs)) {
+                current = programme;
+            } else if (programme.startMs > now
+                    && (next == null || programme.startMs < next.startMs)) {
+                next = programme;
+            }
+        }
+        channel.now = current == null ? "" : current.title;
+        channel.nowStartMs = current == null ? 0 : current.startMs;
+        channel.nowEndMs = current == null ? 0 : current.endMs;
+        channel.next = next == null ? "" : next.title;
+    }
+
+    private static boolean hasCurrentOrUpcomingProgramme(List<Channel> channels) {
+        for (Channel channel : channels) if (!channel.now.isEmpty() || !channel.next.isEmpty()) return true;
+        return false;
+    }
+
+    private static String stringValue(Object value) { return value instanceof String ? (String) value : ""; }
+
+    private static void clearGuideData(List<Channel> channels) {
+        for (Channel channel : channels) {
+            channel.now = "";
+            channel.next = "";
+            channel.nowStartMs = 0;
+            channel.nowEndMs = 0;
+            channel.programmes.clear();
+        }
+    }
+
+    private static void copyGuideData(List<Channel> source, List<Channel> destination) {
+        int count = Math.min(source.size(), destination.size());
+        for (int i = 0; i < count; i++) {
+            Channel from = source.get(i);
+            Channel to = destination.get(i);
+            to.now = from.now;
+            to.next = from.next;
+            to.nowStartMs = from.nowStartMs;
+            to.nowEndMs = from.nowEndMs;
+            to.programmes.clear();
+            to.programmes.addAll(from.programmes);
+        }
+    }
+
+    private static void addUnique(Map<String, Channel> index, java.util.Set<String> ambiguous,
+                                  String key, Channel channel) {
+        String normalized = normalizeMatchKey(key);
+        if (normalized.isEmpty() || ambiguous.contains(normalized)) return;
+        Channel previous = index.putIfAbsent(normalized, channel);
+        if (previous != null && previous != channel) {
+            index.remove(normalized);
+            ambiguous.add(normalized);
+        }
+    }
+
+    private static Channel uniqueMatch(Map<String, Channel> index, java.util.Set<String> ambiguous, String key) {
+        String normalized = normalizeMatchKey(key);
+        return normalized.isEmpty() || ambiguous.contains(normalized) ? null : index.get(normalized);
+    }
+
+    private static String normalizeMatchKey(String value) {
+        if (value == null) return "";
+        StringBuilder normalized = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char ch = Character.toLowerCase(value.charAt(i));
+            if (Character.isLetterOrDigit(ch)) normalized.append(ch);
+        }
+        return normalized.toString();
+    }
+
+    private static SimpleDateFormat guideTimeFormat() {
+        SimpleDateFormat format = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.US);
+        format.setLenient(false);
+        format.setTimeZone(TimeZone.getTimeZone(GUIDE_TIME_ZONE));
+        return format;
+    }
+
+    private static long jsonTime(String value, SimpleDateFormat format) {
+        if (value == null || value.trim().isEmpty()) return 0;
+        ParsePosition position = new ParsePosition(0);
+        java.util.Date parsed = format.parse(value.trim(), position);
+        return parsed == null || position.getIndex() != value.trim().length() ? 0 : parsed.getTime();
     }
 
     static InputStream guideStream(InputStream raw) throws Exception {
@@ -295,18 +848,41 @@ final class IptvRepository {
         return first == 0x1f && second == 0x8b ? new GZIPInputStream(buffered) : buffered;
     }
 
-    private static long xmlTime(String value) {
+    private static long xmlTime(String value, SimpleDateFormat format) {
         if (value == null) return 0;
         try {
             String compact = value.trim().replace(" ", "");
-            java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("yyyyMMddHHmmssZ", java.util.Locale.US);
             if (compact.length() == 14) compact += "+0000";
             else if (compact.length() > 19) compact = compact.substring(0, 19);
-            return format.parse(compact).getTime();
+            format.setLenient(false);
+            ParsePosition position = new ParsePosition(0);
+            java.util.Date parsed = format.parse(compact, position);
+            return parsed == null || position.getIndex() != compact.length() ? 0 : parsed.getTime();
         } catch (Exception ignored) { return 0; }
     }
 
     private void saveCache(List<Channel> channels) throws Exception {
+        String serialized = serializeChannels(channels).toString();
+        // Keep two independent atomic copies. If an interrupted write or filesystem
+        // corruption makes the primary unreadable, startup can recover the last cache.
+        writeCache(CACHE_BACKUP_FILE, serialized);
+        writeCache(CACHE_FILE, serialized);
+    }
+
+    private void writeCache(String fileName, String serialized) throws Exception {
+        AtomicFile file = new AtomicFile(new java.io.File(context.getFilesDir(), fileName));
+        FileOutputStream output = null;
+        try {
+            output = file.startWrite();
+            output.write(serialized.getBytes(StandardCharsets.UTF_8));
+            file.finishWrite(output);
+        } catch (Exception e) {
+            if (output != null) file.failWrite(output);
+            throw e;
+        }
+    }
+
+    private JSONArray serializeChannels(List<Channel> channels) throws Exception {
         JSONArray array = new JSONArray();
         for (Channel c : channels) {
             JSONObject o = new JSONObject();
@@ -315,18 +891,22 @@ final class IptvRepository {
             o.put("drmLicenseUrl", c.drmLicenseUrl); o.put("drmHeaders", new JSONObject(c.drmHeaders));
             o.put("now", c.now); o.put("next", c.next);
             o.put("nowStartMs", c.nowStartMs); o.put("nowEndMs", c.nowEndMs);
+            o.put("programmes", serializeProgrammes(c.programmes));
             array.put(o);
         }
-        AtomicFile file = new AtomicFile(new java.io.File(context.getFilesDir(), CACHE_FILE));
-        FileOutputStream output = null;
-        try {
-            output = file.startWrite();
-            output.write(array.toString().getBytes(StandardCharsets.UTF_8));
-            file.finishWrite(output);
-        } catch (Exception e) {
-            if (output != null) file.failWrite(output);
-            throw e;
+        return array;
+    }
+
+    static JSONArray serializeProgrammes(List<Programme> programmes) throws Exception {
+        JSONArray result = new JSONArray();
+        for (Programme programme : programmes) {
+            JSONObject value = new JSONObject();
+            value.put("title", programme.title);
+            value.put("startMs", programme.startMs);
+            value.put("endMs", programme.endMs);
+            result.put(value);
         }
+        return result;
     }
 
     private static String safeMessage(Exception e) {
