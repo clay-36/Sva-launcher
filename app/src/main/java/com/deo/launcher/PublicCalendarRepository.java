@@ -31,7 +31,7 @@ import java.util.Set;
 /** Fetches a public iCalendar feed and expands common Google Calendar recurrence rules. */
 final class PublicCalendarRepository {
     private static final int MAX_FEED_BYTES = 6 * 1024 * 1024;
-    private static final long DISPLAY_LOOKAHEAD_MS = 30L * 24L * 60L * 60L * 1000L;
+    private static final long DISPLAY_LOOKAHEAD_MS = 366L * 24L * 60L * 60L * 1000L;
 
     private PublicCalendarRepository() { }
 
@@ -131,20 +131,22 @@ final class PublicCalendarRepository {
         if (title.trim().isEmpty()) title = "Calendar event";
         try {
             ZonedDateTime start = parseDate(startProperty);
+            boolean allDay = "DATE".equalsIgnoreCase(startProperty.parameters.get("VALUE"))
+                    || startProperty.value.length() == 8;
             Property endProperty = properties.get("DTEND");
             ZonedDateTime end = endProperty == null ? start.plusHours(1) : parseDate(endProperty);
             if (!end.isAfter(start)) return;
             Duration duration = Duration.between(start.toInstant(), end.toInstant());
             Property recurrence = properties.get("RRULE");
             if (recurrence == null) {
-                addIfRelevant(title, start, end, nowMs, output);
+                addIfRelevant(title, start, end, allDay, nowMs, output);
             } else {
-                expand(title, start, duration, recurrence.value, nowMs, output);
+                expand(title, start, duration, allDay, recurrence.value, nowMs, output);
             }
         } catch (Exception ignored) { }
     }
 
-    private static void expand(String title, ZonedDateTime first, Duration duration, String rule,
+    private static void expand(String title, ZonedDateTime first, Duration duration, boolean allDay, String rule,
                                long nowMs, List<Event> output) {
         Map<String, String> parts = new HashMap<>();
         for (String token : rule.split(";")) {
@@ -169,7 +171,7 @@ final class PublicCalendarRepository {
             if (until != null && occurrence.isAfter(until)) break;
             emitted++;
             ZonedDateTime occurrenceEnd = occurrence.plus(duration);
-            addIfRelevant(title, occurrence, occurrenceEnd, nowMs, output);
+            addIfRelevant(title, occurrence, occurrenceEnd, allDay, nowMs, output);
         }
     }
 
@@ -252,11 +254,11 @@ final class PublicCalendarRepository {
         return dateTime.atZone(zone);
     }
 
-    private static void addIfRelevant(String title, ZonedDateTime start, ZonedDateTime end,
+    private static void addIfRelevant(String title, ZonedDateTime start, ZonedDateTime end, boolean allDay,
                                       long nowMs, List<Event> output) {
         long startMs = start.toInstant().toEpochMilli(), endMs = end.toInstant().toEpochMilli();
         if (endMs <= nowMs - 24L * 60L * 60L * 1000L || startMs > nowMs + DISPLAY_LOOKAHEAD_MS) return;
-        output.add(new Event(title, startMs, endMs));
+        output.add(new Event(title, startMs, endMs, allDay));
     }
 
     private static String value(Map<String, Property> properties, String key) {
@@ -278,10 +280,15 @@ final class PublicCalendarRepository {
     static final class Event {
         final String title;
         final long startMs, endMs;
+        final boolean allDay;
         Event(String title, long startMs, long endMs) {
+            this(title, startMs, endMs, false);
+        }
+        Event(String title, long startMs, long endMs, boolean allDay) {
             this.title = title;
             this.startMs = startMs;
             this.endMs = endMs;
+            this.allDay = allDay;
         }
     }
 }

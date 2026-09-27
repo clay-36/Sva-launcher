@@ -287,6 +287,28 @@ public final class IptvRepositoryTest {
         assertTrue(IptvRepository.isChannelsStale(updated + 24L * 60L * 60L * 1000L, updated, updated));
     }
 
+    @Test public void customRefreshIntervalsAndManualModeAreHonored() {
+        long updated = 1_000_000L;
+        long sixHours = 6L * 60L * 60L * 1000L;
+        assertFalse(IptvRepository.isChannelsStale(updated + sixHours - 1L, updated, updated, sixHours));
+        assertTrue(IptvRepository.isChannelsStale(updated + sixHours, updated, updated, sixHours));
+        assertFalse(IptvRepository.isChannelsStale(updated + 30L * SchedulePreferences.DAY,
+                updated, updated, SchedulePreferences.MANUAL));
+        assertFalse(IptvRepository.isGuideStale(updated + 30L * SchedulePreferences.DAY,
+                updated, updated, true, false, SchedulePreferences.MANUAL));
+        assertEquals(sixHours, IptvRepository.millisUntilRefresh(updated, updated, updated, sixHours));
+        assertEquals(Long.MAX_VALUE, IptvRepository.millisUntilRefresh(
+                updated, updated, updated, SchedulePreferences.MANUAL));
+    }
+
+    @Test public void cacheSourceMustMatchOnceItHasBeenRecorded() {
+        assertTrue(IptvRepository.cacheMatchesSource("https://new.test/list.m3u", ""));
+        assertTrue(IptvRepository.cacheMatchesSource("https://same.test/list.m3u",
+                "https://same.test/list.m3u"));
+        assertFalse(IptvRepository.cacheMatchesSource("https://new.test/list.m3u",
+                "https://old.test/list.m3u"));
+    }
+
     @Test public void channelCacheUsesBackupWhenPrimaryIsMissingOrEmpty() {
         IptvRepository.Channel saved = channel("Saved channel", "saved.id");
         List<IptvRepository.Channel> backup = java.util.Collections.singletonList(saved);

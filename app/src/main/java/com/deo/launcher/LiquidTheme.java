@@ -41,4 +41,13 @@ final class LiquidTheme {
                 .setInterpolator(new android.view.animation.DecelerateInterpolator())
                 .setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 180 : 0).start();
     }
+
+    /** Focus animation for controls contained by a fixed rounded panel. */
+    static void animateContainedFocus(android.view.View view, boolean focused) {
+        view.animate().cancel();
+        view.animate().scaleX(1f).scaleY(1f)
+                .translationZ(focused ? dp(view.getContext(), 4) : 0)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 140 : 0).start();
+    }
 }

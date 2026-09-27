@@ -48,9 +48,10 @@ After installing, choose Duo Launcher as the device's Home app. If the TV keeps 
 
 Open Duo's full-screen **Settings** page to personalize the launcher:
 
-- **Live TV:** Enter an M3U/M3U8 playlist URL and optional XMLTV URL. Plain `.xml` and gzip-compressed `.xml.gz` guides are supported; guide entries match channels by `tvg-id`. Playlist and guide refresh on startup, and **Refresh now** requests an immediate update. Cached channels stay visible during refresh.
+- **Live TV:** Enter an M3U/M3U8 playlist URL and optional XMLTV URL. Plain `.xml` and gzip-compressed `.xml.gz` guides are supported; guide entries match channels by `tvg-id`. Playlist and guide freshness is checked on startup using their independent **Schedules** cadences, and **Refresh now** requests an immediate update. Cached channels stay visible during refresh.
 - **Apps & Clock:** Choose and reorder shortcuts. If no custom list is saved, Duo shows up to eight installed apps. Set 12/24-hour time and toggle the date.
-- **Appearance:** Choose a single wallpaper, a photo folder, or a Google Photos public album link. Folder and album photos cycle every five seconds; albums must be shared with anyone who has the link. The photo backdrop covers 70% of the screen, with app tiles along its lower edge.
+- **Appearance:** Choose a single wallpaper, a photo folder, or a Google Photos public album link. Folder and album photos cycle at the cadence selected under **Schedules**; albums must be shared with anyone who has the link. The photo backdrop covers 70% of the screen, with app tiles along its lower edge.
+- **Schedules:** Choose safe foreground refresh cadences independently for the slideshow, IPTV playlist, programme guide, public calendar, and Google Photos. Automatic jobs can be paused while manual refresh remains available.
 - **Channels:** Browse horizontal rows grouped by M3U `group-title`. Logos load from `tvg-logo` values and cache in memory and on disk. Use **Manage hidden channels** to search, hide, or restore channels.
 
 ## 🎬 Playback & guide

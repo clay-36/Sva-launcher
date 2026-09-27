@@ -40,8 +40,6 @@ final class IptvRepository {
     private static final String PREFS = "iptv";
     private static final String CACHE_FILE = "iptv-channels.json";
     private static final String CACHE_BACKUP_FILE = "iptv-channels-backup.json";
-    private static final long CHANNELS_REFRESH_AFTER_MS = 24L * 60L * 60L * 1000L;
-    private static final long GUIDE_REFRESH_AFTER_MS = 24L * 60L * 60L * 1000L;
     private static final long PROGRAMME_CACHE_HORIZON_MS = 48L * 60L * 60L * 1000L;
     private static final int MAX_CACHED_PROGRAMMES_PER_CHANNEL = 128;
     private static final int MAX_PLAYLIST_BYTES = 24 * 1024 * 1024;
@@ -117,9 +115,17 @@ final class IptvRepository {
     void saveUrls(String playlist, String guide) {
         String normalizedPlaylist = playlist.trim();
         String normalizedGuide = guide.trim();
+        String previousPlaylist = playlistUrl();
+        String previousGuide = guideUrl();
         SharedPreferences.Editor editor = prefs.edit().putString("playlist", normalizedPlaylist).putString("guide", normalizedGuide);
-        if (!normalizedPlaylist.equals(playlistUrl())) editor.remove("channelsUpdated").remove("channelsAttempted");
-        if (!normalizedGuide.equals(guideUrl())) editor.remove("guideUpdated").remove("guideAttempted");
+        if (!normalizedPlaylist.equals(previousPlaylist)) {
+            if (!previousPlaylist.isEmpty()) editor.putString("channelsCacheSource", previousPlaylist);
+            editor.remove("channelsUpdated").remove("channelsAttempted");
+        }
+        if (!normalizedGuide.equals(previousGuide)) {
+            if (!previousGuide.isEmpty()) editor.putString("guideCacheSource", previousGuide);
+            editor.remove("guideUpdated").remove("guideAttempted");
+        }
         editor.apply();
     }
     void saveDrmSettings(String url, String headers) {
@@ -128,7 +134,7 @@ final class IptvRepository {
 
     boolean isGuideStale() {
         return isGuideStale(System.currentTimeMillis(), lastGuideUpdatedAt(),
-                prefs.getLong("guideAttempted", lastGuideUpdatedAt()));
+                prefs.getLong("guideAttempted", lastGuideUpdatedAt()), guideRefreshInterval());
     }
     boolean isGuideStale(List<Channel> channels) {
         long updatedAt = lastGuideUpdatedAt();
@@ -143,28 +149,81 @@ final class IptvRepository {
             }
         }
         return isGuideStale(System.currentTimeMillis(), updatedAt, attemptedAt,
-                channels != null && !channels.isEmpty(), hasProgrammeSchedule);
+                channels != null && !channels.isEmpty(), hasProgrammeSchedule, guideRefreshInterval());
     }
     static boolean isGuideStale(long now, long updatedAt, long attemptedAt) {
-        return now - Math.max(updatedAt, attemptedAt) >= GUIDE_REFRESH_AFTER_MS;
+        return isGuideStale(now, updatedAt, attemptedAt, SchedulePreferences.DEFAULT_GUIDE);
+    }
+    static boolean isGuideStale(long now, long updatedAt, long attemptedAt, long interval) {
+        return interval > 0 && now - Math.max(updatedAt, attemptedAt) >= interval;
     }
     static boolean isGuideStale(long now, long updatedAt, long attemptedAt,
                                 boolean hasChannels, boolean hasProgrammeSchedule) {
+        return isGuideStale(now, updatedAt, attemptedAt, hasChannels, hasProgrammeSchedule,
+                SchedulePreferences.DEFAULT_GUIDE);
+    }
+    static boolean isGuideStale(long now, long updatedAt, long attemptedAt,
+                                boolean hasChannels, boolean hasProgrammeSchedule, long interval) {
+        if (interval <= 0) return false;
         if (hasChannels && !hasProgrammeSchedule && updatedAt > 0 && attemptedAt <= updatedAt) return true;
-        return isGuideStale(now, updatedAt, attemptedAt);
+        return isGuideStale(now, updatedAt, attemptedAt, interval);
     }
     boolean isChannelsStale() {
         return isChannelsStale(System.currentTimeMillis(), lastUpdatedAt(),
-                prefs.getLong("channelsAttempted", lastUpdatedAt()));
+                prefs.getLong("channelsAttempted", lastUpdatedAt()), playlistRefreshInterval());
     }
     static boolean isChannelsStale(long now, long updatedAt, long attemptedAt) {
-        return now - Math.max(updatedAt, attemptedAt) >= CHANNELS_REFRESH_AFTER_MS;
+        return isChannelsStale(now, updatedAt, attemptedAt, SchedulePreferences.DEFAULT_PLAYLIST);
+    }
+    static boolean isChannelsStale(long now, long updatedAt, long attemptedAt, long interval) {
+        return interval > 0 && now - Math.max(updatedAt, attemptedAt) >= interval;
+    }
+    private long playlistRefreshInterval() {
+        return SchedulePreferences.get(context.getSharedPreferences("launcher", Context.MODE_PRIVATE),
+                SchedulePreferences.PLAYLIST, SchedulePreferences.PLAYLIST_VALUES,
+                SchedulePreferences.DEFAULT_PLAYLIST);
+    }
+    private long guideRefreshInterval() {
+        return SchedulePreferences.get(context.getSharedPreferences("launcher", Context.MODE_PRIVATE),
+                SchedulePreferences.GUIDE, SchedulePreferences.GUIDE_VALUES, SchedulePreferences.DEFAULT_GUIDE);
+    }
+    long millisUntilChannelsRefresh() {
+        return millisUntilRefresh(System.currentTimeMillis(), lastUpdatedAt(),
+                prefs.getLong("channelsAttempted", lastUpdatedAt()), playlistRefreshInterval());
+    }
+    long millisUntilGuideRefresh() {
+        return millisUntilRefresh(System.currentTimeMillis(), lastGuideUpdatedAt(),
+                prefs.getLong("guideAttempted", lastGuideUpdatedAt()), guideRefreshInterval());
+    }
+    static long millisUntilRefresh(long now, long updatedAt, long attemptedAt, long interval) {
+        if (interval <= 0) return Long.MAX_VALUE;
+        return Math.max(0L, interval - Math.max(0L, now - Math.max(updatedAt, attemptedAt)));
     }
     long lastUpdatedAt() { return prefs.getLong("channelsUpdated", prefs.getLong("updated", 0)); }
     long lastGuideUpdatedAt() { return prefs.getLong("guideUpdated", 0); }
 
     List<Channel> cachedChannels() {
-        return selectCachedChannels(readCache(CACHE_FILE), readCache(CACHE_BACKUP_FILE));
+        List<Channel> cached = selectCachedChannels(readCache(CACHE_FILE), readCache(CACHE_BACKUP_FILE));
+        if (!cacheMatchesSource(playlistUrl(), prefs.getString("channelsCacheSource", ""))) {
+            return new ArrayList<>();
+        }
+        if (!cacheMatchesSource(guideUrl(), prefs.getString("guideCacheSource", ""))) {
+            cached = copyChannels(cached);
+            for (Channel channel : cached) clearProgrammeData(channel);
+        }
+        return cached;
+    }
+
+    static boolean cacheMatchesSource(String configured, String cachedSource) {
+        return cachedSource == null || cachedSource.isEmpty() || cachedSource.equals(configured);
+    }
+
+    private static void clearProgrammeData(Channel channel) {
+        channel.now = "";
+        channel.next = "";
+        channel.nowStartMs = 0L;
+        channel.nowEndMs = 0L;
+        channel.programmes.clear();
     }
 
     static List<Channel> selectCachedChannels(List<Channel> primary, List<Channel> backup) {
@@ -289,7 +348,10 @@ final class IptvRepository {
                     } else {
                         preserveGuideData(channels, cachedChannels());
                         saveCache(channels);
-                        prefs.edit().putLong("channelsUpdated", System.currentTimeMillis()).apply();
+                        long completedAt = System.currentTimeMillis();
+                        prefs.edit().putLong("channelsUpdated", completedAt)
+                                .putLong("channelsAttempted", completedAt)
+                                .putString("channelsCacheSource", playlist).apply();
                         loaded = channels;
                         message = "Channels updated.";
                     }
@@ -323,7 +385,8 @@ final class IptvRepository {
                     }
                     saveCache(updated);
                     long completedAt = System.currentTimeMillis();
-                    prefs.edit().putLong("guideUpdated", completedAt).putLong("guideAttempted", completedAt).apply();
+                    prefs.edit().putLong("guideUpdated", completedAt).putLong("guideAttempted", completedAt)
+                            .putString("guideCacheSource", guide).apply();
                     loaded = updated;
                     message = "Programme guide updated.";
                 } catch (Exception e) {

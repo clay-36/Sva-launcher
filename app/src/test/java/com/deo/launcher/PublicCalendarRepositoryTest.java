@@ -54,5 +54,19 @@ public final class PublicCalendarRepositoryTest {
         assertEquals("Festival", events.get(0).title);
         assertTrue(events.get(0).startMs <= now);
         assertTrue(now < events.get(0).endMs);
+        assertTrue(events.get(0).allDay);
+    }
+
+    @Test public void retainsUpcomingYearlyAllDayEventWithinOneYear() {
+        long now = Instant.parse("2026-09-27T08:00:00Z").toEpochMilli();
+        List<PublicCalendarRepository.Event> events = PublicCalendarRepository.parse(
+                "BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Ravi's Birthday\n"
+                        + "DTSTART;VALUE=DATE:20270403\nDTEND;VALUE=DATE:20270404\n"
+                        + "RRULE:FREQ=YEARLY\nEND:VEVENT\nEND:VCALENDAR\n", now);
+
+        assertEquals(1, events.size());
+        assertEquals("Ravi's Birthday", events.get(0).title);
+        assertTrue(events.get(0).startMs > now);
+        assertTrue(events.get(0).allDay);
     }
 }

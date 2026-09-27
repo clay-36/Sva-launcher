@@ -75,7 +75,11 @@ public final class MainActivity extends Activity {
     private static final int PICK_WALLPAPER_FOLDER = 4108;
     private static final int PICK_BACKUP_EXPORT = 4109;
     private static final int PICK_BACKUP_IMPORT = 4110;
-    private static final long SLIDESHOW_INTERVAL_MS = 5000L;
+    private static final String GOOGLE_PHOTOS_CACHE_URL = "googlePhotosCacheUrl";
+    private static final String GOOGLE_PHOTOS_CACHE_IMAGES = "googlePhotosCacheImages";
+    private static final String PHOTO_FOLDER_CACHE_URI = "photoFolderCacheUri";
+    private static final String PHOTO_FOLDER_CACHE_IMAGES = "photoFolderCacheImages";
+    private static final int CALENDAR_CACHE_VERSION = 2;
     private static final int PANEL = 0xF21B1B1B;
     private static final int PANEL_FOCUSED = 0xFF2A2A2A;
     private static final int MUTED = 0xFFB7B7B7;
@@ -113,6 +117,7 @@ public final class MainActivity extends Activity {
     private ImageView wallpaperImage, slideA, slideB;
     private TextView clock, date, status, channelHeader, greeting, greetingSubtitle, youtubeHeading;
     private LinearLayout calendarEventBar, calendarEventItems;
+    private TextView calendarEventTitle;
     private LinearLayout channelRows, channelCategoryTabs;
     private HorizontalScrollView channelCategoryScroll;
     private TextView channelsEmpty;
@@ -123,6 +128,7 @@ public final class MainActivity extends Activity {
     private Runnable clockTick;
     private Runnable guideRefreshTick;
     private Runnable calendarRefreshTick;
+    private Runnable googlePhotosRefreshTick;
     private Runnable slideshowTick;
     private final List<BackgroundPhoto> backgroundPhotos = new ArrayList<>();
     private final LruCache<String, android.graphics.Bitmap> backgroundBitmapCache = new LruCache<String, android.graphics.Bitmap>(20 * 1024) {
@@ -155,12 +161,14 @@ public final class MainActivity extends Activity {
         // Hydrate the in-memory list before constructing Home so cached channels
         // are present in the first rendered frame after a process restart.
         channels.addAll(iptv.cachedChannels());
-        buildHome();
-        renderChannels();
         String folder = preferences.getString("wallpaperFolder", "");
         String album = preferences.getString("wallpaperAlbum", "");
+        if (!folder.isEmpty()) backgroundPhotos.addAll(cachedBackgroundFolder(folder));
+        else if (!album.isEmpty()) backgroundPhotos.addAll(cachedBackgroundAlbum(album));
+        buildHome();
+        renderChannels();
         if (!folder.isEmpty()) loadBackgroundFolder(Uri.parse(folder), false);
-        else if (!album.isEmpty()) loadBackgroundAlbum(album, false);
+        else if (!album.isEmpty()) maybeRefreshGooglePhotos(true);
         updateClock();
         clockTick = new Runnable() {
             @Override public void run() {
@@ -174,19 +182,23 @@ public final class MainActivity extends Activity {
         guideRefreshTick = new Runnable() {
             @Override public void run() {
                 maybeRefreshLiveData();
-                handler.postDelayed(this, 60L * 60L * 1000L);
+                scheduleLiveRefreshCheck();
             }
         };
-        handler.postDelayed(guideRefreshTick, 60L * 60L * 1000L);
         updateCalendarEventDisplay();
         maybeRefreshPublicCalendar(false);
         calendarRefreshTick = new Runnable() {
             @Override public void run() {
                 maybeRefreshPublicCalendar(false);
-                handler.postDelayed(this, 6L * 60L * 60L * 1000L);
+                scheduleCalendarRefresh();
             }
         };
-        handler.postDelayed(calendarRefreshTick, 6L * 60L * 60L * 1000L);
+        googlePhotosRefreshTick = new Runnable() {
+            @Override public void run() {
+                maybeRefreshGooglePhotos(false);
+                scheduleGooglePhotosRefresh();
+            }
+        };
         if (state == null && folder.isEmpty() && album.isEmpty()) {
             handler.post(() -> openWallpaperFolderPicker());
         }
@@ -299,11 +311,10 @@ public final class MainActivity extends Activity {
         super.onResume();
         screenActive = true;
         maybeRefreshLiveData();
+        scheduleLiveRefreshCheck();
         maybeRefreshPublicCalendar(false);
-        if (calendarRefreshTick != null) {
-            handler.removeCallbacks(calendarRefreshTick);
-            handler.postDelayed(calendarRefreshTick, 6L * 60L * 60L * 1000L);
-        }
+        scheduleCalendarRefresh();
+        scheduleGooglePhotosRefresh();
         if (settingsScreen != null) settingsScreen.refreshLauncherOverride();
         if (root != null && !appsLoaded) renderApps();
         if (settingsScreen == null && !backgroundPhotos.isEmpty()) {
@@ -320,6 +331,7 @@ public final class MainActivity extends Activity {
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
         if (calendarRefreshTick != null) handler.removeCallbacks(calendarRefreshTick);
+        if (googlePhotosRefreshTick != null) handler.removeCallbacks(googlePhotosRefreshTick);
         backgroundImageGeneration++;
         super.onPause();
     }
@@ -328,6 +340,7 @@ public final class MainActivity extends Activity {
         if (clockTick != null) handler.removeCallbacks(clockTick);
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
         if (calendarRefreshTick != null) handler.removeCallbacks(calendarRefreshTick);
+        if (googlePhotosRefreshTick != null) handler.removeCallbacks(googlePhotosRefreshTick);
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
         glassBackdrop.close();
         super.onDestroy();
@@ -361,6 +374,7 @@ public final class MainActivity extends Activity {
         heroFrame.addView(wallpaperImage, new FrameLayout.LayoutParams(-1, -1));
         heroFrame.addView(slideA, new FrameLayout.LayoutParams(-1, -1));
         heroFrame.addView(slideB, new FrameLayout.LayoutParams(-1, -1));
+        showCachedBackgroundImmediately();
         GradientDrawable shadow = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{0x66000000, 0x28000000, 0x16000000, 0x16000000});
         View shade = new View(this);
@@ -466,32 +480,6 @@ public final class MainActivity extends Activity {
         appScroll.addView(appRow);
         homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(132)));
 
-        youtubeSection = new LinearLayout(this);
-        youtubeSection.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout youtubeTitleRow = new LinearLayout(this);
-        youtubeTitleRow.setGravity(Gravity.CENTER_VERTICAL);
-        youtubeHeading = label("Made for your downtime", 22, Color.WHITE, true);
-        youtubeHeading.setTextColor(Color.WHITE);
-        youtubeHeading.setLetterSpacing(.01f);
-        youtubeTitleRow.addView(youtubeHeading, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView youtubeHint = label("VIDEOS & PLAYLISTS", 10, LiquidTheme.secondaryText(this), true);
-        youtubeHint.setLetterSpacing(.12f);
-
-        youtubeTitleRow.setPadding(0, dp(8), 0, 0);
-        youtubeSection.addView(youtubeTitleRow, new LinearLayout.LayoutParams(-1, dp(56)));
-        HorizontalScrollView youtubeScroll = new HorizontalScrollView(this);
-        youtubeScroll.setHorizontalScrollBarEnabled(false);
-        youtubeScroll.setPadding(dp(8), dp(10), dp(8), dp(10));
-        youtubeScroll.setClipChildren(false);
-        youtubeScroll.setClipToPadding(false);
-        youtubeRow = new LinearLayout(this);
-        youtubeRow.setOrientation(LinearLayout.HORIZONTAL);
-        youtubeRow.setClipChildren(false);
-        youtubeRow.setClipToPadding(false);
-        youtubeScroll.addView(youtubeRow);
-        youtubeSection.addView(youtubeScroll, new LinearLayout.LayoutParams(-1, dp(230)));
-        homeContent.addView(youtubeSection, new LinearLayout.LayoutParams(-1, -2));
-        renderYouTubeCards();
         applyWallpaper();
 
         LinearLayout liveHeading = new LinearLayout(this);
@@ -524,6 +512,34 @@ public final class MainActivity extends Activity {
                 : "Channels loaded from device cache.", 15, MUTED, false);
         status.setPadding(0, dp(12), 0, 0);
         homeContent.addView(status);
+
+        youtubeSection = new LinearLayout(this);
+        youtubeSection.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout youtubeTitleRow = new LinearLayout(this);
+        youtubeTitleRow.setGravity(Gravity.CENTER_VERTICAL);
+        youtubeHeading = label("Made for your downtime", 22, Color.WHITE, true);
+        youtubeHeading.setTextColor(Color.WHITE);
+        youtubeHeading.setLetterSpacing(.01f);
+        youtubeTitleRow.addView(youtubeHeading, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView youtubeHint = label("VIDEOS & PLAYLISTS", 10, LiquidTheme.secondaryText(this), true);
+        youtubeHint.setLetterSpacing(.12f);
+
+        youtubeTitleRow.setPadding(0, dp(8), 0, 0);
+        youtubeSection.addView(youtubeTitleRow, new LinearLayout.LayoutParams(-1, dp(56)));
+        HorizontalScrollView youtubeScroll = new HorizontalScrollView(this);
+        youtubeScroll.setHorizontalScrollBarEnabled(false);
+        youtubeScroll.setPadding(dp(8), dp(10), dp(8), dp(10));
+        youtubeScroll.setClipChildren(false);
+        youtubeScroll.setClipToPadding(false);
+        youtubeRow = new LinearLayout(this);
+        youtubeRow.setOrientation(LinearLayout.HORIZONTAL);
+        youtubeRow.setClipChildren(false);
+        youtubeRow.setClipToPadding(false);
+        youtubeScroll.addView(youtubeRow);
+        youtubeSection.addView(youtubeScroll, new LinearLayout.LayoutParams(-1, dp(230)));
+        homeContent.addView(youtubeSection, new LinearLayout.LayoutParams(-1, -2));
+        renderYouTubeCards();
+
         calendarEventBar = new LinearLayout(this);
         calendarEventBar.setOrientation(LinearLayout.VERTICAL);
         calendarEventBar.setPadding(dp(16), dp(12), dp(16), dp(12));
@@ -531,9 +547,9 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams calendarBarParams = new LinearLayout.LayoutParams(-1, -2);
         calendarBarParams.setMargins(0, dp(18), 0, dp(12));
         homeContent.addView(calendarEventBar, calendarBarParams);
-        TextView calendarTitle = label("HAPPENING NOW", 11, LiquidTheme.text(this), true);
-        calendarTitle.setLetterSpacing(.14f);
-        calendarEventBar.addView(calendarTitle, new LinearLayout.LayoutParams(-1, dp(22)));
+        calendarEventTitle = label("HAPPENING NOW", 11, LiquidTheme.text(this), true);
+        calendarEventTitle.setLetterSpacing(.14f);
+        calendarEventBar.addView(calendarEventTitle, new LinearLayout.LayoutParams(-1, dp(22)));
         HorizontalScrollView calendarScroll = new HorizontalScrollView(this);
         calendarScroll.setHorizontalScrollBarEnabled(false);
         calendarScroll.setClipChildren(false);
@@ -662,7 +678,8 @@ public final class MainActivity extends Activity {
                 if (value == null) continue;
                 long start = value.optLong("start", 0L), end = value.optLong("end", 0L);
                 if (end > start) events.add(new PublicCalendarRepository.Event(
-                        value.optString("title", "Calendar event"), start, end));
+                        value.optString("title", "Calendar event"), start, end,
+                        value.optBoolean("allDay", false)));
             }
         } catch (Exception ignored) { }
         Collections.sort(events, (a, b) -> Long.compare(a.startMs, b.startMs));
@@ -677,26 +694,40 @@ public final class MainActivity extends Activity {
                 value.put("title", event.title);
                 value.put("start", event.startMs);
                 value.put("end", event.endMs);
+                value.put("allDay", event.allDay);
                 values.put(value);
             } catch (Exception ignored) { }
         }
         preferences.edit().putString("publicCalendarEvents", values.toString())
-                .putLong("publicCalendarUpdatedAt", System.currentTimeMillis()).apply();
+                .putLong("publicCalendarUpdatedAt", System.currentTimeMillis())
+                .putInt("publicCalendarCacheVersion", CALENDAR_CACHE_VERSION).apply();
     }
 
     private void updateCalendarEventDisplay() {
         if (calendarEventBar == null || calendarEventItems == null) return;
         long now = System.currentTimeMillis();
+        List<PublicCalendarRepository.Event> cached = cachedCalendarEvents();
         ArrayList<PublicCalendarRepository.Event> active = new ArrayList<>();
-        for (PublicCalendarRepository.Event event : cachedCalendarEvents()) {
+        for (PublicCalendarRepository.Event event : cached) {
             if (event.startMs <= now && now < event.endMs) active.add(event);
         }
+        boolean happeningNow = !active.isEmpty();
+        ArrayList<PublicCalendarRepository.Event> visible = active;
+        if (!happeningNow) {
+            visible = new ArrayList<>();
+            for (PublicCalendarRepository.Event event : cached) {
+                if (event.startMs > now) visible.add(event);
+                if (visible.size() == 3) break;
+            }
+        }
         calendarEventItems.removeAllViews();
-        calendarEventBar.setVisibility(active.isEmpty() ? View.GONE : View.VISIBLE);
-        if (active.isEmpty()) return;
+        calendarEventBar.setVisibility(visible.isEmpty() ? View.GONE : View.VISIBLE);
+        if (visible.isEmpty()) return;
+        if (calendarEventTitle != null) calendarEventTitle.setText(happeningNow ? "HAPPENING NOW" : "UPCOMING");
         DateFormat timeFormat = android.text.format.DateFormat.getTimeFormat(this);
         if (preferences.getBoolean("24h", false)) timeFormat = new java.text.SimpleDateFormat("HH:mm", Locale.getDefault());
-        for (PublicCalendarRepository.Event event : active) {
+        DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault());
+        for (PublicCalendarRepository.Event event : visible) {
             LinearLayout item = new LinearLayout(this);
             item.setOrientation(LinearLayout.VERTICAL);
             item.setPadding(dp(12), dp(7), dp(12), dp(7));
@@ -705,18 +736,23 @@ public final class MainActivity extends Activity {
             title.setMaxLines(1);
             title.setEllipsize(android.text.TextUtils.TruncateAt.END);
             item.addView(title, new LinearLayout.LayoutParams(-1, dp(26)));
-            TextView time = label(timeFormat.format(new Date(event.startMs)) + " – "
-                    + timeFormat.format(new Date(event.endMs)), 12, LiquidTheme.secondaryText(this), false);
+            String timing = event.allDay
+                    ? (happeningNow ? "Today · All day" : dateFormat.format(new Date(event.startMs)) + " · All day")
+                    : (happeningNow ? "" : dateFormat.format(new Date(event.startMs)) + " · ")
+                    + timeFormat.format(new Date(event.startMs)) + " – " + timeFormat.format(new Date(event.endMs));
+            TextView time = label(timing, 12, LiquidTheme.secondaryText(this), false);
             item.addView(time, new LinearLayout.LayoutParams(-1, dp(20)));
-            ProgressBar progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-            progress.setMax(1000);
-            int value = (int) Math.max(0, Math.min(1000,
-                    (now - event.startMs) * 1000L / Math.max(1L, event.endMs - event.startMs)));
-            progress.setProgress(value);
-            progress.setProgressTintList(android.content.res.ColorStateList.valueOf(LiquidTheme.accent(this)));
-            LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(-1, dp(4));
-            progressParams.topMargin = dp(5);
-            item.addView(progress, progressParams);
+            if (happeningNow) {
+                ProgressBar progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+                progress.setMax(1000);
+                int value = (int) Math.max(0, Math.min(1000,
+                        (now - event.startMs) * 1000L / Math.max(1L, event.endMs - event.startMs)));
+                progress.setProgress(value);
+                progress.setProgressTintList(android.content.res.ColorStateList.valueOf(LiquidTheme.accent(this)));
+                LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(-1, dp(4));
+                progressParams.topMargin = dp(5);
+                item.addView(progress, progressParams);
+            }
             LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(dp(390), dp(70));
             itemParams.setMargins(0, 0, dp(10), 0);
             calendarEventItems.addView(item, itemParams);
@@ -726,8 +762,15 @@ public final class MainActivity extends Activity {
     private void maybeRefreshPublicCalendar(boolean manual) {
         String url = preferences.getString("publicCalendarUrl", "");
         if (url.isEmpty() || url.equals(calendarRefreshingUrl)) return;
+        long interval = scheduleValue(SchedulePreferences.CALENDAR, SchedulePreferences.CALENDAR_VALUES,
+                SchedulePreferences.DEFAULT_CALENDAR);
+        if (!manual && interval <= 0) return;
         long lastUpdated = preferences.getLong("publicCalendarUpdatedAt", 0L);
-        if (!manual && lastUpdated > 0L && System.currentTimeMillis() - lastUpdated < 6L * 60L * 60L * 1000L) return;
+        long lastAttempted = preferences.getLong("publicCalendarAttemptedAt", lastUpdated);
+        boolean cacheNeedsUpgrade = preferences.getInt("publicCalendarCacheVersion", 0) < CALENDAR_CACHE_VERSION
+                && preferences.getInt("publicCalendarAttemptedVersion", 0) < CALENDAR_CACHE_VERSION;
+        if (!manual && !cacheNeedsUpgrade
+                && System.currentTimeMillis() - Math.max(lastUpdated, lastAttempted) < interval) return;
         refreshPublicCalendar(url, manual);
     }
 
@@ -735,6 +778,8 @@ public final class MainActivity extends Activity {
         if (url.equals(calendarRefreshingUrl)) return;
         calendarRefreshingUrl = url;
         calendarRefreshing = true;
+        preferences.edit().putLong("publicCalendarAttemptedAt", System.currentTimeMillis())
+                .putInt("publicCalendarAttemptedVersion", CALENDAR_CACHE_VERSION).apply();
         int generation = ++calendarRequestGeneration;
         calendarWorker.execute(() -> {
             String error = null;
@@ -763,8 +808,22 @@ public final class MainActivity extends Activity {
                 if (manual && resultError != null) {
                     Toast.makeText(this, "Calendar refresh failed: " + resultError, Toast.LENGTH_LONG).show();
                 }
+                scheduleCalendarRefresh();
             });
         });
+    }
+
+    private void scheduleCalendarRefresh() {
+        if (calendarRefreshTick == null) return;
+        handler.removeCallbacks(calendarRefreshTick);
+        if (!screenActive || preferences.getString("publicCalendarUrl", "").isEmpty()) return;
+        long interval = scheduleValue(SchedulePreferences.CALENDAR, SchedulePreferences.CALENDAR_VALUES,
+                SchedulePreferences.DEFAULT_CALENDAR);
+        if (interval <= 0) return;
+        long updated = preferences.getLong("publicCalendarUpdatedAt", 0L);
+        long attempted = preferences.getLong("publicCalendarAttemptedAt", updated);
+        long elapsed = Math.max(0L, System.currentTimeMillis() - Math.max(updated, attempted));
+        handler.postDelayed(calendarRefreshTick, Math.max(1000L, interval - elapsed));
     }
 
     private void updateGreeting() {
@@ -847,7 +906,10 @@ public final class MainActivity extends Activity {
             tile.setBackground(appTileStates);
             tile.setFocusableInTouchMode(false);
             tile.setElevation(dp(2));
-            tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+            tile.setOnFocusChangeListener((view, hasFocus) -> {
+                LiquidTheme.animateFocus(view, hasFocus);
+                if (hasFocus && homeScroll != null) homeScroll.scrollTo(0, 0);
+            });
             tile.setPadding(dp(6), dp(10), dp(6), dp(6));
             tile.setTag(packageName);
             ImageView icon = new ImageView(this);
@@ -865,13 +927,17 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(tileWidth), dp(108));
             lp.setMargins(0, 0, dp(8), 0);
             appRow.addView(tile, lp);
-            if (settingsScreen == null && packageName.equals(focusedPackage)) tile.requestFocus();
+            if (initialAppFocus && settingsScreen == null && packageName.equals(focusedPackage)) tile.requestFocus();
         }
         if (!initialAppFocus && appRow.getChildCount() > 0) {
             initialAppFocus = true;
             appRow.post(() -> {
-                if (settingsScreen == null && focusedPackage == null) appRow.getChildAt(0).requestFocus();
-                if (restoredScroll > 0) homeScroll.scrollTo(0, restoredScroll);
+                if (settingsScreen == null) {
+                    appRow.getChildAt(0).requestFocus();
+                    homeScroll.scrollTo(0, 0);
+                } else if (restoredScroll > 0) {
+                    homeScroll.scrollTo(0, restoredScroll);
+                }
             });
         }
         if (selected.isEmpty()) {
@@ -1470,16 +1536,25 @@ public final class MainActivity extends Activity {
 
     private void loadBackgroundFolder(Uri treeUri, boolean userSelected) {
         int generation = ++backgroundFolderGeneration;
+        List<BackgroundPhoto> cached = cachedBackgroundFolder(treeUri.toString());
+        if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
+        else if (userSelected && cached.isEmpty()) setBackgroundPhotos(Collections.emptyList());
         Thread loader = new Thread(() -> {
-            List<BackgroundPhoto> photos = enumeratePhotos(treeUri);
+            FolderScanResult scan = enumeratePhotos(treeUri);
             handler.post(() -> {
                 if (generation != backgroundFolderGeneration || isFinishing()) return;
-                setBackgroundPhotos(photos);
+                if (!scan.success) {
+                    if (userSelected) Toast.makeText(this,
+                            "Could not read that folder. Keeping the saved slideshow.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                cacheBackgroundFolder(treeUri.toString(), scan.photos);
+                if (!sameBackgroundPhotos(scan.photos)) setBackgroundPhotos(scan.photos);
                 if (settingsScreen != null) settingsScreen.refreshAppearance();
-                if (userSelected && photos.isEmpty()) {
+                if (userSelected && scan.photos.isEmpty()) {
                     Toast.makeText(this, "No images were found in that folder.", Toast.LENGTH_LONG).show();
                 } else if (userSelected) {
-                    Toast.makeText(this, "Background slideshow updated · " + photos.size() + " photos", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Background slideshow updated · " + scan.photos.size() + " photos", Toast.LENGTH_SHORT).show();
                 }
             });
         }, "background-folder-scan");
@@ -1489,6 +1564,9 @@ public final class MainActivity extends Activity {
 
     private void loadBackgroundAlbum(String shareUrl, boolean userSelected) {
         int generation = ++backgroundFolderGeneration;
+        List<BackgroundPhoto> cached = cachedBackgroundAlbum(shareUrl);
+        if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
+        preferences.edit().putLong("googlePhotosAttemptedAt", System.currentTimeMillis()).apply();
         Thread loader = new Thread(() -> {
             List<BackgroundPhoto> photos = new ArrayList<>();
             String failure = null;
@@ -1507,34 +1585,153 @@ public final class MainActivity extends Activity {
                     if (userSelected) Toast.makeText(this, error == null ? "No public photos were found in that album." : error, Toast.LENGTH_LONG).show();
                     return;
                 }
-                preferences.edit().putString("wallpaperAlbum", shareUrl).remove("wallpaperFolder").apply();
-                setBackgroundPhotos(result);
+                cacheBackgroundAlbum(shareUrl, result);
+                preferences.edit().putString("wallpaperAlbum", shareUrl).remove("wallpaperFolder")
+                        .putLong("googlePhotosUpdatedAt", System.currentTimeMillis()).apply();
+                if (!sameBackgroundPhotos(result)) setBackgroundPhotos(result);
                 if (settingsScreen != null) settingsScreen.refreshAppearance();
                 if (userSelected) Toast.makeText(this, "Google Photos slideshow updated · " + result.size() + " photos", Toast.LENGTH_SHORT).show();
+                scheduleGooglePhotosRefresh();
             });
         }, "google-photos-album");
         loader.setDaemon(true);
         loader.start();
     }
 
-    private List<BackgroundPhoto> enumeratePhotos(Uri treeUri) {
+    private void maybeRefreshGooglePhotos(boolean appLaunch) {
+        String album = preferences.getString("wallpaperAlbum", "");
+        if (album.isEmpty() || !preferences.getString("wallpaperFolder", "").isEmpty()) return;
+        long interval = scheduleValue(SchedulePreferences.GOOGLE_PHOTOS,
+                SchedulePreferences.GOOGLE_PHOTOS_VALUES, SchedulePreferences.DEFAULT_GOOGLE_PHOTOS);
+        if (interval == SchedulePreferences.MANUAL) return;
+        if (interval == SchedulePreferences.EVERY_LAUNCH) {
+            if (appLaunch) loadBackgroundAlbum(album, false);
+            return;
+        }
+        long updated = preferences.getLong("googlePhotosUpdatedAt", 0L);
+        long attempted = preferences.getLong("googlePhotosAttemptedAt", updated);
+        if (System.currentTimeMillis() - Math.max(updated, attempted) >= interval) {
+            loadBackgroundAlbum(album, false);
+        }
+    }
+
+    private void scheduleGooglePhotosRefresh() {
+        if (googlePhotosRefreshTick == null) return;
+        handler.removeCallbacks(googlePhotosRefreshTick);
+        if (!screenActive || preferences.getString("wallpaperAlbum", "").isEmpty()
+                || !preferences.getString("wallpaperFolder", "").isEmpty()) return;
+        long interval = scheduleValue(SchedulePreferences.GOOGLE_PHOTOS,
+                SchedulePreferences.GOOGLE_PHOTOS_VALUES, SchedulePreferences.DEFAULT_GOOGLE_PHOTOS);
+        if (interval <= 0) return;
+        long updated = preferences.getLong("googlePhotosUpdatedAt", 0L);
+        long attempted = preferences.getLong("googlePhotosAttemptedAt", updated);
+        long elapsed = Math.max(0L, System.currentTimeMillis() - Math.max(updated, attempted));
+        handler.postDelayed(googlePhotosRefreshTick, Math.max(1000L, interval - elapsed));
+    }
+
+    private List<BackgroundPhoto> cachedBackgroundAlbum(String shareUrl) {
         ArrayList<BackgroundPhoto> photos = new ArrayList<>();
-        Set<String> visited = new HashSet<>();
+        if (!shareUrl.equals(preferences.getString(GOOGLE_PHOTOS_CACHE_URL, ""))) return photos;
         try {
-            collectPhotos(treeUri, DocumentsContract.getTreeDocumentId(treeUri), "", visited, photos, 0);
-            Collections.sort(photos, (left, right) -> left.name.compareToIgnoreCase(right.name));
+            JSONArray urls = new JSONArray(preferences.getString(GOOGLE_PHOTOS_CACHE_IMAGES, "[]"));
+            for (int i = 0; i < urls.length(); i++) {
+                String url = urls.optString(i, "");
+                if (!url.isEmpty()) photos.add(new BackgroundPhoto(Uri.parse(url), "Google Photos " + (i + 1)));
+            }
         } catch (Exception ignored) { }
         return photos;
     }
 
-    private void collectPhotos(Uri treeUri, String documentId, String parentPath, Set<String> visited,
-                               List<BackgroundPhoto> photos, int depth) {
-        if (depth > 16 || !visited.add(documentId)) return;
+    private List<BackgroundPhoto> cachedBackgroundFolder(String folderUri) {
+        ArrayList<BackgroundPhoto> photos = new ArrayList<>();
+        if (!folderUri.equals(preferences.getString(PHOTO_FOLDER_CACHE_URI, ""))) return photos;
+        try {
+            JSONArray values = new JSONArray(preferences.getString(PHOTO_FOLDER_CACHE_IMAGES, "[]"));
+            for (int i = 0; i < values.length(); i++) {
+                JSONObject value = values.optJSONObject(i);
+                if (value == null) continue;
+                String uri = value.optString("uri", "");
+                if (!uri.isEmpty()) photos.add(new BackgroundPhoto(Uri.parse(uri), value.optString("name", "Photo")));
+            }
+        } catch (Exception ignored) { }
+        return photos;
+    }
+
+    private void cacheBackgroundFolder(String folderUri, List<BackgroundPhoto> photos) {
+        JSONArray values = new JSONArray();
+        for (BackgroundPhoto photo : photos) {
+            JSONObject value = new JSONObject();
+            try {
+                value.put("uri", photo.uri.toString());
+                value.put("name", photo.name);
+                values.put(value);
+            } catch (Exception ignored) { }
+        }
+        preferences.edit().putString(PHOTO_FOLDER_CACHE_URI, folderUri)
+                .putString(PHOTO_FOLDER_CACHE_IMAGES, values.toString()).apply();
+    }
+
+    private void cacheBackgroundAlbum(String shareUrl, List<BackgroundPhoto> photos) {
+        JSONArray urls = new JSONArray();
+        for (BackgroundPhoto photo : photos) urls.put(photo.uri.toString());
+        preferences.edit()
+                .putString(GOOGLE_PHOTOS_CACHE_URL, shareUrl)
+                .putString(GOOGLE_PHOTOS_CACHE_IMAGES, urls.toString())
+                .apply();
+    }
+
+    private boolean sameBackgroundPhotos(List<BackgroundPhoto> photos) {
+        if (backgroundPhotos.size() != photos.size()) return false;
+        for (int i = 0; i < photos.size(); i++) {
+            if (!backgroundPhotos.get(i).uri.equals(photos.get(i).uri)) return false;
+        }
+        return true;
+    }
+
+    private void showCachedBackgroundImmediately() {
+        if (backgroundPhotos.isEmpty()) return;
+        slideshowTick = this::showNextBackgroundPhoto;
+        Uri uri = backgroundPhotos.get(0).uri;
+        String url = uri.toString();
+        int targetWidth = Math.min(getResources().getDisplayMetrics().widthPixels, 1280);
+        int targetHeight = Math.min(dp(heroHeightDp()), 720);
+        String scheme = uri.getScheme();
+        android.graphics.Bitmap bitmap;
+        if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
+            java.io.File file = new java.io.File(new java.io.File(getCacheDir(), "google-photos"),
+                    remoteWallpaperCacheName(url));
+            if (!file.isFile()) return;
+            bitmap = decodeBackgroundImage(file, targetWidth, targetHeight);
+        } else {
+            bitmap = decodeWallpaper(uri, targetWidth, targetHeight);
+        }
+        if (bitmap == null) return;
+        backgroundBitmapCache.put(url, bitmap);
+        slideA.setImageBitmap(bitmap);
+        slideA.setVisibility(View.VISIBLE);
+        slideA.setAlpha(1f);
+        slideAActive = false;
+        backgroundIndex = backgroundPhotos.size() > 1 ? 1 : 0;
+    }
+
+    private FolderScanResult enumeratePhotos(Uri treeUri) {
+        ArrayList<BackgroundPhoto> photos = new ArrayList<>();
+        Set<String> visited = new HashSet<>();
+        try {
+            boolean success = collectPhotos(treeUri, DocumentsContract.getTreeDocumentId(treeUri), "", visited, photos, 0);
+            Collections.sort(photos, (left, right) -> left.name.compareToIgnoreCase(right.name));
+            return new FolderScanResult(photos, success);
+        } catch (Exception ignored) { return new FolderScanResult(photos, false); }
+    }
+
+    private boolean collectPhotos(Uri treeUri, String documentId, String parentPath, Set<String> visited,
+                                  List<BackgroundPhoto> photos, int depth) {
+        if (depth > 16 || !visited.add(documentId)) return true;
         Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId);
         String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                 DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE};
         try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) return;
+            if (cursor == null) return false;
             while (cursor.moveToNext()) {
                 String childId = cursor.getString(0);
                 String name = cursor.getString(1);
@@ -1546,7 +1743,8 @@ public final class MainActivity extends Activity {
                     photos.add(new BackgroundPhoto(documentUri, parentPath + (name == null ? childId : name)));
                 }
             }
-        } catch (Exception ignored) { }
+            return true;
+        } catch (Exception ignored) { return false; }
     }
 
     private static boolean isImageDocument(String mime, String name) {
@@ -1582,7 +1780,13 @@ public final class MainActivity extends Activity {
     private void scheduleNextBackgroundPhoto() {
         if (slideshowTick == null || !screenActive || settingsScreen != null || backgroundPhotos.size() < 2) return;
         handler.removeCallbacks(slideshowTick);
-        handler.postDelayed(slideshowTick, SLIDESHOW_INTERVAL_MS);
+        long interval = scheduleValue(SchedulePreferences.SLIDESHOW,
+                SchedulePreferences.SLIDESHOW_VALUES, SchedulePreferences.DEFAULT_SLIDESHOW);
+        if (interval > 0) handler.postDelayed(slideshowTick, interval);
+    }
+
+    private long scheduleValue(String key, long[] values, long fallback) {
+        return SchedulePreferences.get(preferences, key, values, fallback);
     }
 
     private void showNextBackgroundPhoto() {
@@ -1625,6 +1829,15 @@ public final class MainActivity extends Activity {
         final Uri uri;
         final String name;
         BackgroundPhoto(Uri uri, String name) { this.uri = uri; this.name = name; }
+    }
+
+    private static final class FolderScanResult {
+        final List<BackgroundPhoto> photos;
+        final boolean success;
+        FolderScanResult(List<BackgroundPhoto> photos, boolean success) {
+            this.photos = photos;
+            this.success = success;
+        }
     }
 
     private static final class ChannelRow {
@@ -1696,6 +1909,7 @@ public final class MainActivity extends Activity {
             status.setText(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
             if (!channels.isEmpty() && !iptv.guideUrl().isEmpty() && iptv.isGuideStale(channels)) refreshGuide(false);
+            scheduleLiveRefreshCheck();
         }));
     }
 
@@ -1711,6 +1925,7 @@ public final class MainActivity extends Activity {
             renderChannels();
             status.setText(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
+            scheduleLiveRefreshCheck();
         }));
     }
 
@@ -1721,10 +1936,17 @@ public final class MainActivity extends Activity {
         } else if (!channels.isEmpty() && !iptv.guideUrl().isEmpty() && iptv.isGuideStale(channels)) {
             refreshGuide(false);
         }
-        if (guideRefreshTick != null) {
-            handler.removeCallbacks(guideRefreshTick);
-            handler.postDelayed(guideRefreshTick, 60L * 60L * 1000L);
-        }
+    }
+
+    private void scheduleLiveRefreshCheck() {
+        if (guideRefreshTick == null) return;
+        handler.removeCallbacks(guideRefreshTick);
+        if (!screenActive) return;
+        long channelDelay = iptv.playlistUrl().isEmpty() ? Long.MAX_VALUE : iptv.millisUntilChannelsRefresh();
+        long guideDelay = channels.isEmpty() || iptv.guideUrl().isEmpty()
+                ? Long.MAX_VALUE : iptv.millisUntilGuideRefresh();
+        long delay = Math.min(channelDelay, guideDelay);
+        if (delay != Long.MAX_VALUE) handler.postDelayed(guideRefreshTick, Math.max(60_000L, delay));
     }
 
     private SettingsScreen settingsScreen;
@@ -1752,16 +1974,16 @@ public final class MainActivity extends Activity {
     }
 
     private final class SettingsScreen {
-        private static final int LIVE = 0, CHANNELS = 1, APPS = 2, APPEARANCE = 3, CLOCK = 4, DRM = 5, HOME = 6, BACKUP = 7, YOUTUBE = 8, CALENDAR = 9;
-        private final String[] sections = {"Live TV", "Channels", "Apps", "Appearance", "Clock", "Playback & DRM", "Home button", "Backup & restore", "YouTube", "Calendar"};
-        private final String[] sectionGlyphs = {"✦", "◈", "▦", "▧", "◷", "◉", "⌂", "⇧", "▶", "◷"};
+        private static final int LIVE = 0, CHANNELS = 1, APPS = 2, APPEARANCE = 3, CLOCK = 4, DRM = 5, HOME = 6, BACKUP = 7, YOUTUBE = 8, CALENDAR = 9, SCHEDULES = 10;
+        private final String[] sections = {"Live TV", "Channels", "Apps", "Appearance", "Clock", "Playback & DRM", "Home button", "Backup & restore", "YouTube", "Calendar", "Schedules"};
+        private final String[] sectionGlyphs = {"✦", "◈", "▦", "▧", "◷", "◉", "⌂", "⇧", "▶", "◷", "↻"};
         private final String[] descriptions = {
                 "Playlist and programme guide", "Choose which channels appear on Home",
                 "Choose and order your home shortcuts", "Photo backdrop and wallpaper",
                 "Time and date on Home", "Default Widevine license settings",
                 "Open Duo when the TV Home button opens its built-in launcher",
                 "Save or restore launcher settings and channels", "Save videos and playlists on Home",
-                "Show events from a public Google Calendar"
+                "Show events from a public Google Calendar", "Choose when content updates automatically"
         };
         private final Dialog dialog = new Dialog(MainActivity.this, android.R.style.Theme_Material_NoActionBar);
         private final Button[] tabs = new Button[sections.length];
@@ -1813,7 +2035,7 @@ public final class MainActivity extends Activity {
             TextView hint = label("SETTINGS  ·  PERSONALIZE YOUR TV", 10, MUTED, true);
             hint.setLetterSpacing(.11f);
             headingCopy.addView(hint);
-            Button close = actionButton("Close");
+            Button close = settingsButton("Close");
             close.setOnClickListener(v -> requestClose());
             heading.addView(close, new LinearLayout.LayoutParams(dp(124), dp(48)));
 
@@ -1840,10 +2062,11 @@ public final class MainActivity extends Activity {
             body.addView(railScroll, railParams);
             for (int i = 0; i < sections.length; i++) {
                 final int target = i;
-                Button tab = actionButton(sections[i]);
+                Button tab = settingsButton(sections[i]);
                 tab.setText(sectionGlyphs[i] + "   " + sections[i]);
                 tab.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
                 tab.setPadding(dp(16), 0, dp(12), 0);
+                tab.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
                 tab.setId(View.generateViewId());
                 tab.setOnClickListener(v -> {
                     captureDrafts();
@@ -1973,6 +2196,7 @@ public final class MainActivity extends Activity {
                 case BACKUP: renderBackup(page); break;
                 case YOUTUBE: renderYouTubeSettings(page); break;
                 case CALENDAR: renderCalendarSettings(page); break;
+                case SCHEDULES: renderSchedules(page); break;
                 default: break;
             }
             if (firstControl != null) {
@@ -2014,6 +2238,60 @@ public final class MainActivity extends Activity {
             addFormButton(form, "Create backup file", v -> openBackupExportPicker());
             addFormButton(form, "Restore from backup", v -> openBackupImportPicker());
             addFormHint(form, "Restoring replaces the current launcher settings and saved channel cache.");
+        }
+
+        private void renderSchedules(LinearLayout page) {
+            LinearLayout form = scrollForm(page);
+            addFormHint(form, "Schedules run while Duo is open. Overdue content is checked when Home resumes; manual refresh buttons continue to work when automatic refresh is disabled.");
+            addScheduleButton(form, "Photo slideshow", SchedulePreferences.SLIDESHOW,
+                    SchedulePreferences.SLIDESHOW_VALUES, SchedulePreferences.DEFAULT_SLIDESHOW, true, false,
+                    () -> {
+                        if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
+                        scheduleNextBackgroundPhoto();
+                    });
+            addScheduleButton(form, "IPTV playlist", SchedulePreferences.PLAYLIST,
+                    SchedulePreferences.PLAYLIST_VALUES, SchedulePreferences.DEFAULT_PLAYLIST, false, false,
+                    () -> { maybeRefreshLiveData(); scheduleLiveRefreshCheck(); });
+            addScheduleButton(form, "Programme guide", SchedulePreferences.GUIDE,
+                    SchedulePreferences.GUIDE_VALUES, SchedulePreferences.DEFAULT_GUIDE, false, false,
+                    () -> { maybeRefreshLiveData(); scheduleLiveRefreshCheck(); });
+            addScheduleButton(form, "Public calendar", SchedulePreferences.CALENDAR,
+                    SchedulePreferences.CALENDAR_VALUES, SchedulePreferences.DEFAULT_CALENDAR, false, false,
+                    () -> { maybeRefreshPublicCalendar(false); scheduleCalendarRefresh(); });
+            addScheduleButton(form, "Google Photos album", SchedulePreferences.GOOGLE_PHOTOS,
+                    SchedulePreferences.GOOGLE_PHOTOS_VALUES, SchedulePreferences.DEFAULT_GOOGLE_PHOTOS, false, true,
+                    () -> { maybeRefreshGooglePhotos(false); scheduleGooglePhotosRefresh(); });
+            addFormHint(form, "Paused keeps the current photo visible. Every launch refreshes Google Photos once when Duo starts. Manual only disables automatic network refreshes.");
+            addFormButton(form, "Restore schedule defaults", v -> {
+                preferences.edit()
+                        .putLong(SchedulePreferences.SLIDESHOW, SchedulePreferences.DEFAULT_SLIDESHOW)
+                        .putLong(SchedulePreferences.PLAYLIST, SchedulePreferences.DEFAULT_PLAYLIST)
+                        .putLong(SchedulePreferences.GUIDE, SchedulePreferences.DEFAULT_GUIDE)
+                        .putLong(SchedulePreferences.CALENDAR, SchedulePreferences.DEFAULT_CALENDAR)
+                        .putLong(SchedulePreferences.GOOGLE_PHOTOS, SchedulePreferences.DEFAULT_GOOGLE_PHOTOS)
+                        .apply();
+                maybeRefreshLiveData();
+                scheduleLiveRefreshCheck();
+                maybeRefreshPublicCalendar(false);
+                scheduleCalendarRefresh();
+                scheduleGooglePhotosRefresh();
+                scheduleNextBackgroundPhoto();
+                renderSection();
+            });
+        }
+
+        private void addScheduleButton(LinearLayout form, String title, String key, long[] values,
+                                       long fallback, boolean slideshow, boolean googlePhotos,
+                                       Runnable apply) {
+            long current = scheduleValue(key, values, fallback);
+            Button button = addFormButton(form, title + "  ·  "
+                    + SchedulePreferences.label(current, slideshow, googlePhotos), null);
+            button.setOnClickListener(v -> {
+                long next = SchedulePreferences.next(scheduleValue(key, values, fallback), values, fallback);
+                preferences.edit().putLong(key, next).apply();
+                button.setText(title + "  ·  " + SchedulePreferences.label(next, slideshow, googlePhotos));
+                apply.run();
+            });
         }
 
         private void renderYouTubeSettings(LinearLayout page) {
@@ -2101,11 +2379,11 @@ public final class MainActivity extends Activity {
                 detail.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
                 copy.addView(detail);
                 row.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
-                Button remove = actionButton("Remove");
+                Button remove = settingsButton("Remove");
                 remove.setContentDescription("Remove " + card.title + " from Home");
-                Button editTitle = actionButton("Title");
+                Button editTitle = settingsButton("Title");
                 editTitle.setContentDescription("Edit title for " + card.title);
-                Button editArt = actionButton("Art");
+                Button editArt = settingsButton("Art");
                 editArt.setContentDescription("Edit artwork for " + card.title);
                 LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(dp(88), dp(46));
                 editParams.setMargins(dp(8), 0, 0, 0);
@@ -2228,7 +2506,8 @@ public final class MainActivity extends Activity {
                 String entered = calendarUrlField == null ? draftCalendarUrl : calendarUrlField.getText().toString().trim();
                 if (entered.isEmpty()) {
                     preferences.edit().remove("publicCalendarUrl").remove("publicCalendarEvents")
-                            .remove("publicCalendarUpdatedAt").apply();
+                            .remove("publicCalendarUpdatedAt").remove("publicCalendarAttemptedAt")
+                            .remove("publicCalendarCacheVersion").remove("publicCalendarAttemptedVersion").apply();
                     draftCalendarUrl = "";
                     if (calendarUrlField != null) calendarUrlField.setText("");
                     if (calendarFeedback != null) calendarFeedback.setText("Calendar removed.");
@@ -2244,7 +2523,9 @@ public final class MainActivity extends Activity {
                 String previous = preferences.getString("publicCalendarUrl", "");
                 if (!normalized.equals(previous)) {
                     preferences.edit().putString("publicCalendarUrl", normalized)
-                            .putString("publicCalendarEvents", "[]").remove("publicCalendarUpdatedAt").apply();
+                            .putString("publicCalendarEvents", "[]").remove("publicCalendarUpdatedAt")
+                            .remove("publicCalendarAttemptedAt").remove("publicCalendarCacheVersion")
+                            .remove("publicCalendarAttemptedVersion").apply();
                     updateCalendarEventDisplay();
                 }
                 draftCalendarUrl = normalized;
@@ -2267,7 +2548,7 @@ public final class MainActivity extends Activity {
             calendarFeedback = label("", 13, LiquidTheme.secondaryText(MainActivity.this), false);
             calendarFeedback.setPadding(dp(2), dp(7), dp(2), dp(4));
             form.addView(calendarFeedback);
-            addFormHint(form, "The on-device schedule is checked on app launch and refreshed every six hours. Events appear while their scheduled start and end times are active.");
+            addFormHint(form, "The on-device schedule is checked when Duo opens. Change its automatic refresh cadence under Schedules. Events appear while their start and end times are active.");
         }
 
         private String calendarSummaryText() {
@@ -2341,12 +2622,18 @@ public final class MainActivity extends Activity {
         }
 
         private Button addFormButton(LinearLayout form, String text, View.OnClickListener listener) {
-            Button button = actionButton(text);
+            Button button = settingsButton(text);
             button.setOnClickListener(listener);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(54));
             params.setMargins(0, dp(8), 0, dp(8));
             form.addView(button, params);
             if (firstControl == null) firstControl = button;
+            return button;
+        }
+
+        private Button settingsButton(String text) {
+            Button button = actionButton(text);
+            button.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
             return button;
         }
 
@@ -2369,17 +2656,17 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(54));
             rowParams.setMargins(0, dp(8), 0, dp(6));
             page.addView(actions, rowParams);
-            Button saveButton = actionButton("Save changes");
+            Button saveButton = settingsButton("Save changes");
             stylePrimaryButton(saveButton);
             saveButton.setOnClickListener(save);
             actions.addView(saveButton, new LinearLayout.LayoutParams(dp(158), -1));
-            Button discardButton = actionButton("Discard edits");
+            Button discardButton = settingsButton("Discard edits");
             discardButton.setOnClickListener(discard);
             LinearLayout.LayoutParams discardParams = new LinearLayout.LayoutParams(dp(158), -1);
             discardParams.setMargins(dp(12), 0, 0, 0);
             actions.addView(discardButton, discardParams);
             if (refresh != null) {
-                Button refreshButton = actionButton("Refresh channels");
+                Button refreshButton = settingsButton("Refresh channels");
                 refreshButton.setOnClickListener(refresh);
                 LinearLayout.LayoutParams refreshParams = new LinearLayout.LayoutParams(dp(158), -1);
                 refreshParams.setMargins(dp(12), 0, 0, 0);
@@ -2406,17 +2693,22 @@ public final class MainActivity extends Activity {
                 }
                 refreshGuide(true);
             });
-            addFormHint(form, "Live TV channels and the programme guide update automatically once a day. You can also start a refresh here.");
+            addFormHint(form, "Playlist and programme-guide refresh cadences are configured independently under Schedules. You can also refresh them manually here.");
             addSaveActions(page, v -> {
                 captureDrafts();
                 String playlist = draftPlaylist.trim(), guide = draftGuide.trim();
                 boolean changed = !playlist.equals(iptv.playlistUrl()) || !guide.equals(iptv.guideUrl());
                 iptv.saveUrls(playlist, guide);
                 draftPlaylist = playlist; draftGuide = guide;
+                if (changed) {
+                    channels.clear();
+                    channels.addAll(iptv.cachedChannels());
+                    renderChannels();
+                }
                 renderSection();
                 if (changed) maybeRefreshLiveData();
                 if (liveFeedback != null) liveFeedback.setText(changed
-                        ? "Settings saved. Live TV and the programme guide update once a day."
+                        ? "Settings saved. Automatic refresh uses the cadences under Schedules."
                         : "No changes to save.");
             }, v -> {
                 draftPlaylist = iptv.playlistUrl(); draftGuide = iptv.guideUrl(); renderSection();
@@ -2478,7 +2770,7 @@ public final class MainActivity extends Activity {
                     v -> changeLiquidGlassMode(LiquidTheme.LIGHT));
             addFormButton(form, "Dark" + (LiquidTheme.DARK.equals(mode) ? "  ·  Selected" : ""),
                     v -> changeLiquidGlassMode(LiquidTheme.DARK));
-            addFormHint(form, "A selected photo folder or Google Photos public album cycles images every five seconds and takes priority over a single wallpaper.");
+            addFormHint(form, "A selected photo folder or Google Photos public album uses the slideshow cadence configured under Schedules and takes priority over a single wallpaper.");
             boolean hasFolder = !preferences.getString("wallpaperFolder", "").isEmpty();
             TextView folderState = label(hasFolder
                     ? "Photo folder selected · " + backgroundPhotos.size() + " images found"
@@ -2489,7 +2781,9 @@ public final class MainActivity extends Activity {
             });
             if (hasFolder) addFormButton(form, "Clear photo folder", v -> {
                 backgroundFolderGeneration++;
-                preferences.edit().remove("wallpaperFolder").apply();
+                preferences.edit().remove("wallpaperFolder")
+                        .remove(PHOTO_FOLDER_CACHE_URI)
+                        .remove(PHOTO_FOLDER_CACHE_IMAGES).apply();
                 String album = preferences.getString("wallpaperAlbum", "");
                 if (!album.isEmpty()) loadBackgroundAlbum(album, false);
                 else setBackgroundPhotos(Collections.emptyList());
@@ -2510,7 +2804,12 @@ public final class MainActivity extends Activity {
             });
             if (!albumUrl.isEmpty()) addFormButton(form, "Clear Google Photos album", v -> {
                 backgroundFolderGeneration++;
-                preferences.edit().remove("wallpaperAlbum").apply();
+                preferences.edit().remove("wallpaperAlbum")
+                        .remove(GOOGLE_PHOTOS_CACHE_URL)
+                        .remove(GOOGLE_PHOTOS_CACHE_IMAGES)
+                        .remove("googlePhotosUpdatedAt")
+                        .remove("googlePhotosAttemptedAt")
+                        .apply();
                 String folder = preferences.getString("wallpaperFolder", "");
                 if (!folder.isEmpty()) loadBackgroundFolder(Uri.parse(folder), false);
                 else setBackgroundPhotos(Collections.emptyList());
@@ -2757,15 +3056,15 @@ public final class MainActivity extends Activity {
                 RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(-1, dp(70));
                 params.setMargins(0, 0, 0, dp(7));
                 row.setLayoutParams(params);
-                Button toggle = actionButton("");
+                Button toggle = settingsButton("");
                 toggle.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
                 toggle.setPadding(dp(18), 0, dp(12), 0);
                 row.addView(toggle, new LinearLayout.LayoutParams(0, dp(60), 1));
-                Button up = actionButton("↑");
+                Button up = settingsButton("↑");
                 LinearLayout.LayoutParams upParams = new LinearLayout.LayoutParams(dp(56), dp(60));
                 upParams.setMargins(dp(8), 0, 0, 0);
                 row.addView(up, upParams);
-                Button down = actionButton("↓");
+                Button down = settingsButton("↓");
                 LinearLayout.LayoutParams downParams = new LinearLayout.LayoutParams(dp(56), dp(60));
                 downParams.setMargins(dp(8), 0, 0, 0);
                 row.addView(down, downParams);
@@ -2907,6 +3206,17 @@ public final class MainActivity extends Activity {
         String key = uri.toString();
         android.graphics.Bitmap cached = backgroundBitmapCache.get(key);
         if (cached != null && !cached.isRecycled()) return cached;
+        java.io.File cacheDirectory = new java.io.File(getCacheDir(), "google-photos");
+        java.io.File cacheFile = new java.io.File(cacheDirectory, remoteWallpaperCacheName(key));
+        if (cacheFile.isFile()) {
+            android.graphics.Bitmap diskCached = decodeBackgroundImage(cacheFile, targetWidth, targetHeight);
+            if (diskCached != null) {
+                cacheFile.setLastModified(System.currentTimeMillis());
+                backgroundBitmapCache.put(key, diskCached);
+                return diskCached;
+            }
+            cacheFile.delete();
+        }
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) new java.net.URL(key).openConnection();
@@ -2937,7 +3247,18 @@ public final class MainActivity extends Activity {
                 options.inSampleSize = sample;
                 options.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565;
                 android.graphics.Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
-                if (bitmap != null) backgroundBitmapCache.put(key, bitmap);
+                if (bitmap != null) {
+                    backgroundBitmapCache.put(key, bitmap);
+                    cacheDirectory.mkdirs();
+                    java.io.File temporary = new java.io.File(cacheDirectory, cacheFile.getName() + ".tmp");
+                    try (java.io.FileOutputStream file = new java.io.FileOutputStream(temporary)) {
+                        file.write(bytes);
+                        file.flush();
+                    }
+                    if (cacheFile.exists()) cacheFile.delete();
+                    temporary.renameTo(cacheFile);
+                    trimGooglePhotosCache(cacheDirectory);
+                }
                 return bitmap;
             }
         } catch (Exception ignored) {
@@ -2945,5 +3266,36 @@ public final class MainActivity extends Activity {
         } finally {
             if (connection != null) connection.disconnect();
         }
+    }
+
+    private android.graphics.Bitmap decodeBackgroundImage(java.io.File file, int targetWidth, int targetHeight) {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+        long targetPixels = Math.max(1L, (long) targetWidth * targetHeight);
+        int sample = 1;
+        while (((long) bounds.outWidth / (sample * 2L)) * ((long) bounds.outHeight / (sample * 2L)) > targetPixels * 2L
+                && sample < (1 << 29)) sample *= 2;
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = sample;
+        options.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565;
+        return BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+    }
+
+    private String remoteWallpaperCacheName(String url) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(url.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder key = new StringBuilder();
+            for (byte value : digest) key.append(String.format(Locale.ROOT, "%02x", value));
+            return key + ".img";
+        } catch (Exception ignored) { return Integer.toHexString(url.hashCode()) + ".img"; }
+    }
+
+    private void trimGooglePhotosCache(java.io.File directory) {
+        java.io.File[] files = directory.listFiles(file -> file.isFile() && !file.getName().endsWith(".tmp"));
+        if (files == null || files.length <= 100) return;
+        java.util.Arrays.sort(files, (left, right) -> Long.compare(left.lastModified(), right.lastModified()));
+        for (int i = 0; i < files.length - 100; i++) files[i].delete();
     }
 }
