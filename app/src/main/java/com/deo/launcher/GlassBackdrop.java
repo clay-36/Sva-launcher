@@ -30,7 +30,7 @@ final class GlassBackdrop {
         worker.execute(() -> {
             Bitmap blurred = blur(source);
             main.post(() -> {
-                if (closed || request != generation) return;
+                if (closed || request != generation) { blurred.recycle(); return; }
                 if (transition != null) transition.cancel();
                 outgoing = current;
                 current = blurred;
@@ -43,12 +43,12 @@ final class GlassBackdrop {
                     transition.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
                     transition.addUpdateListener(value -> {
                         fraction = (float) value.getAnimatedValue();
-                        if (fraction == 1f) outgoing = null;
+                        if (fraction == 1f) recycleOutgoing();
                         invalidate();
                     });
                     transition.start();
                 } else {
-                    outgoing = null;
+                    recycleOutgoing();
                     invalidate();
                 }
             });
@@ -83,8 +83,15 @@ final class GlassBackdrop {
         generation++;
         if (transition != null) transition.cancel();
         worker.shutdownNow();
+        if (current != null) current.recycle();
+        if (outgoing != null && outgoing != current) outgoing.recycle();
         current = outgoing = null;
         surfaces.clear();
+    }
+
+    private void recycleOutgoing() {
+        if (outgoing != null && outgoing != current) outgoing.recycle();
+        outgoing = null;
     }
 
     private static Bitmap blur(Bitmap source) {

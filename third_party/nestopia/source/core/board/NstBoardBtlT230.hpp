@@ -1,0 +1,57 @@
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// Nestopia - NES/Famicom emulator written in C++
+//
+// Copyright (C) 2003-2008 Martin Freij
+//
+// This file is part of Nestopia.
+//
+// Nestopia is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// Nestopia is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Nestopia; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+//
+////////////////////////////////////////////////////////////////////////////////////////
+
+#ifndef NST_BOARD_BTL_T230_H
+#define NST_BOARD_BTL_T230_H
+
+namespace Nes
+{
+	namespace Core
+	{
+		namespace Boards
+		{
+			namespace Btl
+			{
+				class T230 : public Konami::Vrc4
+				{
+				public:
+
+					// VRC4e: the register index comes from A3 and A2. The
+					// lines are fixed by the board, so they are not taken
+					// from the cartridge's chip pin configuration.
+					explicit T230(const Context& c)
+					: Vrc4(c,3,2) {}
+
+				private:
+
+					void SubReset(bool);
+
+					NES_DECL_POKE( A000 );
+				};
+			}
+		}
+	}
+}
+
+#endif

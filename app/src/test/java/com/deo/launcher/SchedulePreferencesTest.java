@@ -27,5 +27,6 @@ public final class SchedulePreferencesTest {
         assertEquals("Every launch", SchedulePreferences.label(-1L, false, true));
         assertEquals("6 hours", SchedulePreferences.label(6L * SchedulePreferences.HOUR, false, false));
         assertEquals("1 day", SchedulePreferences.label(SchedulePreferences.DAY, false, false));
+        assertEquals("Every launch", SchedulePreferences.label(SchedulePreferences.DEFAULT_WEATHER, false, true));
     }
 }

@@ -1,0 +1,16 @@
+Duo Launcher
+Copyright (c) 2026 Duo Launcher contributors
+
+This combined application is distributed under the GNU General Public License,
+version 3. See LICENSE and the complete corresponding source in this repository.
+
+Embedded NES emulation is provided by the libretro Nestopia port, pinned at:
+https://github.com/libretro/nestopia/commit/8f00f500912a847062de432e38765c7285483e62
+
+Nestopia JG is GPL-2.0-or-later.
+Copyright (c) 2003-2008 Martin Freij
+Copyright (c) 2008-2018 Nestopia UE Contributors
+Copyright (c) 2020-2026 Rupert Carmichael
+
+The unmodified upstream license and notices are retained in third_party/nestopia.
+No game ROMs, BIOS files, or copyrighted game artwork are included.

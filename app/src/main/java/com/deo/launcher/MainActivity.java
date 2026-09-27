@@ -3,6 +3,7 @@ package com.deo.launcher;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.Manifest;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.ComponentName;
 import android.content.Context;
@@ -10,6 +11,10 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.database.Cursor;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -27,8 +32,11 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.CancellationSignal;
 import android.util.LruCache;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
@@ -75,6 +83,7 @@ public final class MainActivity extends Activity {
     private static final int PICK_WALLPAPER_FOLDER = 4108;
     private static final int PICK_BACKUP_EXPORT = 4109;
     private static final int PICK_BACKUP_IMPORT = 4110;
+    private static final int REQUEST_WEATHER_LOCATION = 4111;
     private static final String GOOGLE_PHOTOS_CACHE_URL = "googlePhotosCacheUrl";
     private static final String GOOGLE_PHOTOS_CACHE_IMAGES = "googlePhotosCacheImages";
     private static final String PHOTO_FOLDER_CACHE_URI = "photoFolderCacheUri";
@@ -99,6 +108,11 @@ public final class MainActivity extends Activity {
         thread.setDaemon(true);
         return thread;
     });
+    private final ExecutorService ioWorker = Executors.newFixedThreadPool(2, runnable -> {
+        Thread thread = new Thread(runnable, "launcher-io");
+        thread.setDaemon(true);
+        return thread;
+    });
     private final LruCache<String, android.graphics.Bitmap> youtubeThumbnailCache = new LruCache<String, android.graphics.Bitmap>(12 * 1024) {
         @Override protected int sizeOf(String key, android.graphics.Bitmap bitmap) {
             return Math.max(1, bitmap.getByteCount() / 1024);
@@ -107,7 +121,7 @@ public final class MainActivity extends Activity {
     private IptvRepository iptv;
     private ChannelLogoLoader logoLoader;
     private SharedPreferences preferences;
-    private LinearLayout root, homeContent, appRow, youtubeRow, youtubeSection;
+    private LinearLayout root, homeContent, appRow, gameRow, youtubeRow, youtubeSection;
     private FrameLayout heroFrame;
     private final GlassBackdrop glassBackdrop = new GlassBackdrop();
     private ScrollView homeScroll;
@@ -116,6 +130,8 @@ public final class MainActivity extends Activity {
     private int restoredScroll;
     private ImageView wallpaperImage, slideA, slideB;
     private TextView clock, date, status, channelHeader, greeting, greetingSubtitle, youtubeHeading;
+    private LinearLayout weatherPanel, weatherDays;
+    private TextView weatherTemperature, weatherCondition, weatherPlace;
     private LinearLayout calendarEventBar, calendarEventItems;
     private TextView calendarEventTitle;
     private LinearLayout channelRows, channelCategoryTabs;
@@ -129,6 +145,7 @@ public final class MainActivity extends Activity {
     private Runnable guideRefreshTick;
     private Runnable calendarRefreshTick;
     private Runnable googlePhotosRefreshTick;
+    private Runnable weatherRefreshTick;
     private Runnable slideshowTick;
     private final List<BackgroundPhoto> backgroundPhotos = new ArrayList<>();
     private final LruCache<String, android.graphics.Bitmap> backgroundBitmapCache = new LruCache<String, android.graphics.Bitmap>(20 * 1024) {
@@ -146,6 +163,12 @@ public final class MainActivity extends Activity {
     private boolean calendarRefreshing;
     private String calendarRefreshingUrl = "";
     private int calendarRequestGeneration;
+    private WeatherRepository.Forecast weatherForecast;
+    private int weatherRequestGeneration;
+    private boolean weatherRefreshing, weatherExpanded, weatherRefreshedThisLaunch, pendingDeviceWeatherLocation;
+    private LocationListener weatherLocationListener;
+    private CancellationSignal weatherLocationCancellation;
+    private Runnable weatherLocationTimeout;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -157,16 +180,15 @@ public final class MainActivity extends Activity {
         }
         iptv = new IptvRepository(this);
         logoLoader = new ChannelLogoLoader(this);
+        weatherForecast = cachedWeather();
         hiddenChannelKeys.addAll(preferences.getStringSet("hiddenChannels", Collections.emptySet()));
-        // Hydrate the in-memory list before constructing Home so cached channels
-        // are present in the first rendered frame after a process restart.
-        channels.addAll(iptv.cachedChannels());
         String folder = preferences.getString("wallpaperFolder", "");
         String album = preferences.getString("wallpaperAlbum", "");
         if (!folder.isEmpty()) backgroundPhotos.addAll(cachedBackgroundFolder(folder));
         else if (!album.isEmpty()) backgroundPhotos.addAll(cachedBackgroundAlbum(album));
         buildHome();
         renderChannels();
+        loadCachedChannels();
         if (!folder.isEmpty()) loadBackgroundFolder(Uri.parse(folder), false);
         else if (!album.isEmpty()) maybeRefreshGooglePhotos(true);
         updateClock();
@@ -197,6 +219,12 @@ public final class MainActivity extends Activity {
             @Override public void run() {
                 maybeRefreshGooglePhotos(false);
                 scheduleGooglePhotosRefresh();
+            }
+        };
+        weatherRefreshTick = new Runnable() {
+            @Override public void run() {
+                maybeRefreshWeather(false);
+                scheduleWeatherRefresh();
             }
         };
         if (state == null && folder.isEmpty() && album.isEmpty()) {
@@ -315,8 +343,11 @@ public final class MainActivity extends Activity {
         maybeRefreshPublicCalendar(false);
         scheduleCalendarRefresh();
         scheduleGooglePhotosRefresh();
+        maybeRefreshWeather(false);
+        scheduleWeatherRefresh();
         if (settingsScreen != null) settingsScreen.refreshLauncherOverride();
         if (root != null && !appsLoaded) renderApps();
+        if (gameRow != null) renderGames();
         if (settingsScreen == null && !backgroundPhotos.isEmpty()) {
             if (slideA.getVisibility() != View.VISIBLE && slideB.getVisibility() != View.VISIBLE) {
                 showNextBackgroundPhoto();
@@ -332,6 +363,8 @@ public final class MainActivity extends Activity {
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
         if (calendarRefreshTick != null) handler.removeCallbacks(calendarRefreshTick);
         if (googlePhotosRefreshTick != null) handler.removeCallbacks(googlePhotosRefreshTick);
+        if (weatherRefreshTick != null) handler.removeCallbacks(weatherRefreshTick);
+        cancelWeatherLocation();
         backgroundImageGeneration++;
         super.onPause();
     }
@@ -341,9 +374,35 @@ public final class MainActivity extends Activity {
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
         if (calendarRefreshTick != null) handler.removeCallbacks(calendarRefreshTick);
         if (googlePhotosRefreshTick != null) handler.removeCallbacks(googlePhotosRefreshTick);
+        if (weatherRefreshTick != null) handler.removeCallbacks(weatherRefreshTick);
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
+        handler.removeCallbacksAndMessages(null);
+        calendarRequestGeneration++;
+        backgroundFolderGeneration++;
+        backgroundImageGeneration++;
+        weatherRequestGeneration++;
+        cancelWeatherLocation();
+        youtubeWorker.shutdownNow();
+        calendarWorker.shutdownNow();
+        ioWorker.shutdownNow();
+        if (logoLoader != null) logoLoader.close();
+        youtubeThumbnailCache.evictAll();
+        backgroundBitmapCache.evictAll();
         glassBackdrop.close();
         super.onDestroy();
+    }
+
+    private void loadCachedChannels() {
+        ioWorker.execute(() -> {
+            List<IptvRepository.Channel> cached = iptv.cachedChannels();
+            handler.post(() -> {
+                if (isFinishing() || isDestroyed() || !channels.isEmpty()) return;
+                channels.addAll(cached);
+                renderChannels();
+                if (!cached.isEmpty()) status.setText("Channels loaded from device cache.");
+                scheduleLiveRefreshCheck();
+            });
+        });
     }
 
     private void buildHome() {
@@ -399,46 +458,82 @@ public final class MainActivity extends Activity {
             glassBackdrop.invalidate();
         });
         FrameLayout heroContent = new FrameLayout(this);
-        root.addView(heroContent, new LinearLayout.LayoutParams(-1, dp(Math.max(210, heroHeightDp() - 190))));
+        root.addView(heroContent, new LinearLayout.LayoutParams(-1, dp(Math.max(330, heroHeightDp() - 190))));
 
-        LinearLayout top = new LinearLayout(this);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(dp(42), dp(28), dp(42), dp(12));
-        heroContent.addView(top, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
+        LinearLayout headerInfo = new LinearLayout(this);
+        headerInfo.setGravity(Gravity.TOP);
+        FrameLayout.LayoutParams headerParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+        headerParams.setMargins(dp(48), dp(36), 0, 0);
+        heroContent.addView(headerInfo, headerParams);
         LinearLayout timeStack = new LinearLayout(this);
         timeStack.setOrientation(LinearLayout.VERTICAL);
-        timeStack.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
-        timeStack.setPadding(dp(16), dp(9), dp(18), dp(9));
-        timeStack.setBackground(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 22));
-        LinearLayout.LayoutParams timeParams = new LinearLayout.LayoutParams(-2, -2);
-        top.addView(timeStack, timeParams);
+        timeStack.setGravity(Gravity.START);
+        headerInfo.addView(timeStack, new LinearLayout.LayoutParams(-2, -2));
         clock = new TextView(this);
-        clock.setTextColor(LiquidTheme.text(this));
-        clock.setTextSize(25);
+        clock.setTextColor(Color.WHITE);
+        clock.setTextSize(52);
         clock.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        clock.setGravity(Gravity.LEFT);
+        clock.setShadowLayer(dp(10), 0, dp(2), 0x99000000);
+        clock.setIncludeFontPadding(false);
         timeStack.addView(clock);
         date = new TextView(this);
-        date.setTextColor(LiquidTheme.secondaryText(this));
-        date.setTextSize(11);
-        date.setLetterSpacing(.05f);
-        date.setGravity(Gravity.LEFT);
+        date.setTextColor(0xFFE3EBF0);
+        date.setTextSize(15);
+        date.setShadowLayer(dp(7), 0, dp(1), 0x99000000);
+        date.setLetterSpacing(.02f);
+        date.setSingleLine(true);
+        date.setEllipsize(TextUtils.TruncateAt.END);
+        date.setMaxWidth(dp(320));
         timeStack.addView(date);
-        top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+
         LinearLayout systemShortcuts = new LinearLayout(this);
         systemShortcuts.setGravity(Gravity.CENTER_VERTICAL);
         systemShortcuts.setPadding(dp(5), dp(4), dp(5), dp(4));
         systemShortcuts.setBackground(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 28));
-        LinearLayout.LayoutParams shortcutParams = new LinearLayout.LayoutParams(-2, dp(52));
-        shortcutParams.setMargins(dp(8), 0, 0, 0);
-        top.addView(systemShortcuts, shortcutParams);
+        FrameLayout.LayoutParams shortcutParams = new FrameLayout.LayoutParams(-2, dp(52), Gravity.TOP | Gravity.END);
+        shortcutParams.setMargins(0, dp(38), dp(42), 0);
+        heroContent.addView(systemShortcuts, shortcutParams);
         addTopIcon(systemShortcuts, "Network", R.drawable.ic_network, this::openNetworkSettings);
         addTopIcon(systemShortcuts, "Android Settings", android.R.drawable.ic_menu_manage, this::openAndroidSettings);
         addTopIcon(systemShortcuts, "Launcher Settings", R.drawable.ic_launcher_settings, this::showSettings);
 
+        weatherPanel = new LinearLayout(this);
+        weatherPanel.setOrientation(LinearLayout.VERTICAL);
+        weatherPanel.setGravity(Gravity.START);
+        weatherPanel.setFocusable(true); weatherPanel.setClickable(true);
+        weatherPanel.setContentDescription("Set up weather");
+        weatherTemperature = label("Add weather", 30, Color.WHITE, true);
+        weatherTemperature.setShadowLayer(dp(10), 0, dp(2), 0x99000000);
+        weatherTemperature.setIncludeFontPadding(false);
+        weatherPanel.addView(weatherTemperature);
+        weatherCondition = label("Local conditions on Home", 14, 0xFFE3EBF0, false);
+        weatherCondition.setShadowLayer(dp(7), 0, dp(1), 0x99000000);
+        weatherCondition.setSingleLine(true); weatherCondition.setEllipsize(TextUtils.TruncateAt.END);
+        weatherPanel.addView(weatherCondition);
+        weatherPlace = label("", 12, 0xFFD6E1E8, false);
+        weatherPlace.setShadowLayer(dp(7), 0, dp(1), 0x99000000);
+        weatherPlace.setSingleLine(true); weatherPlace.setEllipsize(TextUtils.TruncateAt.END);
+        weatherPanel.addView(weatherPlace);
+        weatherPanel.setOnFocusChangeListener((view, focused) -> {
+            weatherTemperature.setTextColor(focused ? 0xFFBCE7FF : Color.WHITE);
+            weatherCondition.setTextColor(focused ? Color.WHITE : 0xFFE3EBF0);
+        });
+        weatherDays = new LinearLayout(this); weatherDays.setOrientation(LinearLayout.HORIZONTAL); weatherDays.setVisibility(View.GONE);
+        weatherDays.setPadding(0, dp(10), 0, 0);
+        weatherPanel.addView(weatherDays, new LinearLayout.LayoutParams(-1, -2));
+        weatherPanel.setOnClickListener(v -> {
+            if (!hasWeatherLocation()) { openWeatherSettings(); return; }
+            weatherExpanded = !weatherExpanded;
+            renderWeather();
+        });
+        LinearLayout.LayoutParams weatherParams = new LinearLayout.LayoutParams(dp(250), -2);
+        weatherParams.leftMargin = dp(32);
+        headerInfo.addView(weatherPanel, weatherParams);
+        renderWeather();
+
         LinearLayout heroBottom = new LinearLayout(this);
         heroBottom.setOrientation(LinearLayout.VERTICAL);
-        heroBottom.setPadding(dp(48), 0, dp(48), dp(22));
+        heroBottom.setPadding(dp(48), 0, dp(48), dp(32));
         greeting = label("", 32, Color.WHITE, true);
         greeting.setTextColor(Color.WHITE);
         greeting.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -447,12 +542,11 @@ public final class MainActivity extends Activity {
         greetingSubtitle = label("", 14, Color.WHITE, false);
         greetingSubtitle.setTextColor(0xFFD4DFE8);
         heroBottom.addView(greetingSubtitle);
-
         heroContent.addView(heroBottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
 
         homeContent = new LinearLayout(this);
         homeContent.setOrientation(LinearLayout.VERTICAL);
-        homeContent.setPadding(dp(48), dp(12), dp(48), dp(24));
+        homeContent.setPadding(dp(48), dp(18), dp(48), dp(32));
         homeContent.setClipChildren(false);
         homeContent.setClipToPadding(false);
         homeContent.setBackgroundColor(Color.TRANSPARENT);
@@ -460,13 +554,11 @@ public final class MainActivity extends Activity {
 
         LinearLayout appsHeading = new LinearLayout(this);
         appsHeading.setGravity(Gravity.CENTER_VERTICAL);
-        homeContent.addView(appsHeading, new LinearLayout.LayoutParams(-1, dp(28)));
-        TextView appsTitle = label("Your apps", 14, Color.WHITE, true);
+        homeContent.addView(appsHeading, new LinearLayout.LayoutParams(-1, dp(48)));
+        TextView appsTitle = label("Your apps", 22, Color.WHITE, true);
         appsTitle.setTextColor(0xFFE3EDF5);
         appsTitle.setLetterSpacing(.02f);
         appsHeading.addView(appsTitle, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView appsHint = label("SELECT TO OPEN", 10, LiquidTheme.lavender(this), true);
-        appsHint.setLetterSpacing(.12f);
 
         HorizontalScrollView appScroll = new HorizontalScrollView(this);
         appScroll.setHorizontalScrollBarEnabled(false);
@@ -480,11 +572,33 @@ public final class MainActivity extends Activity {
         appScroll.addView(appRow);
         homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(132)));
 
+        LinearLayout gamesHeading = new LinearLayout(this);
+        gamesHeading.setGravity(Gravity.CENTER_VERTICAL);
+        TextView gamesTitle = label("Games", 22, Color.WHITE, true);
+        gamesTitle.setTextColor(Color.WHITE);
+        gamesHeading.addView(gamesTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        Button seeAllGames = actionButton("See all");
+        seeAllGames.setOnClickListener(v -> startActivity(new Intent(this, GameLibraryActivity.class)));
+        gamesHeading.addView(seeAllGames, new LinearLayout.LayoutParams(dp(118), dp(44)));
+        LinearLayout.LayoutParams gamesHeadingParams = new LinearLayout.LayoutParams(-1, dp(56));
+        gamesHeadingParams.topMargin = dp(14);
+        homeContent.addView(gamesHeading, gamesHeadingParams);
+        HorizontalScrollView gameScroll = new HorizontalScrollView(this);
+        gameScroll.setHorizontalScrollBarEnabled(false);
+        gameScroll.setPadding(dp(8), dp(8), dp(8), dp(10));
+        gameScroll.setClipChildren(false); gameScroll.setClipToPadding(false);
+        gameRow = new LinearLayout(this); gameRow.setOrientation(LinearLayout.HORIZONTAL);
+        gameRow.setClipChildren(false); gameRow.setClipToPadding(false); gameScroll.addView(gameRow);
+        homeContent.addView(gameScroll, new LinearLayout.LayoutParams(-1, dp(224)));
+        renderGames();
+
         applyWallpaper();
 
         LinearLayout liveHeading = new LinearLayout(this);
         liveHeading.setGravity(Gravity.CENTER_VERTICAL);
-        homeContent.addView(liveHeading, new LinearLayout.LayoutParams(-1, dp(56)));
+        LinearLayout.LayoutParams liveHeadingParams = new LinearLayout.LayoutParams(-1, dp(56));
+        liveHeadingParams.topMargin = dp(16);
+        homeContent.addView(liveHeading, liveHeadingParams);
         channelHeader = label("Live, right now", 22, Color.WHITE, true);
         channelHeader.setTextColor(Color.WHITE);
         channelHeader.setLetterSpacing(.01f);
@@ -521,10 +635,10 @@ public final class MainActivity extends Activity {
         youtubeHeading.setTextColor(Color.WHITE);
         youtubeHeading.setLetterSpacing(.01f);
         youtubeTitleRow.addView(youtubeHeading, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView youtubeHint = label("VIDEOS & PLAYLISTS", 10, LiquidTheme.secondaryText(this), true);
-        youtubeHint.setLetterSpacing(.12f);
 
         youtubeTitleRow.setPadding(0, dp(8), 0, 0);
+        LinearLayout.LayoutParams youtubeSectionParams = new LinearLayout.LayoutParams(-1, -2);
+        youtubeSectionParams.topMargin = dp(16);
         youtubeSection.addView(youtubeTitleRow, new LinearLayout.LayoutParams(-1, dp(56)));
         HorizontalScrollView youtubeScroll = new HorizontalScrollView(this);
         youtubeScroll.setHorizontalScrollBarEnabled(false);
@@ -537,7 +651,7 @@ public final class MainActivity extends Activity {
         youtubeRow.setClipToPadding(false);
         youtubeScroll.addView(youtubeRow);
         youtubeSection.addView(youtubeScroll, new LinearLayout.LayoutParams(-1, dp(230)));
-        homeContent.addView(youtubeSection, new LinearLayout.LayoutParams(-1, -2));
+        homeContent.addView(youtubeSection, youtubeSectionParams);
         renderYouTubeCards();
 
         calendarEventBar = new LinearLayout(this);
@@ -667,6 +781,207 @@ public final class MainActivity extends Activity {
         clock.setText(time.format(now));
         date.setVisibility(preferences.getBoolean("showDate", true) ? View.VISIBLE : View.GONE);
         date.setText(DateFormat.getDateInstance(DateFormat.FULL, Locale.getDefault()).format(now));
+    }
+
+    private boolean hasWeatherLocation() {
+        return WeatherRepository.validCoordinates(Double.longBitsToDouble(preferences.getLong("weatherLatitude", Double.doubleToRawLongBits(Double.NaN))),
+                Double.longBitsToDouble(preferences.getLong("weatherLongitude", Double.doubleToRawLongBits(Double.NaN))));
+    }
+
+    private WeatherRepository.Location savedWeatherLocation() {
+        double latitude = Double.longBitsToDouble(preferences.getLong("weatherLatitude", Double.doubleToRawLongBits(Double.NaN)));
+        double longitude = Double.longBitsToDouble(preferences.getLong("weatherLongitude", Double.doubleToRawLongBits(Double.NaN)));
+        if (!WeatherRepository.validCoordinates(latitude, longitude)) return null;
+        return new WeatherRepository.Location(preferences.getString("weatherLocationLabel", "Weather"), latitude, longitude);
+    }
+
+    private WeatherRepository.Forecast cachedWeather() {
+        try { return WeatherRepository.Forecast.fromJson(new JSONObject(preferences.getString("weatherCache", ""))); }
+        catch (Exception ignored) { return null; }
+    }
+
+    private void renderWeather() {
+        if (weatherPanel == null) return;
+        weatherDays.removeAllViews();
+        if (weatherForecast == null) {
+            weatherTemperature.setText(hasWeatherLocation() ? "Weather unavailable" : "Add weather");
+            weatherTemperature.setTextSize(hasWeatherLocation() ? 22 : 30);
+            weatherCondition.setText(hasWeatherLocation() ? "Refresh in Weather settings" : "Local conditions on Home");
+            weatherPlace.setText(hasWeatherLocation() ? preferences.getString("weatherLocationLabel", "") : "Select to set location");
+            weatherPanel.setContentDescription(weatherTemperature.getText() + ". " + weatherCondition.getText());
+            weatherDays.setVisibility(View.GONE); return;
+        }
+        boolean fahrenheit = preferences.getBoolean("weatherFahrenheit", false);
+        double temperature = fahrenheit ? WeatherRepository.fahrenheit(weatherForecast.temperature) : weatherForecast.temperature;
+        weatherTemperature.setTextSize(34);
+        weatherTemperature.setText(Math.round(temperature) + (fahrenheit ? "°F" : "°C"));
+        boolean mph = preferences.getBoolean("weatherMph", false);
+        double wind = mph ? WeatherRepository.milesPerHour(weatherForecast.windSpeed) : weatherForecast.windSpeed;
+        weatherCondition.setText(WeatherRepository.condition(weatherForecast.code));
+        weatherPlace.setText(weatherForecast.location + "  ·  " + Math.round(wind) + (mph ? " mph" : " km/h"));
+        weatherPanel.setContentDescription(weatherTemperature.getText() + ". " + weatherCondition.getText()
+                + ". " + weatherForecast.location + ". Select to " + (weatherExpanded ? "collapse" : "expand") + " forecast.");
+        for (WeatherRepository.Day day : weatherForecast.days) {
+            LinearLayout item = new LinearLayout(this); item.setOrientation(LinearLayout.VERTICAL); item.setGravity(Gravity.CENTER);
+            String weekday = day.date;
+            try { weekday = new java.text.SimpleDateFormat("EEE", Locale.getDefault()).format(
+                    new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(day.date)); } catch (Exception ignored) { }
+            item.addView(label(weekday, 11, 0xFFD6E1E8, true));
+            double low = fahrenheit ? WeatherRepository.fahrenheit(day.low) : day.low;
+            double high = fahrenheit ? WeatherRepository.fahrenheit(day.high) : day.high;
+            item.addView(label(Math.round(low) + "° / " + Math.round(high) + "°", 11, Color.WHITE, true));
+            item.addView(label(WeatherRepository.condition(day.code), 9, 0xFFD6E1E8, false));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1); params.topMargin = dp(5);
+            weatherDays.addView(item, params);
+        }
+        weatherDays.setVisibility(weatherExpanded ? View.VISIBLE : View.GONE);
+    }
+
+    private void maybeRefreshWeather(boolean manual) {
+        WeatherRepository.Location location = savedWeatherLocation();
+        if (location == null || weatherRefreshing) return;
+        long interval = scheduleValue(SchedulePreferences.WEATHER, SchedulePreferences.WEATHER_VALUES,
+                SchedulePreferences.DEFAULT_WEATHER);
+        if (!manual) {
+            if (interval == SchedulePreferences.MANUAL) return;
+            if (interval == SchedulePreferences.EVERY_LAUNCH) {
+                if (weatherRefreshedThisLaunch) return;
+                weatherRefreshedThisLaunch = true;
+            } else {
+                long last = Math.max(preferences.getLong("weatherUpdatedAt", 0), preferences.getLong("weatherAttemptedAt", 0));
+                if (System.currentTimeMillis() - last < interval) return;
+            }
+        }
+        refreshWeather(location);
+    }
+
+    private void refreshWeather(WeatherRepository.Location location) {
+        weatherRefreshing = true;
+        preferences.edit().putLong("weatherAttemptedAt", System.currentTimeMillis()).apply();
+        int generation = ++weatherRequestGeneration;
+        if (settingsScreen != null) settingsScreen.setWeatherFeedback("Refreshing weather…");
+        ioWorker.execute(() -> {
+            WeatherRepository.Forecast forecast = null; String error = null;
+            try { forecast = WeatherRepository.fetch(location, System.currentTimeMillis()); }
+            catch (Exception failure) { error = failure.getMessage() == null ? "Could not refresh weather." : failure.getMessage(); }
+            WeatherRepository.Forecast result = forecast; String resultError = error;
+            handler.post(() -> {
+                if (generation != weatherRequestGeneration || isFinishing() || isDestroyed()) return;
+                weatherRefreshing = false;
+                if (result != null) {
+                    weatherForecast = result;
+                    try { preferences.edit().putString("weatherCache", result.toJson().toString())
+                            .putLong("weatherUpdatedAt", result.fetchedAt).apply(); } catch (Exception ignored) { }
+                    renderWeather();
+                    if (settingsScreen != null) settingsScreen.setWeatherFeedback("Weather refreshed.");
+                } else if (settingsScreen != null) settingsScreen.setWeatherFeedback("Refresh failed · " + resultError);
+                scheduleWeatherRefresh();
+            });
+        });
+    }
+
+    private void scheduleWeatherRefresh() {
+        if (weatherRefreshTick == null) return;
+        handler.removeCallbacks(weatherRefreshTick);
+        if (!screenActive || !hasWeatherLocation()) return;
+        long interval = scheduleValue(SchedulePreferences.WEATHER, SchedulePreferences.WEATHER_VALUES,
+                SchedulePreferences.DEFAULT_WEATHER);
+        if (interval <= 0) return;
+        long last = Math.max(preferences.getLong("weatherUpdatedAt", 0), preferences.getLong("weatherAttemptedAt", 0));
+        handler.postDelayed(weatherRefreshTick, Math.max(1000L, interval - Math.max(0L, System.currentTimeMillis() - last)));
+    }
+
+    private void openWeatherSettings() {
+        if (settingsScreen == null) settingsScreen = new SettingsScreen();
+        settingsScreen.section = SettingsScreen.WEATHER;
+        settingsScreen.show();
+    }
+
+    private void saveWeatherLocation(String mode, WeatherRepository.Location location) {
+        weatherRequestGeneration++;
+        weatherRefreshing = false;
+        WeatherRepository.Location previous = savedWeatherLocation();
+        boolean changed = previous == null || Math.abs(previous.latitude - location.latitude) > .0001
+                || Math.abs(previous.longitude - location.longitude) > .0001;
+        SharedPreferences.Editor editor = preferences.edit().putString("weatherLocationMode", mode).putString("weatherLocationLabel", location.label)
+                .putLong("weatherLatitude", Double.doubleToRawLongBits(location.latitude))
+                .putLong("weatherLongitude", Double.doubleToRawLongBits(location.longitude));
+        if (changed) editor.remove("weatherCache").remove("weatherUpdatedAt");
+        editor.apply();
+        if (changed) weatherForecast = null;
+        weatherRefreshedThisLaunch = true; renderWeather(); refreshWeather(location);
+        if (settingsScreen != null) settingsScreen.renderSection();
+    }
+
+    private void requestDeviceWeatherLocation() {
+        if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            pendingDeviceWeatherLocation = true;
+            requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_WEATHER_LOCATION);
+            return;
+        }
+        cancelWeatherLocation();
+        LocationManager manager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (manager == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback("Location is unavailable on this TV."); return; }
+        String provider = manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ? LocationManager.NETWORK_PROVIDER
+                : manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER : null;
+        if (provider == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback("Turn on Android location services first."); return; }
+        if (settingsScreen != null) settingsScreen.setWeatherFeedback("Finding this TV’s location…");
+        try {
+            if (Build.VERSION.SDK_INT >= 30) {
+                weatherLocationCancellation = new CancellationSignal();
+                manager.getCurrentLocation(provider, weatherLocationCancellation, getMainExecutor(), this::acceptWeatherLocation);
+            } else {
+                weatherLocationListener = location -> acceptWeatherLocation(location);
+                manager.requestSingleUpdate(provider, weatherLocationListener, Looper.getMainLooper());
+            }
+            weatherLocationTimeout = () -> {
+                cancelWeatherLocation();
+                if (settingsScreen != null) settingsScreen.setWeatherFeedback("Location timed out. Try city search instead.");
+            };
+            handler.postDelayed(weatherLocationTimeout, 10000);
+        } catch (SecurityException error) {
+            if (settingsScreen != null) settingsScreen.setWeatherFeedback("Location permission was not granted.");
+        }
+    }
+
+    private void acceptWeatherLocation(android.location.Location location) {
+        cancelWeatherLocation();
+        if (location == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback("Could not determine this TV’s location."); return; }
+        double latitude = location.getLatitude(), longitude = location.getLongitude();
+        ioWorker.execute(() -> {
+            String label = "Current location";
+            try {
+                List<Address> addresses = new Geocoder(this, Locale.getDefault()).getFromLocation(latitude, longitude, 1);
+                if (addresses != null && !addresses.isEmpty()) {
+                    Address address = addresses.get(0);
+                    String locality = address.getLocality() == null ? address.getSubAdminArea() : address.getLocality();
+                    if (locality != null && !locality.trim().isEmpty()) label = locality;
+                }
+            } catch (Exception ignored) { }
+            String result = label;
+            handler.post(() -> saveWeatherLocation("device", new WeatherRepository.Location(result, latitude, longitude)));
+        });
+    }
+
+    private void cancelWeatherLocation() {
+        if (weatherLocationTimeout != null) handler.removeCallbacks(weatherLocationTimeout);
+        weatherLocationTimeout = null;
+        if (weatherLocationCancellation != null) weatherLocationCancellation.cancel();
+        weatherLocationCancellation = null;
+        if (weatherLocationListener != null) {
+            LocationManager manager = (LocationManager) getSystemService(LOCATION_SERVICE);
+            if (manager != null) try { manager.removeUpdates(weatherLocationListener); } catch (Exception ignored) { }
+        }
+        weatherLocationListener = null;
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_WEATHER_LOCATION) return;
+        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        if (pendingDeviceWeatherLocation && granted) requestDeviceWeatherLocation();
+        else if (!granted && settingsScreen != null) settingsScreen.setWeatherFeedback("Location denied. Search for a city instead.");
+        pendingDeviceWeatherLocation = false;
     }
 
     private List<PublicCalendarRepository.Event> cachedCalendarEvents() {
@@ -854,7 +1169,7 @@ public final class MainActivity extends Activity {
         TextView loading = label("Loading apps…", 15, MUTED, false);
         loading.setGravity(Gravity.CENTER_VERTICAL);
         appRow.addView(loading, new LinearLayout.LayoutParams(dp(180), dp(72)));
-        new Thread(() -> {
+        ioWorker.execute(() -> {
             List<AppEntry> loaded = installedApps();
             List<String> selected = selectedPackages(loaded);
             if (selected.isEmpty() && !preferences.getBoolean("customApps", false)) {
@@ -871,7 +1186,7 @@ public final class MainActivity extends Activity {
                 withIcons.add(new AppEntry(entry.info, entry.packageName, entry.label, icon));
             }
             handler.post(() -> showApps(withIcons));
-        }, "app-discovery").start();
+        });
     }
 
     private void showApps(List<AppEntry> all) {
@@ -1369,6 +1684,23 @@ public final class MainActivity extends Activity {
         if (launch != null) try { startActivity(launch); } catch (Exception ignored) { }
     }
 
+    private void renderGames() {
+        if (gameRow == null) return;
+        gameRow.removeAllViews();
+        List<GameRecord> games = new GameRepository(this).games();
+        if (games.isEmpty()) {
+            Button add = actionButton("Add your NES games");
+            add.setOnClickListener(v -> startActivity(new Intent(this, GameLibraryActivity.class)));
+            gameRow.addView(add, new LinearLayout.LayoutParams(dp(230), dp(186)));
+            return;
+        }
+        for (GameRecord game : games) {
+            LinearLayout card = GameUi.card(this, game, v -> startActivity(new Intent(this, GameDetailActivity.class).putExtra("gameId", game.id)));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(174), dp(204));
+            params.setMargins(0, 0, dp(12), 0); gameRow.addView(card, params);
+        }
+    }
+
     private static final class AppEntry {
         final ApplicationInfo info;
         final String packageName, label;
@@ -1539,7 +1871,7 @@ public final class MainActivity extends Activity {
         List<BackgroundPhoto> cached = cachedBackgroundFolder(treeUri.toString());
         if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
         else if (userSelected && cached.isEmpty()) setBackgroundPhotos(Collections.emptyList());
-        Thread loader = new Thread(() -> {
+        ioWorker.execute(() -> {
             FolderScanResult scan = enumeratePhotos(treeUri);
             handler.post(() -> {
                 if (generation != backgroundFolderGeneration || isFinishing()) return;
@@ -1557,9 +1889,7 @@ public final class MainActivity extends Activity {
                     Toast.makeText(this, "Background slideshow updated · " + scan.photos.size() + " photos", Toast.LENGTH_SHORT).show();
                 }
             });
-        }, "background-folder-scan");
-        loader.setDaemon(true);
-        loader.start();
+        });
     }
 
     private void loadBackgroundAlbum(String shareUrl, boolean userSelected) {
@@ -1567,7 +1897,7 @@ public final class MainActivity extends Activity {
         List<BackgroundPhoto> cached = cachedBackgroundAlbum(shareUrl);
         if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
         preferences.edit().putLong("googlePhotosAttemptedAt", System.currentTimeMillis()).apply();
-        Thread loader = new Thread(() -> {
+        ioWorker.execute(() -> {
             List<BackgroundPhoto> photos = new ArrayList<>();
             String failure = null;
             try {
@@ -1593,9 +1923,7 @@ public final class MainActivity extends Activity {
                 if (userSelected) Toast.makeText(this, "Google Photos slideshow updated · " + result.size() + " photos", Toast.LENGTH_SHORT).show();
                 scheduleGooglePhotosRefresh();
             });
-        }, "google-photos-album");
-        loader.setDaemon(true);
-        loader.start();
+        });
     }
 
     private void maybeRefreshGooglePhotos(boolean appLaunch) {
@@ -1797,7 +2125,7 @@ public final class MainActivity extends Activity {
         int generation = ++backgroundImageGeneration;
         ImageView incoming = slideAActive ? slideA : slideB;
         ImageView outgoing = slideAActive ? slideB : slideA;
-        new Thread(() -> {
+        ioWorker.execute(() -> {
             android.graphics.Bitmap bitmap = decodeWallpaper(photo.uri,
                     Math.min(getResources().getDisplayMetrics().widthPixels, 1280),
                     Math.min(dp(heroHeightDp()), 720));
@@ -1822,7 +2150,7 @@ public final class MainActivity extends Activity {
                 scheduleNextBackgroundPhoto();
                 });
             });
-        }, "background-photo-decode").start();
+        });
     }
 
     private static final class BackgroundPhoto {
@@ -1849,6 +2177,7 @@ public final class MainActivity extends Activity {
         }
     }
 
+    @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
     private void playChannel(IptvRepository.Channel channel) {
         IptvRepository.refreshProgrammeDisplay(channels, System.currentTimeMillis());
         Intent play = new Intent(this, PlaybackActivity.class);
@@ -1974,16 +2303,17 @@ public final class MainActivity extends Activity {
     }
 
     private final class SettingsScreen {
-        private static final int LIVE = 0, CHANNELS = 1, APPS = 2, APPEARANCE = 3, CLOCK = 4, DRM = 5, HOME = 6, BACKUP = 7, YOUTUBE = 8, CALENDAR = 9, SCHEDULES = 10;
-        private final String[] sections = {"Live TV", "Channels", "Apps", "Appearance", "Clock", "Playback & DRM", "Home button", "Backup & restore", "YouTube", "Calendar", "Schedules"};
-        private final String[] sectionGlyphs = {"✦", "◈", "▦", "▧", "◷", "◉", "⌂", "⇧", "▶", "◷", "↻"};
+        private static final int LIVE = 0, CHANNELS = 1, APPS = 2, APPEARANCE = 3, CLOCK = 4, DRM = 5, HOME = 6, BACKUP = 7, YOUTUBE = 8, CALENDAR = 9, SCHEDULES = 10, GAMES = 11, WEATHER = 12;
+        private final String[] sections = {"Live TV", "Channels", "Apps", "Appearance", "Clock", "Playback & DRM", "Home button", "Backup & restore", "YouTube", "Calendar", "Schedules", "Games", "Weather"};
+        private final String[] sectionGlyphs = {"✦", "◈", "▦", "▧", "◷", "◉", "⌂", "⇧", "▶", "◷", "↻", "◆", "☀"};
         private final String[] descriptions = {
                 "Playlist and programme guide", "Choose which channels appear on Home",
                 "Choose and order your home shortcuts", "Photo backdrop and wallpaper",
                 "Time and date on Home", "Default Widevine license settings",
                 "Open Duo when the TV Home button opens its built-in launcher",
                 "Save or restore launcher settings and channels", "Save videos and playlists on Home",
-                "Show events from a public Google Calendar", "Choose when content updates automatically"
+                "Show events from a public Google Calendar", "Choose when content updates automatically",
+                "Import and manage your local NES library", "Current conditions and a three-day forecast"
         };
         private final Dialog dialog = new Dialog(MainActivity.this, android.R.style.Theme_Material_NoActionBar);
         private final Button[] tabs = new Button[sections.length];
@@ -1992,8 +2322,8 @@ public final class MainActivity extends Activity {
         private View firstControl;
         private EditText playlistField, guideField, licenseField, headersField, calendarUrlField;
         private EditText youtubeUrlField, youtubeTitleField, youtubeArtField;
-        private TextView liveFeedback, cacheSummary, guideSummary, youtubeFeedback, calendarFeedback, calendarSummary;
-        private LinearLayout youtubeSavedList;
+        private TextView liveFeedback, cacheSummary, guideSummary, youtubeFeedback, calendarFeedback, calendarSummary, weatherFeedback;
+        private LinearLayout youtubeSavedList, weatherSearchResults;
         private ChannelSettingsAdapter channelAdapter;
         private AppSettingsAdapter appAdapter;
         private RecyclerView appList;
@@ -2197,6 +2527,8 @@ public final class MainActivity extends Activity {
                 case YOUTUBE: renderYouTubeSettings(page); break;
                 case CALENDAR: renderCalendarSettings(page); break;
                 case SCHEDULES: renderSchedules(page); break;
+                case GAMES: renderGameSettings(page); break;
+                case WEATHER: renderWeatherSettings(page); break;
                 default: break;
             }
             if (firstControl != null) {
@@ -2204,6 +2536,81 @@ public final class MainActivity extends Activity {
                 tabs[section].setNextFocusRightId(firstControl.getId());
                 firstControl.setNextFocusLeftId(tabs[section].getId());
             }
+        }
+
+        private void renderGameSettings(LinearLayout page) {
+            LinearLayout form = scrollForm(page);
+            addFormHint(form, "Duo supports user-provided .nes files only. Games are copied into private app storage; original files are never changed.");
+            addFormButton(form, "Open game library and import", v -> startActivity(new Intent(MainActivity.this, GameLibraryActivity.class)));
+            addFormButton(form, "Configure game controllers", v -> startActivity(new Intent(MainActivity.this, ControllerSettingsActivity.class)));
+            addFormHint(form, "Nestopia UE is embedded in Duo. On a TV remote, use the arrow buttons to move, OK for A, and hold OK for Start. Gamepads are assigned to players one and two automatically. During play, Back opens Resume, Restart, and Exit.");
+            addFormHint(form, "Nestopia UE · GPL-2.0-or-later · Duo combined application GPLv3. Source: github.com/libretro/nestopia");
+        }
+
+        private void renderWeatherSettings(LinearLayout page) {
+            LinearLayout form = scrollForm(page);
+            WeatherRepository.Location saved = savedWeatherLocation();
+            addFormHint(form, saved == null ? "Choose a city or use this TV’s location to show weather on Home."
+                    : "Weather location · " + saved.label);
+            EditText search = addInput(form, "Search city or postal code", "Pune, India", "", false);
+            weatherSearchResults = new LinearLayout(MainActivity.this); weatherSearchResults.setOrientation(LinearLayout.VERTICAL);
+            addFormButton(form, "Search", v -> {
+                String query = search.getText().toString().trim();
+                if (query.length() < 2) { setWeatherFeedback("Enter at least two characters."); return; }
+                setWeatherFeedback("Searching locations…"); weatherSearchResults.removeAllViews();
+                ioWorker.execute(() -> {
+                    List<WeatherRepository.Location> results = null; String error = null;
+                    try { results = WeatherRepository.search(query, Locale.getDefault()); }
+                    catch (Exception failure) { error = failure.getMessage() == null ? "Location search failed." : failure.getMessage(); }
+                    List<WeatherRepository.Location> found = results; String failure = error;
+                    handler.post(() -> {
+                        if (settingsScreen != this || section != WEATHER) return;
+                        weatherSearchResults.removeAllViews();
+                        if (failure != null) { setWeatherFeedback("Search failed · " + failure); return; }
+                        if (found == null || found.isEmpty()) { setWeatherFeedback("No matching places found."); return; }
+                        setWeatherFeedback("Choose a location.");
+                        for (WeatherRepository.Location location : found) {
+                            Button option = addFormButton(weatherSearchResults, location.label, null);
+                            option.setOnClickListener(ignored -> saveWeatherLocation("city", location));
+                        }
+                    });
+                });
+            });
+            form.addView(weatherSearchResults);
+            addFormButton(form, "Use device location", v -> requestDeviceWeatherLocation());
+            Button temperatureUnits = addFormButton(form, "Temperature · "
+                    + (preferences.getBoolean("weatherFahrenheit", false) ? "Fahrenheit" : "Celsius"), null);
+            temperatureUnits.setOnClickListener(v -> {
+                boolean next = !preferences.getBoolean("weatherFahrenheit", false);
+                preferences.edit().putBoolean("weatherFahrenheit", next).apply();
+                temperatureUnits.setText("Temperature · " + (next ? "Fahrenheit" : "Celsius")); renderWeather();
+            });
+            Button windUnits = addFormButton(form, "Wind · "
+                    + (preferences.getBoolean("weatherMph", false) ? "mph" : "km/h"), null);
+            windUnits.setOnClickListener(v -> {
+                boolean next = !preferences.getBoolean("weatherMph", false);
+                preferences.edit().putBoolean("weatherMph", next).apply();
+                windUnits.setText("Wind · " + (next ? "mph" : "km/h")); renderWeather();
+            });
+            addFormButton(form, "Refresh now", v -> {
+                if (!hasWeatherLocation()) { setWeatherFeedback("Choose a location first."); return; }
+                if ("device".equals(preferences.getString("weatherLocationMode", ""))) requestDeviceWeatherLocation();
+                else maybeRefreshWeather(true);
+            });
+            if (saved != null) addFormButton(form, "Remove weather", v -> {
+                preferences.edit().remove("weatherLocationMode").remove("weatherLocationLabel")
+                        .remove("weatherLatitude").remove("weatherLongitude").remove("weatherCache")
+                        .remove("weatherUpdatedAt").remove("weatherAttemptedAt").apply();
+                weatherForecast = null; weatherExpanded = false; weatherRequestGeneration++; weatherRefreshing = false;
+                renderWeather(); renderSection();
+            });
+            weatherFeedback = label("", 13, LiquidTheme.secondaryText(MainActivity.this), false);
+            weatherFeedback.setPadding(0, dp(6), 0, dp(8)); form.addView(weatherFeedback);
+            addFormHint(form, "Weather data by Open-Meteo · Location search data by GeoNames. Device location is requested only during setup or a manual refresh.");
+        }
+
+        private void setWeatherFeedback(String message) {
+            if (weatherFeedback != null) weatherFeedback.setText(message == null ? "" : message);
         }
 
         private void renderHomeOverride(LinearLayout page) {
@@ -2261,7 +2668,10 @@ public final class MainActivity extends Activity {
             addScheduleButton(form, "Google Photos album", SchedulePreferences.GOOGLE_PHOTOS,
                     SchedulePreferences.GOOGLE_PHOTOS_VALUES, SchedulePreferences.DEFAULT_GOOGLE_PHOTOS, false, true,
                     () -> { maybeRefreshGooglePhotos(false); scheduleGooglePhotosRefresh(); });
-            addFormHint(form, "Paused keeps the current photo visible. Every launch refreshes Google Photos once when Duo starts. Manual only disables automatic network refreshes.");
+            addScheduleButton(form, "Weather", SchedulePreferences.WEATHER,
+                    SchedulePreferences.WEATHER_VALUES, SchedulePreferences.DEFAULT_WEATHER, false, true,
+                    () -> { weatherRefreshedThisLaunch = false; maybeRefreshWeather(false); scheduleWeatherRefresh(); });
+            addFormHint(form, "Paused keeps the current photo visible. Every launch refreshes Google Photos or weather once when Duo starts. Manual only disables automatic network refreshes.");
             addFormButton(form, "Restore schedule defaults", v -> {
                 preferences.edit()
                         .putLong(SchedulePreferences.SLIDESHOW, SchedulePreferences.DEFAULT_SLIDESHOW)
@@ -2269,12 +2679,16 @@ public final class MainActivity extends Activity {
                         .putLong(SchedulePreferences.GUIDE, SchedulePreferences.DEFAULT_GUIDE)
                         .putLong(SchedulePreferences.CALENDAR, SchedulePreferences.DEFAULT_CALENDAR)
                         .putLong(SchedulePreferences.GOOGLE_PHOTOS, SchedulePreferences.DEFAULT_GOOGLE_PHOTOS)
+                        .putLong(SchedulePreferences.WEATHER, SchedulePreferences.DEFAULT_WEATHER)
                         .apply();
                 maybeRefreshLiveData();
                 scheduleLiveRefreshCheck();
                 maybeRefreshPublicCalendar(false);
                 scheduleCalendarRefresh();
                 scheduleGooglePhotosRefresh();
+                weatherRefreshedThisLaunch = false;
+                maybeRefreshWeather(false);
+                scheduleWeatherRefresh();
                 scheduleNextBackgroundPhoto();
                 renderSection();
             });
@@ -2905,7 +3319,7 @@ public final class MainActivity extends Activity {
             if (availableApps != null) appAdapter.setApps(availableApps);
             else if (!loadingApps) {
                 loadingApps = true;
-                new Thread(() -> {
+                ioWorker.execute(() -> {
                     List<AppEntry> loaded = installedApps();
                     handler.post(() -> {
                         if (settingsScreen != this) return;
@@ -2913,7 +3327,7 @@ public final class MainActivity extends Activity {
                         loadingApps = false;
                         if (section == APPS && appAdapter != null) appAdapter.setApps(loaded);
                     });
-                }, "settings-app-discovery").start();
+                });
             }
             firstControl = appList;
         }
@@ -3126,8 +3540,7 @@ public final class MainActivity extends Activity {
         }
         if (requestCode == PICK_WALLPAPER_FOLDER && resultCode == RESULT_OK && data != null && data.getData() != null) {
             Uri folderUri = data.getData();
-            int grantFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            try { getContentResolver().takePersistableUriPermission(folderUri, grantFlags); } catch (Exception ignored) { }
+            try { getContentResolver().takePersistableUriPermission(folderUri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }
             preferences.edit().putString("wallpaperFolder", folderUri.toString()).remove("wallpaperAlbum").apply();
             loadBackgroundFolder(folderUri, true);
             if (settingsScreen != null) settingsScreen.refreshAppearance();
@@ -3146,7 +3559,7 @@ public final class MainActivity extends Activity {
         String uriValue = preferences.getString("wallpaper", null);
         int targetWidth = Math.min(getResources().getDisplayMetrics().widthPixels, 1920);
         int targetHeight = Math.min(dp(heroHeightDp()), 1080);
-        new Thread(() -> {
+        ioWorker.execute(() -> {
             android.graphics.Bitmap decoded = uriValue == null ? null : decodeWallpaper(Uri.parse(uriValue), targetWidth, targetHeight);
             if (decoded == null) {
                 BitmapFactory.Options options = new BitmapFactory.Options();
@@ -3167,7 +3580,7 @@ public final class MainActivity extends Activity {
                     wallpaperImage.setVisibility(View.VISIBLE);
                 });
             });
-        }, "wallpaper-decode").start();
+        });
     }
 
     private android.graphics.Bitmap decodeWallpaper(Uri uri, int targetWidth, int targetHeight) {

@@ -35,6 +35,7 @@ final class ChannelLogoLoader {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final LruCache<String, Bitmap> memoryCache;
     private final ConcurrentMap<String, Object> fetchLocks = new ConcurrentHashMap<>();
+    private volatile boolean closed;
     private final ThreadPoolExecutor executor = new ThreadPoolExecutor(
             2, 2, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(96),
             runnable -> { Thread thread = new Thread(runnable, "channel-logo"); thread.setDaemon(true); return thread; },
@@ -59,6 +60,7 @@ final class ChannelLogoLoader {
         if (address == null || address.trim().isEmpty()) return;
         Bitmap cached = memoryCache.get(address);
         if (cached != null) { display(address, cached, image, fallback); return; }
+        if (closed) return;
         executor.execute(() -> {
             Bitmap bitmap = null;
             File file = cacheFile(address);
@@ -67,9 +69,17 @@ final class ChannelLogoLoader {
             if (bitmap != null) {
                 memoryCache.put(address, bitmap);
                 Bitmap loaded = bitmap;
-                main.post(() -> display(address, loaded, image, fallback));
+                main.post(() -> { if (!closed) display(address, loaded, image, fallback); });
             }
         });
+    }
+
+    void close() {
+        closed = true;
+        main.removeCallbacksAndMessages(null);
+        executor.shutdownNow();
+        fetchLocks.clear();
+        memoryCache.evictAll();
     }
 
     private void display(String address, Bitmap bitmap, ImageView image, View fallback) {

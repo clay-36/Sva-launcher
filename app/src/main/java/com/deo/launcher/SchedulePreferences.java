@@ -12,6 +12,7 @@ final class SchedulePreferences {
     static final String GUIDE = "scheduleGuideMs";
     static final String CALENDAR = "scheduleCalendarMs";
     static final String GOOGLE_PHOTOS = "scheduleGooglePhotosMs";
+    static final String WEATHER = "scheduleWeatherMs";
 
     static final long SECOND = 1000L;
     static final long MINUTE = 60L * SECOND;
@@ -23,12 +24,14 @@ final class SchedulePreferences {
     static final long[] GUIDE_VALUES = {MANUAL, HOUR, 3 * HOUR, 6 * HOUR, 12 * HOUR, DAY};
     static final long[] CALENDAR_VALUES = {MANUAL, HOUR, 3 * HOUR, 6 * HOUR, 12 * HOUR, DAY};
     static final long[] GOOGLE_PHOTOS_VALUES = {MANUAL, EVERY_LAUNCH, 6 * HOUR, 12 * HOUR, DAY};
+    static final long[] WEATHER_VALUES = {MANUAL, EVERY_LAUNCH, 30 * MINUTE, HOUR, 3 * HOUR, 6 * HOUR};
 
     static final long DEFAULT_SLIDESHOW = 5 * SECOND;
     static final long DEFAULT_PLAYLIST = DAY;
     static final long DEFAULT_GUIDE = DAY;
     static final long DEFAULT_CALENDAR = 6 * HOUR;
     static final long DEFAULT_GOOGLE_PHOTOS = EVERY_LAUNCH;
+    static final long DEFAULT_WEATHER = EVERY_LAUNCH;
 
     private SchedulePreferences() { }
 
@@ -49,9 +52,9 @@ final class SchedulePreferences {
         return fallback;
     }
 
-    static String label(long value, boolean slideshow, boolean googlePhotos) {
+    static String label(long value, boolean slideshow, boolean supportsEveryLaunch) {
         if (value == MANUAL) return slideshow ? "Paused" : "Manual only";
-        if (googlePhotos && value == EVERY_LAUNCH) return "Every launch";
+        if (supportsEveryLaunch && value == EVERY_LAUNCH) return "Every launch";
         if (value < MINUTE) return value / SECOND + " seconds";
         if (value < HOUR) return value / MINUTE + (value == MINUTE ? " minute" : " minutes");
         if (value < DAY) return value / HOUR + (value == HOUR ? " hour" : " hours");

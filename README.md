@@ -32,6 +32,16 @@
   </tr>
 </table>
 
+## ☀ Weather at a glance
+
+Duo can show current conditions beside the clock and an expandable three-day forecast. Choose a city or explicitly use the TV's approximate location under **Settings → Weather**. Temperature and wind units are selectable, forecasts are cached for offline display, and automatic refresh timing is controlled under **Settings → Schedules**. Weather data is provided by Open-Meteo; location search data is based on GeoNames.
+
+## 🎮 Your NES games, without emulator menus
+
+Duo can import user-provided `.nes` files into a private local library. Open a game card, choose **Play**, and the embedded Nestopia UE core starts it directly. A standard five-button TV remote works for player one: use the four arrow buttons to move, press **OK** for NES A, and hold **OK** for Start. Standard Android gamepads work automatically for up to two players, with optional remapping under **Settings → Games**. Back opens Duo's small Resume, Restart, and Exit menu.
+
+Duo never downloads, searches for, or bundles game ROMs, BIOS files, or copyrighted game artwork. Import only games you are permitted to use.
+
 ## 🛠️ Build from source
 
 Open the project in Android Studio, or run:
@@ -41,6 +51,12 @@ Open the project in Android Studio, or run:
 ```
 
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. The project targets Android 15 and supports Android 8.0 (API 26) and newer. Android Studio may ask you to select your Android SDK.
+
+NES support also requires Android NDK `28.2.13676358`. Gradle can install that side-by-side NDK after its SDK license is accepted. Native builds target `arm64-v8a`, `armeabi-v7a`, and `x86_64`; the complete pinned Nestopia source is included under `third_party/nestopia` for offline, reproducible builds.
+
+## License and source
+
+Duo Launcher, including the distributed combination with Nestopia UE, is licensed under GPLv3. Nestopia remains GPL-2.0-or-later and its original notices are preserved. Every distributed APK must be accompanied by access to the matching complete source revision, including the native build files and pinned core source. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## 🚀 Set up your space
 
