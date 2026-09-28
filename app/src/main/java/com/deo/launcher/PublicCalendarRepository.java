@@ -31,7 +31,8 @@ import java.util.Set;
 /** Fetches a public iCalendar feed and expands common Google Calendar recurrence rules. */
 final class PublicCalendarRepository {
     private static final int MAX_FEED_BYTES = 6 * 1024 * 1024;
-    private static final long DISPLAY_LOOKAHEAD_MS = 366L * 24L * 60L * 60L * 1000L;
+    private static final long DISPLAY_LOOKAHEAD_MS = 400L * 24L * 60L * 60L * 1000L;
+    private static final long DISPLAY_LOOKBACK_MS = 400L * 24L * 60L * 60L * 1000L;
 
     private PublicCalendarRepository() { }
 
@@ -257,7 +258,7 @@ final class PublicCalendarRepository {
     private static void addIfRelevant(String title, ZonedDateTime start, ZonedDateTime end, boolean allDay,
                                       long nowMs, List<Event> output) {
         long startMs = start.toInstant().toEpochMilli(), endMs = end.toInstant().toEpochMilli();
-        if (endMs <= nowMs - 24L * 60L * 60L * 1000L || startMs > nowMs + DISPLAY_LOOKAHEAD_MS) return;
+        if (endMs <= nowMs - DISPLAY_LOOKBACK_MS || startMs > nowMs + DISPLAY_LOOKAHEAD_MS) return;
         output.add(new Event(title, startMs, endMs, allDay));
     }
 

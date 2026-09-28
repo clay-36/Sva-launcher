@@ -69,4 +69,14 @@ public final class PublicCalendarRepositoryTest {
         assertTrue(events.get(0).startMs > now);
         assertTrue(events.get(0).allDay);
     }
+
+    @Test public void retainsEventsFromEarlierMonthInPreviousYear() {
+        long now = Instant.parse("2026-09-28T12:00:00Z").toEpochMilli();
+        List<PublicCalendarRepository.Event> events = PublicCalendarRepository.parse(
+                "BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Past appointment\n"
+                        + "DTSTART:20250904T100000Z\nDTEND:20250904T110000Z\n"
+                        + "END:VEVENT\nEND:VCALENDAR\n", now);
+        assertEquals(1, events.size());
+        assertEquals("Past appointment", events.get(0).title);
+    }
 }

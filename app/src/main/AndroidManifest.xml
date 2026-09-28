@@ -9,6 +9,7 @@
         tools:ignore="QueryAllPackagesPermission" />
 
     <application
+        android:name=".DuoApplication"
         android:allowBackup="false"
         android:banner="@drawable/duo_image"
         android:icon="@drawable/duo_image"

@@ -6,6 +6,8 @@
 
 <p align="center"><strong>A calmer, more personal home for your TV.</strong><br />Your photos, your apps, and live TV—together in one remote-friendly space.</p>
 
+Duo has a compact, single-row navigation bar with five grouped tabs: **Home** for apps; **Live TV** for channels and the programme guide; **Games** for the complete NES library; **Events** for today's events and a month calendar; and **Saved** for YouTube video and playlist shortcuts. Focusing a tab with the remote selects it immediately. The clock, weather, and settings shortcuts stay in the bar across tabs, and the selected photo backdrop stays visible across tabs.
+
 <p align="center">
   <img alt="Android TV" src="https://img.shields.io/badge/ANDROID_TV-Ready-35CDB5?style=for-the-badge&logo=android&logoColor=white" />
   <img alt="Minimum Android version" src="https://img.shields.io/badge/ANDROID-8.0%2B-29333D?style=for-the-badge&logo=android&logoColor=white" />
@@ -34,7 +36,7 @@
 
 ## ☀ Weather at a glance
 
-Duo can show current conditions beside the clock and an expandable three-day forecast. Choose a city or explicitly use the TV's approximate location under **Settings → Weather**. Temperature and wind units are selectable, forecasts are cached for offline display, and automatic refresh timing is controlled under **Settings → Schedules**. Weather data is provided by Open-Meteo; location search data is based on GeoNames.
+Duo can show current conditions beside the clock in the top navigation. Select the weather panel for the three-day forecast. Choose a city or explicitly use the TV's approximate location under **Settings → Weather**. Temperature and wind units are selectable, forecasts are cached for offline display, and automatic refresh timing is controlled under **Settings → Schedules**. Weather data is provided by Open-Meteo; location search data is based on GeoNames.
 
 ## 🎮 Your NES games, without emulator menus
 
@@ -66,9 +68,12 @@ Open Duo's full-screen **Settings** page to personalize the launcher:
 
 - **Live TV:** Enter an M3U/M3U8 playlist URL and optional XMLTV URL. Plain `.xml` and gzip-compressed `.xml.gz` guides are supported; guide entries match channels by `tvg-id`. Playlist and guide freshness is checked on startup using their independent **Schedules** cadences, and **Refresh now** requests an immediate update. Cached channels stay visible during refresh.
 - **Apps & Clock:** Choose and reorder shortcuts. If no custom list is saved, Duo shows up to eight installed apps. Set 12/24-hour time and toggle the date.
-- **Appearance:** Choose a single wallpaper, a photo folder, or a Google Photos public album link. Folder and album photos cycle at the cadence selected under **Schedules**; albums must be shared with anyone who has the link. The photo backdrop covers 70% of the screen, with app tiles along its lower edge.
+- **Appearance:** Choose a single wallpaper, a photo folder, or a Google Photos public album link. Folder and album photos cycle at the cadence selected under **Schedules**; albums must be shared with anyone who has the link. The photo backdrop continues across all tabs.
 - **Schedules:** Choose safe foreground refresh cadences independently for the slideshow, IPTV playlist, programme guide, public calendar, and Google Photos. Automatic jobs can be paused while manual refresh remains available.
 - **Channels:** Browse horizontal rows grouped by M3U `group-title`. Logos load from `tvg-logo` values and cache in memory and on disk. Use **Manage hidden channels** to search, hide, or restore channels.
+- **TV guide:** In Live TV, one category selector controls both the channel cards and the Now and next guide. Select a current programme to watch, or open an upcoming programme to set a reminder. Reminders appear five minutes before start while Duo is open; no background notification is sent.
+- **Events:** Add a public Google Calendar iCal feed to browse today's events and a month calendar covering the previous and upcoming 12 months.
+- **Saved:** Add public YouTube video or playlist links in Settings to show them as shortcuts in the Saved tab.
 
 ## 🎬 Playback & guide
 

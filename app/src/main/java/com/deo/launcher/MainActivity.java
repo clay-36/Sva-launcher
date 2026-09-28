@@ -47,6 +47,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.FrameLayout;
+import android.widget.GridLayout;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
@@ -61,6 +62,11 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.DateFormat;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.ZoneId;
+import java.time.DayOfWeek;
+import java.time.format.TextStyle;
 import java.net.HttpURLConnection;
 import java.net.URLEncoder;
 import java.security.MessageDigest;
@@ -79,6 +85,11 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public final class MainActivity extends Activity {
+    private static final int TAB_HOME = 0, TAB_TV = 1, TAB_GAMES = 2, TAB_EVENTS = 3, TAB_SAVED = 4;
+    private static final String[] TAB_TITLES = {"Home", "Live TV", "Games", "Events", "Saved"};
+    static final String ACTION_WATCH_REMINDER = "com.deo.launcher.WATCH_REMINDER";
+    static final String EXTRA_REMINDER_CHANNEL_KEY = "reminderChannelKey";
+    static final String EXTRA_REMINDER_STREAM_URL = "reminderStreamUrl";
     private static final int PICK_WALLPAPER = 4107;
     private static final int PICK_WALLPAPER_FOLDER = 4108;
     private static final int PICK_BACKUP_EXPORT = 4109;
@@ -88,7 +99,7 @@ public final class MainActivity extends Activity {
     private static final String GOOGLE_PHOTOS_CACHE_IMAGES = "googlePhotosCacheImages";
     private static final String PHOTO_FOLDER_CACHE_URI = "photoFolderCacheUri";
     private static final String PHOTO_FOLDER_CACHE_IMAGES = "photoFolderCacheImages";
-    private static final int CALENDAR_CACHE_VERSION = 2;
+    private static final int CALENDAR_CACHE_VERSION = 3;
     private static final int PANEL = 0xF21B1B1B;
     private static final int PANEL_FOCUSED = 0xFF2A2A2A;
     private static final int MUTED = 0xFFB7B7B7;
@@ -121,7 +132,26 @@ public final class MainActivity extends Activity {
     private IptvRepository iptv;
     private ChannelLogoLoader logoLoader;
     private SharedPreferences preferences;
-    private LinearLayout root, homeContent, appRow, gameRow, youtubeRow, youtubeSection;
+    private LinearLayout root, homeContent, liveContent, gamesContent, eventsContent, savedContent;
+    private LinearLayout appRow, youtubeRow, youtubeSection;
+    private GridLayout gameGrid, calendarMonthGrid;
+    private Button previousMonthButton, nextMonthButton;
+    private TextView gamesEmpty, youtubeEmpty, todayEmpty, monthTitle;
+    private LinearLayout todayHeading, todayItems;
+    private YearMonth displayedMonth = YearMonth.now();
+    private LocalDate selectedCalendarDay = LocalDate.now();
+    private YearMonth renderedMonth;
+    private LocalDate renderedToday;
+    private long renderedCalendarStamp = -1L;
+    private final ScrollView[] tabPages = new ScrollView[TAB_TITLES.length];
+    private final Button[] tabButtons = new Button[TAB_TITLES.length];
+    private final View[] tabFocus = new View[TAB_TITLES.length];
+    private final View[] tabEntryFocus = new View[TAB_TITLES.length];
+    private final int[] tabScroll = new int[TAB_TITLES.length];
+    private int activeTab = TAB_HOME;
+    private boolean tabsInitialized;
+    private boolean compactNavigation;
+    private View browsingShade;
     private FrameLayout heroFrame;
     private final GlassBackdrop glassBackdrop = new GlassBackdrop();
     private ScrollView homeScroll;
@@ -130,13 +160,18 @@ public final class MainActivity extends Activity {
     private int restoredScroll;
     private ImageView wallpaperImage, slideA, slideB;
     private TextView clock, date, status, channelHeader, greeting, greetingSubtitle, youtubeHeading;
-    private LinearLayout weatherPanel, weatherDays;
-    private TextView weatherTemperature, weatherCondition, weatherPlace;
+    private LinearLayout weatherPanel;
+    private TextView weatherTemperature, weatherCondition, weatherDetails;
     private LinearLayout calendarEventBar, calendarEventItems;
     private TextView calendarEventTitle;
     private LinearLayout channelRows, channelCategoryTabs;
     private HorizontalScrollView channelCategoryScroll;
     private TextView channelsEmpty;
+    private LinearLayout guideSection;
+    private RecyclerView guideList;
+    private ProgrammeGuideAdapter guideAdapter;
+    private TextView guideEmpty;
+    private String pendingReminderChannelKey, pendingReminderStreamUrl;
     private final LinkedHashMap<String, ChannelRow> channelRowMap = new LinkedHashMap<>();
     private final LinkedHashMap<String, Button> channelTabMap = new LinkedHashMap<>();
     private List<String> renderedCategories = new ArrayList<>();
@@ -165,7 +200,7 @@ public final class MainActivity extends Activity {
     private int calendarRequestGeneration;
     private WeatherRepository.Forecast weatherForecast;
     private int weatherRequestGeneration;
-    private boolean weatherRefreshing, weatherExpanded, weatherRefreshedThisLaunch, pendingDeviceWeatherLocation;
+    private boolean weatherRefreshing, weatherRefreshedThisLaunch, pendingDeviceWeatherLocation;
     private LocationListener weatherLocationListener;
     private CancellationSignal weatherLocationCancellation;
     private Runnable weatherLocationTimeout;
@@ -177,8 +212,14 @@ public final class MainActivity extends Activity {
         if (state != null) {
             focusedPackage = state.getString("focusedPackage");
             restoredScroll = state.getInt("homeScroll", 0);
+            activeTab = Math.max(TAB_HOME, Math.min(TAB_SAVED, state.getInt("activeTab", TAB_HOME)));
+            for (int i = 0; i < tabScroll.length; i++) tabScroll[i] = state.getInt("tabScroll" + i, 0);
+            try { selectedCalendarDay = LocalDate.parse(state.getString("selectedCalendarDay", LocalDate.now().toString())); }
+            catch (Exception ignored) { selectedCalendarDay = LocalDate.now(); }
+            displayedMonth = YearMonth.from(selectedCalendarDay);
         }
         iptv = new IptvRepository(this);
+        acceptReminderIntent(getIntent());
         logoLoader = new ChannelLogoLoader(this);
         weatherForecast = cachedWeather();
         hiddenChannelKeys.addAll(preferences.getStringSet("hiddenChannels", Collections.emptySet()));
@@ -246,7 +287,46 @@ public final class MainActivity extends Activity {
         if (selectedApp != null && selectedApp.getTag() instanceof String) focusedPackage = (String) selectedApp.getTag();
         outState.putString("focusedPackage", focusedPackage);
         outState.putInt("homeScroll", homeScroll == null ? 0 : homeScroll.getScrollY());
+        outState.putInt("activeTab", activeTab);
+        for (int i = 0; i < tabPages.length; i++)
+            outState.putInt("tabScroll" + i, tabPages[i] == null ? tabScroll[i] : tabPages[i].getScrollY());
+        outState.putString("selectedCalendarDay", selectedCalendarDay.toString());
         super.onSaveInstanceState(outState);
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        acceptReminderIntent(intent);
+        if (!ACTION_WATCH_REMINDER.equals(intent.getAction())) selectTab(TAB_HOME, true);
+        if (!channels.isEmpty()) openPendingReminder();
+    }
+
+    @Override public void onBackPressed() {
+        if (settingsScreen == null && activeTab != TAB_HOME) { selectTab(TAB_HOME, true); return; }
+        super.onBackPressed();
+    }
+
+    private void acceptReminderIntent(Intent intent) {
+        if (intent == null || !ACTION_WATCH_REMINDER.equals(intent.getAction())) return;
+        pendingReminderChannelKey = intent.getStringExtra(EXTRA_REMINDER_CHANNEL_KEY);
+        pendingReminderStreamUrl = intent.getStringExtra(EXTRA_REMINDER_STREAM_URL);
+    }
+
+    private void openPendingReminder() {
+        if (pendingReminderChannelKey == null) return;
+        String key = pendingReminderChannelKey, url = pendingReminderStreamUrl;
+        pendingReminderChannelKey = pendingReminderStreamUrl = null;
+        IptvRepository.Channel fallback = null;
+        int matches = 0;
+        for (IptvRepository.Channel channel : channels) {
+            if (!channel.stableKey().equals(key) || hiddenChannelKeys.contains(channel.stableKey())) continue;
+            if (channel.streamUrl.equals(url)) { playChannel(channel); return; }
+            fallback = channel;
+            matches++;
+        }
+        if (matches == 1) playChannel(fallback);
+        else Toast.makeText(this, "That reminder channel is no longer available.", Toast.LENGTH_LONG).show();
     }
 
     private void openWallpaperFolderPicker() {
@@ -347,7 +427,8 @@ public final class MainActivity extends Activity {
         scheduleWeatherRefresh();
         if (settingsScreen != null) settingsScreen.refreshLauncherOverride();
         if (root != null && !appsLoaded) renderApps();
-        if (gameRow != null) renderGames();
+        if (gameGrid != null) renderGames();
+        if (guideAdapter != null) guideAdapter.refreshTimes();
         if (settingsScreen == null && !backgroundPhotos.isEmpty()) {
             if (slideA.getVisibility() != View.VISIBLE && slideB.getVisibility() != View.VISIBLE) {
                 showNextBackgroundPhoto();
@@ -399,6 +480,9 @@ public final class MainActivity extends Activity {
                 if (isFinishing() || isDestroyed() || !channels.isEmpty()) return;
                 channels.addAll(cached);
                 renderChannels();
+                if (!cached.isEmpty()) ((DuoApplication) getApplication()).guideReminders()
+                        .reconcile(channels, hiddenChannelKeys);
+                openPendingReminder();
                 if (!cached.isEmpty()) status.setText("Channels loaded from device cache.");
                 scheduleLiveRefreshCheck();
             });
@@ -448,87 +532,131 @@ public final class MainActivity extends Activity {
                 new int[]{0x000A1420, 0x180A1420, 0xD90A1420}));
         heroFrame.addView(bottomFade, new FrameLayout.LayoutParams(-1, -1));
         scene.addView(heroFrame, new FrameLayout.LayoutParams(-1, -1));
-        View browsingShade = new View(this);
+        browsingShade = new View(this);
         browsingShade.setBackgroundColor(0xFF091421);
         browsingShade.setAlpha(0f);
         scene.addView(browsingShade, new FrameLayout.LayoutParams(-1, -1));
-        scene.addView(page, new FrameLayout.LayoutParams(-1, -1));
-        page.setOnScrollChangeListener((v, x, y, oldX, oldY) -> {
-            browsingShade.setAlpha(Math.min(.72f, (float) y / dp(320) * .72f));
-            glassBackdrop.invalidate();
-        });
-        FrameLayout heroContent = new FrameLayout(this);
-        root.addView(heroContent, new LinearLayout.LayoutParams(-1, dp(Math.max(330, heroHeightDp() - 190))));
+        LinearLayout tabShell = new LinearLayout(this);
+        tabShell.setOrientation(LinearLayout.VERTICAL);
+        scene.addView(tabShell, new FrameLayout.LayoutParams(-1, -1));
+        LinearLayout navigation = new LinearLayout(this);
+        navigation.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        int screenWidthDp = Math.round(getResources().getDisplayMetrics().widthPixels
+                / getResources().getDisplayMetrics().density);
+        compactNavigation = screenWidthDp < 800;
+        int outerPadding = compactNavigation ? 16 : 33;
+        navigation.setPadding(dp(outerPadding), dp(12), dp(outerPadding), dp(12));
+        tabShell.addView(navigation, new LinearLayout.LayoutParams(-1, dp(90)));
 
-        LinearLayout headerInfo = new LinearLayout(this);
-        headerInfo.setGravity(Gravity.TOP);
-        FrameLayout.LayoutParams headerParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
-        headerParams.setMargins(dp(48), dp(36), 0, 0);
-        heroContent.addView(headerInfo, headerParams);
+        LinearLayout navbar = new LinearLayout(this);
+        navbar.setGravity(Gravity.CENTER_VERTICAL);
+        navbar.setPadding(dp(10), 0, dp(14), 0);
+        navbar.setBackground(roundedShape(0xAD313340, 0x1FFFFFFF, 1, 36));
+        navbar.setElevation(dp(6));
+        navigation.addView(navbar, new LinearLayout.LayoutParams(-2, dp(66)));
+
+        int clockWidth = compactNavigation ? 78 : 100;
+        int weatherMaxWidth = compactNavigation ? 140 : 180;
+        HorizontalScrollView tabScroller = new HorizontalScrollView(this);
+        tabScroller.setHorizontalScrollBarEnabled(false);
+        tabScroller.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        tabScroller.setFillViewport(false);
+        LinearLayout.LayoutParams tabGroupParams = new LinearLayout.LayoutParams(-2, dp(52));
+        navbar.addView(tabScroller, tabGroupParams);
+        LinearLayout tabRow = new LinearLayout(this);
+        tabRow.setGravity(Gravity.CENTER_VERTICAL);
+        tabRow.setPadding(dp(4), dp(3), dp(4), dp(3));
+        tabScroller.addView(tabRow, new HorizontalScrollView.LayoutParams(-2, -1));
+        for (int i = 0; i < TAB_TITLES.length; i++) {
+            final int tab = i;
+            Button button = actionButton(TAB_TITLES[i]);
+            button.setId(View.generateViewId());
+            button.setMinWidth(0);
+            button.setMinimumWidth(0);
+            button.setTextSize(16);
+            button.setPadding(dp(compactNavigation ? 14 : 22), 0,
+                    dp(compactNavigation ? 14 : 22), 0);
+            button.setOnClickListener(v -> selectTab(tab, false));
+            button.setOnFocusChangeListener((view, focused) -> {
+                LiquidTheme.animateContainedFocus(view, focused);
+                if (focused) selectTab(tab, false);
+            });
+            tabButtons[i] = button;
+            tabRow.addView(button, new LinearLayout.LayoutParams(-2, dp(44)));
+        }
+        LinearLayout infoPill = new LinearLayout(this);
+        infoPill.setGravity(Gravity.CENTER_VERTICAL);
+        navbar.addView(infoPill, new LinearLayout.LayoutParams(-2, dp(52)));
         LinearLayout timeStack = new LinearLayout(this);
         timeStack.setOrientation(LinearLayout.VERTICAL);
-        timeStack.setGravity(Gravity.START);
-        headerInfo.addView(timeStack, new LinearLayout.LayoutParams(-2, -2));
+        timeStack.setGravity(Gravity.CENTER_VERTICAL);
+        timeStack.setPadding(dp(12), 0, dp(4), 0);
+        infoPill.addView(timeStack, new LinearLayout.LayoutParams(dp(clockWidth), -1));
         clock = new TextView(this);
         clock.setTextColor(Color.WHITE);
-        clock.setTextSize(52);
+        clock.setTextSize(compactNavigation ? 17 : 19);
         clock.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        clock.setShadowLayer(dp(10), 0, dp(2), 0x99000000);
         clock.setIncludeFontPadding(false);
+        clock.setSingleLine(true);
         timeStack.addView(clock);
-        date = new TextView(this);
-        date.setTextColor(0xFFE3EBF0);
-        date.setTextSize(15);
-        date.setShadowLayer(dp(7), 0, dp(1), 0x99000000);
-        date.setLetterSpacing(.02f);
+        date = label("", 10, 0xB8FFFFFF, false);
         date.setSingleLine(true);
         date.setEllipsize(TextUtils.TruncateAt.END);
-        date.setMaxWidth(dp(320));
         timeStack.addView(date);
-
-        LinearLayout systemShortcuts = new LinearLayout(this);
-        systemShortcuts.setGravity(Gravity.CENTER_VERTICAL);
-        systemShortcuts.setPadding(dp(5), dp(4), dp(5), dp(4));
-        systemShortcuts.setBackground(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 28));
-        FrameLayout.LayoutParams shortcutParams = new FrameLayout.LayoutParams(-2, dp(52), Gravity.TOP | Gravity.END);
-        shortcutParams.setMargins(0, dp(38), dp(42), 0);
-        heroContent.addView(systemShortcuts, shortcutParams);
-        addTopIcon(systemShortcuts, "Network", R.drawable.ic_network, this::openNetworkSettings);
-        addTopIcon(systemShortcuts, "Android Settings", android.R.drawable.ic_menu_manage, this::openAndroidSettings);
-        addTopIcon(systemShortcuts, "Launcher Settings", R.drawable.ic_launcher_settings, this::showSettings);
 
         weatherPanel = new LinearLayout(this);
         weatherPanel.setOrientation(LinearLayout.VERTICAL);
-        weatherPanel.setGravity(Gravity.START);
-        weatherPanel.setFocusable(true); weatherPanel.setClickable(true);
-        weatherPanel.setContentDescription("Set up weather");
-        weatherTemperature = label("Add weather", 30, Color.WHITE, true);
-        weatherTemperature.setShadowLayer(dp(10), 0, dp(2), 0x99000000);
+        weatherPanel.setGravity(Gravity.CENTER_VERTICAL);
+        weatherPanel.setFocusable(false);
+        weatherPanel.setClickable(false);
+        weatherPanel.setPadding(dp(8), 0, dp(10), 0);
+        weatherPanel.setContentDescription("Weather unavailable");
+        weatherTemperature = label("Add weather", 18, Color.WHITE, true);
+        weatherTemperature.setTextColor(Color.WHITE);
         weatherTemperature.setIncludeFontPadding(false);
+        weatherTemperature.setSingleLine(true);
+        weatherTemperature.setMaxWidth(dp(weatherMaxWidth));
         weatherPanel.addView(weatherTemperature);
-        weatherCondition = label("Local conditions on Home", 14, 0xFFE3EBF0, false);
-        weatherCondition.setShadowLayer(dp(7), 0, dp(1), 0x99000000);
-        weatherCondition.setSingleLine(true); weatherCondition.setEllipsize(TextUtils.TruncateAt.END);
+        weatherCondition = label("Local conditions", 10, 0xB8FFFFFF, false);
+        weatherCondition.setSingleLine(true);
+        weatherCondition.setMaxWidth(dp(weatherMaxWidth));
+        weatherCondition.setEllipsize(TextUtils.TruncateAt.END);
         weatherPanel.addView(weatherCondition);
-        weatherPlace = label("", 12, 0xFFD6E1E8, false);
-        weatherPlace.setShadowLayer(dp(7), 0, dp(1), 0x99000000);
-        weatherPlace.setSingleLine(true); weatherPlace.setEllipsize(TextUtils.TruncateAt.END);
-        weatherPanel.addView(weatherPlace);
-        weatherPanel.setOnFocusChangeListener((view, focused) -> {
-            weatherTemperature.setTextColor(focused ? 0xFFBCE7FF : Color.WHITE);
-            weatherCondition.setTextColor(focused ? Color.WHITE : 0xFFE3EBF0);
+        weatherDetails = label("", 9, 0xA8FFFFFF, false);
+        weatherDetails.setSingleLine(true);
+        weatherDetails.setMaxWidth(dp(weatherMaxWidth));
+        weatherDetails.setEllipsize(TextUtils.TruncateAt.END);
+        weatherPanel.addView(weatherDetails);
+        infoPill.addView(weatherPanel, new LinearLayout.LayoutParams(-2, -1));
+
+        View separator = new View(this);
+        separator.setBackgroundColor(0x24FFFFFF);
+        LinearLayout.LayoutParams separatorParams = new LinearLayout.LayoutParams(dp(1), dp(25));
+        separatorParams.leftMargin = dp(12);
+        separatorParams.rightMargin = dp(12);
+        navbar.addView(separator, separatorParams);
+
+        LinearLayout systemShortcuts = new LinearLayout(this);
+        systemShortcuts.setGravity(Gravity.CENTER_VERTICAL);
+        systemShortcuts.setPadding(dp(3), dp(3), dp(3), dp(3));
+        navbar.addView(systemShortcuts, new LinearLayout.LayoutParams(-2, dp(52)));
+        addTopIcon(systemShortcuts, "Network", R.drawable.ic_network, this::openNetworkSettings);
+        addTopIcon(systemShortcuts, "Android Settings", android.R.drawable.ic_menu_manage, this::openAndroidSettings);
+        addTopIcon(systemShortcuts, "Launcher Settings", R.drawable.ic_launcher_settings, this::showSettings);
+        FrameLayout viewport = new FrameLayout(this);
+        tabShell.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
+        tabPages[TAB_HOME] = page;
+        viewport.addView(page, new FrameLayout.LayoutParams(-1, -1));
+        liveContent = addTabContentPage(viewport, TAB_TV);
+        gamesContent = addTabContentPage(viewport, TAB_GAMES);
+        eventsContent = addTabContentPage(viewport, TAB_EVENTS);
+        savedContent = addTabContentPage(viewport, TAB_SAVED);
+        page.setOnScrollChangeListener((v, x, y, oldX, oldY) -> {
+            if (activeTab == TAB_HOME) browsingShade.setAlpha(Math.min(.72f, (float) y / dp(320) * .72f));
+            glassBackdrop.invalidate();
         });
-        weatherDays = new LinearLayout(this); weatherDays.setOrientation(LinearLayout.HORIZONTAL); weatherDays.setVisibility(View.GONE);
-        weatherDays.setPadding(0, dp(10), 0, 0);
-        weatherPanel.addView(weatherDays, new LinearLayout.LayoutParams(-1, -2));
-        weatherPanel.setOnClickListener(v -> {
-            if (!hasWeatherLocation()) { openWeatherSettings(); return; }
-            weatherExpanded = !weatherExpanded;
-            renderWeather();
-        });
-        LinearLayout.LayoutParams weatherParams = new LinearLayout.LayoutParams(dp(250), -2);
-        weatherParams.leftMargin = dp(32);
-        headerInfo.addView(weatherPanel, weatherParams);
+        FrameLayout heroContent = new FrameLayout(this);
+        root.addView(heroContent, new LinearLayout.LayoutParams(-1, dp(Math.max(240, heroHeightDp() - 264))));
         renderWeather();
 
         LinearLayout heroBottom = new LinearLayout(this);
@@ -574,22 +702,24 @@ public final class MainActivity extends Activity {
 
         LinearLayout gamesHeading = new LinearLayout(this);
         gamesHeading.setGravity(Gravity.CENTER_VERTICAL);
-        TextView gamesTitle = label("Games", 22, Color.WHITE, true);
+        TextView gamesTitle = label("Your games", 28, Color.WHITE, true);
         gamesTitle.setTextColor(Color.WHITE);
         gamesHeading.addView(gamesTitle, new LinearLayout.LayoutParams(0, -2, 1));
-        Button seeAllGames = actionButton("See all");
+        Button seeAllGames = actionButton("Import games");
         seeAllGames.setOnClickListener(v -> startActivity(new Intent(this, GameLibraryActivity.class)));
-        gamesHeading.addView(seeAllGames, new LinearLayout.LayoutParams(dp(118), dp(44)));
+        linkTabEntry(TAB_GAMES, seeAllGames);
+        gamesHeading.addView(seeAllGames, new LinearLayout.LayoutParams(dp(172), dp(48)));
         LinearLayout.LayoutParams gamesHeadingParams = new LinearLayout.LayoutParams(-1, dp(56));
         gamesHeadingParams.topMargin = dp(14);
-        homeContent.addView(gamesHeading, gamesHeadingParams);
-        HorizontalScrollView gameScroll = new HorizontalScrollView(this);
-        gameScroll.setHorizontalScrollBarEnabled(false);
-        gameScroll.setPadding(dp(8), dp(8), dp(8), dp(10));
-        gameScroll.setClipChildren(false); gameScroll.setClipToPadding(false);
-        gameRow = new LinearLayout(this); gameRow.setOrientation(LinearLayout.HORIZONTAL);
-        gameRow.setClipChildren(false); gameRow.setClipToPadding(false); gameScroll.addView(gameRow);
-        homeContent.addView(gameScroll, new LinearLayout.LayoutParams(-1, dp(224)));
+        gamesContent.addView(gamesHeading, gamesHeadingParams);
+        gamesEmpty = label("No games yet. Import your own .nes files to get started.", 17, MUTED, false);
+        gamesEmpty.setPadding(dp(8), dp(20), 0, dp(20));
+        gamesContent.addView(gamesEmpty);
+        gameGrid = new GridLayout(this);
+        gameGrid.setColumnCount(5);
+        gameGrid.setClipChildren(false);
+        gameGrid.setClipToPadding(false);
+        gamesContent.addView(gameGrid, new LinearLayout.LayoutParams(-1, -2));
         renderGames();
 
         applyWallpaper();
@@ -598,7 +728,7 @@ public final class MainActivity extends Activity {
         liveHeading.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams liveHeadingParams = new LinearLayout.LayoutParams(-1, dp(56));
         liveHeadingParams.topMargin = dp(16);
-        homeContent.addView(liveHeading, liveHeadingParams);
+        liveContent.addView(liveHeading, liveHeadingParams);
         channelHeader = label("Live, right now", 22, Color.WHITE, true);
         channelHeader.setTextColor(Color.WHITE);
         channelHeader.setLetterSpacing(.01f);
@@ -607,7 +737,7 @@ public final class MainActivity extends Activity {
         channelRows.setOrientation(LinearLayout.VERTICAL);
         channelRows.setClipChildren(false);
         channelRows.setClipToPadding(false);
-        homeContent.addView(channelRows, new LinearLayout.LayoutParams(-1, -2));
+        liveContent.addView(channelRows, new LinearLayout.LayoutParams(-1, -2));
         channelCategoryScroll = new HorizontalScrollView(this);
         channelCategoryScroll.setHorizontalScrollBarEnabled(false);
         channelCategoryScroll.setClipChildren(false);
@@ -625,16 +755,20 @@ public final class MainActivity extends Activity {
                 ? "Add an M3U and optional XMLTV URL in Settings to get started."
                 : "Channels loaded from device cache.", 15, MUTED, false);
         status.setPadding(0, dp(12), 0, 0);
-        homeContent.addView(status);
+        liveContent.addView(status);
 
         youtubeSection = new LinearLayout(this);
         youtubeSection.setOrientation(LinearLayout.VERTICAL);
         LinearLayout youtubeTitleRow = new LinearLayout(this);
         youtubeTitleRow.setGravity(Gravity.CENTER_VERTICAL);
-        youtubeHeading = label("Made for your downtime", 22, Color.WHITE, true);
+        youtubeHeading = label("Saved videos and playlists", 28, Color.WHITE, true);
         youtubeHeading.setTextColor(Color.WHITE);
         youtubeHeading.setLetterSpacing(.01f);
         youtubeTitleRow.addView(youtubeHeading, new LinearLayout.LayoutParams(0, -2, 1));
+        Button addYouTube = actionButton("Add shortcut");
+        addYouTube.setOnClickListener(v -> openYouTubeSettings());
+        linkTabEntry(TAB_SAVED, addYouTube);
+        youtubeTitleRow.addView(addYouTube, new LinearLayout.LayoutParams(dp(175), dp(48)));
 
         youtubeTitleRow.setPadding(0, dp(8), 0, 0);
         LinearLayout.LayoutParams youtubeSectionParams = new LinearLayout.LayoutParams(-1, -2);
@@ -651,30 +785,332 @@ public final class MainActivity extends Activity {
         youtubeRow.setClipToPadding(false);
         youtubeScroll.addView(youtubeRow);
         youtubeSection.addView(youtubeScroll, new LinearLayout.LayoutParams(-1, dp(230)));
-        homeContent.addView(youtubeSection, youtubeSectionParams);
+        savedContent.addView(youtubeSection, youtubeSectionParams);
+        youtubeEmpty = label("No saved YouTube shortcuts yet. Add a video or playlist in Settings.", 17, MUTED, false);
+        youtubeEmpty.setPadding(dp(8), dp(16), 0, dp(16));
+        savedContent.addView(youtubeEmpty);
         renderYouTubeCards();
 
-        calendarEventBar = new LinearLayout(this);
-        calendarEventBar.setOrientation(LinearLayout.VERTICAL);
-        calendarEventBar.setPadding(dp(16), dp(12), dp(16), dp(12));
-        calendarEventBar.setBackground(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 18));
-        LinearLayout.LayoutParams calendarBarParams = new LinearLayout.LayoutParams(-1, -2);
-        calendarBarParams.setMargins(0, dp(18), 0, dp(12));
-        homeContent.addView(calendarEventBar, calendarBarParams);
-        calendarEventTitle = label("HAPPENING NOW", 11, LiquidTheme.text(this), true);
-        calendarEventTitle.setLetterSpacing(.14f);
-        calendarEventBar.addView(calendarEventTitle, new LinearLayout.LayoutParams(-1, dp(22)));
-        HorizontalScrollView calendarScroll = new HorizontalScrollView(this);
-        calendarScroll.setHorizontalScrollBarEnabled(false);
-        calendarScroll.setClipChildren(false);
-        calendarScroll.setClipToPadding(false);
-        calendarEventItems = new LinearLayout(this);
-        calendarEventItems.setOrientation(LinearLayout.HORIZONTAL);
-        calendarEventItems.setClipChildren(false);
-        calendarEventItems.setClipToPadding(false);
-        calendarScroll.addView(calendarEventItems);
-        calendarEventBar.addView(calendarScroll, new LinearLayout.LayoutParams(-1, -2));
-        calendarEventBar.setVisibility(View.GONE);
+        buildEventsTab();
+
+        guideSection = new LinearLayout(this);
+        guideSection.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams guideParams = new LinearLayout.LayoutParams(-1, -2);
+        guideParams.topMargin = dp(24);
+        liveContent.addView(guideSection, guideParams);
+        TextView guideHeading = label("TV guide", 22, Color.WHITE, true);
+        guideHeading.setLetterSpacing(.01f);
+        guideSection.addView(guideHeading, new LinearLayout.LayoutParams(-1, dp(48)));
+        guideEmpty = label("Add a playlist and programme guide in Settings.", 15, MUTED, false);
+        guideEmpty.setPadding(dp(8), dp(18), 0, dp(18));
+        guideSection.addView(guideEmpty, new LinearLayout.LayoutParams(-1, -2));
+        guideList = new RecyclerView(this);
+        guideList.setLayoutManager(new LinearLayoutManager(this));
+        guideList.setClipChildren(false);
+        guideList.setClipToPadding(false);
+        guideList.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        guideAdapter = new ProgrammeGuideAdapter(this, glassBackdrop, logoLoader,
+                ((DuoApplication) getApplication()).guideReminders(), new ProgrammeGuideAdapter.Actions() {
+            @Override public void watch(IptvRepository.Channel channel) { playChannel(channel); }
+            @Override public void details(IptvRepository.Channel channel, IptvRepository.Programme programme) {
+                showProgrammeDetails(channel, programme);
+            }
+        });
+        guideList.setAdapter(guideAdapter);
+        guideSection.addView(guideList, new LinearLayout.LayoutParams(-1, dp(400)));
+        guideList.setVisibility(View.GONE);
+        selectTab(activeTab, false);
+    }
+
+    private LinearLayout addTabContentPage(FrameLayout viewport, int tab) {
+        ScrollView page = new ScrollView(this);
+        page.setFillViewport(true);
+        page.setVerticalScrollBarEnabled(false);
+        page.setBackgroundColor(Color.TRANSPARENT);
+        page.setClipToPadding(false);
+        page.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(48), dp(22), dp(48), dp(34));
+        content.setClipChildren(false);
+        content.setClipToPadding(false);
+        page.addView(content);
+        page.setOnScrollChangeListener((v, x, y, oldX, oldY) -> {
+            if (activeTab == tab) browsingShade.setAlpha(Math.min(.82f, .52f + (float) y / dp(600) * .3f));
+            glassBackdrop.invalidate();
+        });
+        tabPages[tab] = page;
+        viewport.addView(page, new FrameLayout.LayoutParams(-1, -1));
+        return content;
+    }
+
+    private void linkTabEntry(int tab, View entry) {
+        if (entry == null || tab < TAB_HOME || tab > TAB_SAVED || tabButtons[tab] == null) return;
+        if (entry.getId() == View.NO_ID) entry.setId(View.generateViewId());
+        entry.setNextFocusUpId(tabButtons[tab].getId());
+        tabButtons[tab].setNextFocusDownId(entry.getId());
+        tabEntryFocus[tab] = entry;
+    }
+
+    private void linkTopControl(int tab, View control) {
+        if (control == null || tab < TAB_HOME || tab > TAB_SAVED || tabButtons[tab] == null) return;
+        if (control.getId() == View.NO_ID) control.setId(View.generateViewId());
+        control.setNextFocusUpId(tabButtons[tab].getId());
+    }
+
+    private void selectTab(int tab, boolean focusTabButton) {
+        if (tab < TAB_HOME || tab > TAB_SAVED || tabPages[TAB_HOME] == null) return;
+        View currentFocus = getCurrentFocus();
+        boolean navigatingTabs = false;
+        for (Button button : tabButtons) {
+            if (button == currentFocus) { navigatingTabs = true; break; }
+        }
+        final boolean keepNavigationFocus = navigatingTabs;
+        ScrollView oldPage = tabPages[activeTab];
+        if (tabsInitialized && oldPage != null && oldPage.getVisibility() == View.VISIBLE) {
+            tabScroll[activeTab] = oldPage.getScrollY();
+            View focused = oldPage.findFocus();
+            if (focused != null) tabFocus[activeTab] = focused;
+        }
+        activeTab = tab;
+        tabsInitialized = true;
+        for (int i = 0; i < tabPages.length; i++) {
+            if (tabPages[i] != null) tabPages[i].setVisibility(i == tab ? View.VISIBLE : View.GONE);
+            if (tabButtons[i] != null) {
+                boolean selected = i == tab;
+                GradientDrawable selectedPill = new GradientDrawable();
+                selectedPill.setColor(Color.WHITE);
+                selectedPill.setCornerRadius(dp(24));
+                GradientDrawable focusedPill = new GradientDrawable();
+                focusedPill.setColor(Color.WHITE);
+                focusedPill.setCornerRadius(dp(24));
+                focusedPill.setStroke(dp(2), 0x66FFFFFF);
+                StateListDrawable states = new StateListDrawable();
+                states.addState(new int[]{android.R.attr.state_focused}, focusedPill);
+                states.addState(new int[]{}, selected
+                        ? selectedPill : new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+                tabButtons[i].setBackground(states);
+                tabButtons[i].setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                tabButtons[i].setTextColor(selected ? 0xFF111111 : 0xD4FFFFFF);
+            }
+        }
+        browsingShade.setAlpha(tab == TAB_HOME ? Math.min(.72f, (float) tabScroll[tab] / dp(320) * .72f) : .52f);
+        ScrollView selectedPage = tabPages[tab];
+        selectedPage.post(() -> {
+            if (activeTab != tab) return;
+            selectedPage.scrollTo(0, tabScroll[tab]);
+            View previous = tabFocus[tab];
+            if (focusTabButton) tabButtons[tab].requestFocus();
+            else if (!keepNavigationFocus && previous != null && previous.isAttachedToWindow() && previous.isShown()) previous.requestFocus();
+        });
+    }
+
+    private void openYouTubeSettings() {
+        if (settingsScreen == null) settingsScreen = new SettingsScreen();
+        settingsScreen.section = SettingsScreen.YOUTUBE;
+        settingsScreen.show();
+    }
+
+    private void openCalendarSettings() {
+        if (settingsScreen == null) settingsScreen = new SettingsScreen();
+        settingsScreen.section = SettingsScreen.CALENDAR;
+        settingsScreen.show();
+    }
+
+    private void buildEventsTab() {
+        todayHeading = new LinearLayout(this);
+        todayHeading.setGravity(Gravity.CENTER_VERTICAL);
+        eventsContent.addView(todayHeading, new LinearLayout.LayoutParams(-1, dp(58)));
+        todayHeading.addView(label("Today", 28, Color.WHITE, true), new LinearLayout.LayoutParams(0, -2, 1));
+        todayEmpty = label("No events today.", 16, MUTED, false);
+        todayEmpty.setPadding(dp(8), dp(10), 0, dp(18));
+        eventsContent.addView(todayEmpty);
+        todayItems = new LinearLayout(this);
+        todayItems.setOrientation(LinearLayout.VERTICAL);
+        eventsContent.addView(todayItems, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout monthHeading = new LinearLayout(this);
+        monthHeading.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams monthParams = new LinearLayout.LayoutParams(-1, dp(64));
+        monthParams.topMargin = dp(18);
+        eventsContent.addView(monthHeading, monthParams);
+        monthTitle = label("Calendar", 24, Color.WHITE, true);
+        monthHeading.addView(monthTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        previousMonthButton = actionButton("Previous month");
+        nextMonthButton = actionButton("Next month");
+        previousMonthButton.setId(View.generateViewId());
+        nextMonthButton.setId(View.generateViewId());
+        linkTabEntry(TAB_EVENTS, previousMonthButton);
+        nextMonthButton.setNextFocusUpId(tabButtons[TAB_EVENTS].getId());
+        previousMonthButton.setOnClickListener(v -> {
+            YearMonth candidate = displayedMonth.minusMonths(1);
+            if (!CalendarDates.inRange(candidate, YearMonth.now())) return;
+            displayedMonth = candidate;
+            selectedCalendarDay = displayedMonth.atDay(1);
+            renderMonthCalendar(cachedCalendarEvents());
+        });
+        nextMonthButton.setOnClickListener(v -> {
+            YearMonth candidate = displayedMonth.plusMonths(1);
+            if (!CalendarDates.inRange(candidate, YearMonth.now())) return;
+            displayedMonth = candidate;
+            selectedCalendarDay = displayedMonth.atDay(1);
+            renderMonthCalendar(cachedCalendarEvents());
+        });
+        monthHeading.addView(previousMonthButton, new LinearLayout.LayoutParams(dp(188), dp(46)));
+        LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(dp(168), dp(46));
+        nextParams.leftMargin = dp(10);
+        monthHeading.addView(nextMonthButton, nextParams);
+
+        calendarMonthGrid = new GridLayout(this);
+        calendarMonthGrid.setColumnCount(7);
+        calendarMonthGrid.setClipChildren(false);
+        calendarMonthGrid.setClipToPadding(false);
+        eventsContent.addView(calendarMonthGrid, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout calendarFooter = new LinearLayout(this);
+        calendarFooter.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(-1, dp(62));
+        footerParams.topMargin = dp(12);
+        eventsContent.addView(calendarFooter, footerParams);
+        Button calendarSettings = actionButton("Calendar settings");
+        calendarSettings.setOnClickListener(v -> openCalendarSettings());
+        calendarFooter.addView(calendarSettings, new LinearLayout.LayoutParams(dp(205), dp(46)));
+    }
+
+    private void renderMonthCalendar(List<PublicCalendarRepository.Event> events) {
+        if (calendarMonthGrid == null) return;
+        renderedMonth = displayedMonth;
+        renderedToday = LocalDate.now();
+        renderedCalendarStamp = preferences.getLong("publicCalendarUpdatedAt", 0L);
+        monthTitle.setText(displayedMonth.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())));
+        previousMonthButton.setEnabled(CalendarDates.inRange(displayedMonth.minusMonths(1), YearMonth.now()));
+        nextMonthButton.setEnabled(CalendarDates.inRange(displayedMonth.plusMonths(1), YearMonth.now()));
+        calendarMonthGrid.removeAllViews();
+        int widthDp = Math.round(getResources().getDisplayMetrics().widthPixels /
+                getResources().getDisplayMetrics().density);
+        int cellWidth = Math.max(74, (widthDp - 120) / 7);
+        for (int i = 0; i < 7; i++) {
+            DayOfWeek weekday = DayOfWeek.MONDAY.plus(i);
+            TextView heading = label(weekday.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                    13, LiquidTheme.secondaryText(this), true);
+            heading.setGravity(Gravity.CENTER);
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+            params.width = dp(cellWidth);
+            params.height = dp(32);
+            calendarMonthGrid.addView(heading, params);
+        }
+        int offset = displayedMonth.atDay(1).getDayOfWeek().getValue() - 1;
+        int cells = ((offset + displayedMonth.lengthOfMonth() + 6) / 7) * 7;
+        ZoneId zone = ZoneId.systemDefault();
+        int cellHeight = cellWidth;
+        Button firstMonthDay = null;
+        for (int i = 0; i < cells; i++) {
+            int dayNumber = i - offset + 1;
+            View cell;
+            if (dayNumber < 1 || dayNumber > displayedMonth.lengthOfMonth()) {
+                cell = new View(this);
+            } else {
+                LocalDate day = displayedMonth.atDay(dayNumber);
+                ArrayList<PublicCalendarRepository.Event> dayEvents = new ArrayList<>();
+                for (PublicCalendarRepository.Event event : events)
+                    if (CalendarDates.includes(event, day, zone)) dayEvents.add(event);
+                StringBuilder dayText = new StringBuilder(String.valueOf(dayNumber));
+                for (PublicCalendarRepository.Event event : dayEvents)
+                    dayText.append("\n• ").append(event.title);
+                Button dateButton = actionButton(dayText.toString());
+                dateButton.setId(View.generateViewId());
+                dateButton.setTextSize(dayEvents.isEmpty() ? 15 : 13);
+                dateButton.setAllCaps(false);
+                dateButton.setGravity(Gravity.TOP | Gravity.START);
+                dateButton.setIncludeFontPadding(false);
+                dateButton.setPadding(dp(12), dp(9), dp(10), dp(8));
+                dateButton.setSingleLine(false);
+                dateButton.setHorizontallyScrolling(false);
+                dateButton.setMaxLines(Integer.MAX_VALUE);
+                dateButton.setEllipsize(null);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    dateButton.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY);
+                    dateButton.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NORMAL);
+                }
+                dateButton.setTag(day);
+                if (firstMonthDay == null) firstMonthDay = dateButton;
+                if (i < 7) dateButton.setNextFocusUpId(previousMonthButton.getId());
+                styleCalendarDateButton(dateButton, day.equals(selectedCalendarDay));
+                dateButton.setOnFocusChangeListener((view, focused) -> {
+                    LiquidTheme.animateFocus(view, focused);
+                    if (focused) selectCalendarDay(day);
+                });
+                dateButton.setOnClickListener(v -> {
+                    selectCalendarDay(day);
+                    v.requestFocus();
+                });
+                cell = dateButton;
+            }
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+            params.width = dp(cellWidth);
+            params.height = dp(cellHeight);
+            params.setMargins(0, 0, dp(4), dp(4));
+            calendarMonthGrid.addView(cell, params);
+        }
+        if (firstMonthDay != null) {
+            previousMonthButton.setNextFocusDownId(firstMonthDay.getId());
+            nextMonthButton.setNextFocusDownId(firstMonthDay.getId());
+        }
+        updateCalendarDaySelection();
+    }
+
+    private void selectCalendarDay(LocalDate day) {
+        if (!day.equals(selectedCalendarDay)) {
+            selectedCalendarDay = day;
+            updateCalendarDaySelection();
+        }
+    }
+
+    private void updateCalendarDaySelection() {
+        if (calendarMonthGrid == null) return;
+        for (int i = 0; i < calendarMonthGrid.getChildCount(); i++) {
+            View child = calendarMonthGrid.getChildAt(i);
+            if (child instanceof Button && child.getTag() instanceof LocalDate)
+                styleCalendarDateButton((Button) child, selectedCalendarDay.equals(child.getTag()));
+        }
+    }
+
+    private void styleCalendarDateButton(Button button, boolean selected) {
+        final float selectedScale = 1.22f;
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(
+                LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 13));
+        states.addState(new int[]{}, roundedShape(
+                selected ? LiquidTheme.raisedSurface(this) : LiquidTheme.surface(this),
+                selected ? LiquidTheme.accent(this) : LiquidTheme.border(this), 1, 13));
+        button.setBackground(states);
+        float normalTextSize = String.valueOf(button.getText()).contains("\n") ? 13f : 15f;
+        button.setTextSize(selected ? normalTextSize / selectedScale : normalTextSize);
+        button.animate().cancel();
+        button.animate()
+                .scaleX(selected ? selectedScale : 1f)
+                .scaleY(selected ? selectedScale : 1f)
+                .translationZ(selected ? dp(14) : 0)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 150 : 0)
+                .start();
+    }
+
+    private void addCalendarEventCard(LinearLayout parent, PublicCalendarRepository.Event event) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(11), dp(16), dp(11));
+        card.setBackground(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 15));
+        card.addView(label(event.title, 17, LiquidTheme.text(this), true));
+        DateFormat format = preferences.getBoolean("24h", false)
+                ? new java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
+                : new java.text.SimpleDateFormat("h:mm a", Locale.getDefault());
+        String timing = event.allDay ? "All day" : format.format(new Date(event.startMs))
+                + " – " + format.format(new Date(event.endMs));
+        card.addView(label(timing, 13, LiquidTheme.secondaryText(this), false));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.bottomMargin = dp(8);
+        parent.addView(card, params);
     }
 
     private int heroHeightDp() {
@@ -779,8 +1215,9 @@ public final class MainActivity extends Activity {
         if (twentyFour) time = new java.text.SimpleDateFormat("HH:mm", Locale.getDefault());
         else time = new java.text.SimpleDateFormat("h:mm a", Locale.getDefault());
         clock.setText(time.format(now));
-        date.setVisibility(preferences.getBoolean("showDate", true) ? View.VISIBLE : View.GONE);
-        date.setText(DateFormat.getDateInstance(DateFormat.FULL, Locale.getDefault()).format(now));
+        date.setVisibility(!compactNavigation && preferences.getBoolean("showDate", true)
+                ? View.VISIBLE : View.GONE);
+        date.setText(new java.text.SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(now));
     }
 
     private boolean hasWeatherLocation() {
@@ -802,39 +1239,60 @@ public final class MainActivity extends Activity {
 
     private void renderWeather() {
         if (weatherPanel == null) return;
-        weatherDays.removeAllViews();
         if (weatherForecast == null) {
-            weatherTemperature.setText(hasWeatherLocation() ? "Weather unavailable" : "Add weather");
-            weatherTemperature.setTextSize(hasWeatherLocation() ? 22 : 30);
-            weatherCondition.setText(hasWeatherLocation() ? "Refresh in Weather settings" : "Local conditions on Home");
-            weatherPlace.setText(hasWeatherLocation() ? preferences.getString("weatherLocationLabel", "") : "Select to set location");
+            weatherTemperature.setText(hasWeatherLocation() ? "Weather unavailable" : "Weather not set");
+            weatherTemperature.setTextSize(compactNavigation ? 13 : 15);
+            weatherCondition.setText(hasWeatherLocation() ? "Refresh in Settings" : "Configure in Settings");
+            weatherCondition.setVisibility(View.VISIBLE);
+            weatherDetails.setText("");
+            weatherDetails.setVisibility(View.GONE);
             weatherPanel.setContentDescription(weatherTemperature.getText() + ". " + weatherCondition.getText());
-            weatherDays.setVisibility(View.GONE); return;
+            return;
         }
         boolean fahrenheit = preferences.getBoolean("weatherFahrenheit", false);
         double temperature = fahrenheit ? WeatherRepository.fahrenheit(weatherForecast.temperature) : weatherForecast.temperature;
-        weatherTemperature.setTextSize(34);
+        weatherTemperature.setTextSize(compactNavigation ? 17 : 19);
         weatherTemperature.setText(Math.round(temperature) + (fahrenheit ? "°F" : "°C"));
         boolean mph = preferences.getBoolean("weatherMph", false);
         double wind = mph ? WeatherRepository.milesPerHour(weatherForecast.windSpeed) : weatherForecast.windSpeed;
-        weatherCondition.setText(WeatherRepository.condition(weatherForecast.code));
-        weatherPlace.setText(weatherForecast.location + "  ·  " + Math.round(wind) + (mph ? " mph" : " km/h"));
+        double apparent = fahrenheit ? WeatherRepository.fahrenheit(weatherForecast.apparentTemperature)
+                : weatherForecast.apparentTemperature;
+        weatherCondition.setText(WeatherRepository.condition(weatherForecast.code)
+                + "  ·  Feels " + Math.round(apparent) + (fahrenheit ? "°F" : "°C"));
+        weatherCondition.setVisibility(View.VISIBLE);
+        weatherDetails.setText(weatherForecast.location + "  ·  Wind " + Math.round(wind)
+                + (mph ? " mph" : " km/h"));
+        weatherDetails.setVisibility(View.VISIBLE);
         weatherPanel.setContentDescription(weatherTemperature.getText() + ". " + weatherCondition.getText()
-                + ". " + weatherForecast.location + ". Select to " + (weatherExpanded ? "collapse" : "expand") + " forecast.");
+                + ". " + weatherForecast.location + ". Wind " + Math.round(wind)
+                + (mph ? " mph" : " km/h") + ".");
+    }
+
+    private void showWeatherForecast() {
+        if (weatherForecast == null) {
+            openWeatherSettings();
+            return;
+        }
+        boolean fahrenheit = preferences.getBoolean("weatherFahrenheit", false);
+        StringBuilder details = new StringBuilder();
         for (WeatherRepository.Day day : weatherForecast.days) {
-            LinearLayout item = new LinearLayout(this); item.setOrientation(LinearLayout.VERTICAL); item.setGravity(Gravity.CENTER);
             String weekday = day.date;
             try { weekday = new java.text.SimpleDateFormat("EEE", Locale.getDefault()).format(
                     new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(day.date)); } catch (Exception ignored) { }
-            item.addView(label(weekday, 11, 0xFFD6E1E8, true));
             double low = fahrenheit ? WeatherRepository.fahrenheit(day.low) : day.low;
             double high = fahrenheit ? WeatherRepository.fahrenheit(day.high) : day.high;
-            item.addView(label(Math.round(low) + "° / " + Math.round(high) + "°", 11, Color.WHITE, true));
-            item.addView(label(WeatherRepository.condition(day.code), 9, 0xFFD6E1E8, false));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1); params.topMargin = dp(5);
-            weatherDays.addView(item, params);
+            if (details.length() > 0) details.append("\n\n");
+            details.append(weekday).append("  ·  ").append(Math.round(low)).append("° / ")
+                    .append(Math.round(high)).append("°  ·  ").append(WeatherRepository.condition(day.code));
         }
-        weatherDays.setVisibility(weatherExpanded ? View.VISIBLE : View.GONE);
+        AlertDialog dialog = new AlertDialog.Builder(new android.view.ContextThemeWrapper(this,
+                android.R.style.Theme_DeviceDefault_Dialog_Alert))
+                .setTitle(weatherForecast.location)
+                .setMessage(details.length() > 0 ? details.toString() : "Forecast unavailable")
+                .setPositiveButton("Close", null)
+                .create();
+        dialog.show();
+        styleDialog(dialog);
     }
 
     private void maybeRefreshWeather(boolean manual) {
@@ -1019,59 +1477,25 @@ public final class MainActivity extends Activity {
     }
 
     private void updateCalendarEventDisplay() {
-        if (calendarEventBar == null || calendarEventItems == null) return;
-        long now = System.currentTimeMillis();
+        if (todayItems == null || calendarMonthGrid == null) return;
         List<PublicCalendarRepository.Event> cached = cachedCalendarEvents();
-        ArrayList<PublicCalendarRepository.Event> active = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        long stamp = preferences.getLong("publicCalendarUpdatedAt", 0L);
+        if (today.equals(renderedToday) && displayedMonth.equals(renderedMonth)
+                && stamp == renderedCalendarStamp) return;
+        todayItems.removeAllViews();
+        int todayCount = 0;
         for (PublicCalendarRepository.Event event : cached) {
-            if (event.startMs <= now && now < event.endMs) active.add(event);
-        }
-        boolean happeningNow = !active.isEmpty();
-        ArrayList<PublicCalendarRepository.Event> visible = active;
-        if (!happeningNow) {
-            visible = new ArrayList<>();
-            for (PublicCalendarRepository.Event event : cached) {
-                if (event.startMs > now) visible.add(event);
-                if (visible.size() == 3) break;
+            if (CalendarDates.includes(event, today, ZoneId.systemDefault())) {
+                addCalendarEventCard(todayItems, event);
+                todayCount++;
             }
         }
-        calendarEventItems.removeAllViews();
-        calendarEventBar.setVisibility(visible.isEmpty() ? View.GONE : View.VISIBLE);
-        if (visible.isEmpty()) return;
-        if (calendarEventTitle != null) calendarEventTitle.setText(happeningNow ? "HAPPENING NOW" : "UPCOMING");
-        DateFormat timeFormat = android.text.format.DateFormat.getTimeFormat(this);
-        if (preferences.getBoolean("24h", false)) timeFormat = new java.text.SimpleDateFormat("HH:mm", Locale.getDefault());
-        DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault());
-        for (PublicCalendarRepository.Event event : visible) {
-            LinearLayout item = new LinearLayout(this);
-            item.setOrientation(LinearLayout.VERTICAL);
-            item.setPadding(dp(12), dp(7), dp(12), dp(7));
-            item.setBackground(roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.border(this), 1, 13));
-            TextView title = label(event.title, 16, LiquidTheme.text(this), true);
-            title.setMaxLines(1);
-            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            item.addView(title, new LinearLayout.LayoutParams(-1, dp(26)));
-            String timing = event.allDay
-                    ? (happeningNow ? "Today · All day" : dateFormat.format(new Date(event.startMs)) + " · All day")
-                    : (happeningNow ? "" : dateFormat.format(new Date(event.startMs)) + " · ")
-                    + timeFormat.format(new Date(event.startMs)) + " – " + timeFormat.format(new Date(event.endMs));
-            TextView time = label(timing, 12, LiquidTheme.secondaryText(this), false);
-            item.addView(time, new LinearLayout.LayoutParams(-1, dp(20)));
-            if (happeningNow) {
-                ProgressBar progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-                progress.setMax(1000);
-                int value = (int) Math.max(0, Math.min(1000,
-                        (now - event.startMs) * 1000L / Math.max(1L, event.endMs - event.startMs)));
-                progress.setProgress(value);
-                progress.setProgressTintList(android.content.res.ColorStateList.valueOf(LiquidTheme.accent(this)));
-                LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(-1, dp(4));
-                progressParams.topMargin = dp(5);
-                item.addView(progress, progressParams);
-            }
-            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(dp(390), dp(70));
-            itemParams.setMargins(0, 0, dp(10), 0);
-            calendarEventItems.addView(item, itemParams);
-        }
+        boolean hasTodayEvents = todayCount > 0;
+        todayHeading.setVisibility(hasTodayEvents ? View.VISIBLE : View.GONE);
+        todayItems.setVisibility(hasTodayEvents ? View.VISIBLE : View.GONE);
+        todayEmpty.setVisibility(View.GONE);
+        renderMonthCalendar(cached);
     }
 
     private void maybeRefreshPublicCalendar(boolean manual) {
@@ -1223,7 +1647,8 @@ public final class MainActivity extends Activity {
             tile.setElevation(dp(2));
             tile.setOnFocusChangeListener((view, hasFocus) -> {
                 LiquidTheme.animateFocus(view, hasFocus);
-                if (hasFocus && homeScroll != null) homeScroll.scrollTo(0, 0);
+                if (hasFocus && activeTab == TAB_HOME && homeScroll != null && !initialAppFocus)
+                    homeScroll.scrollTo(0, 0);
             });
             tile.setPadding(dp(6), dp(10), dp(6), dp(6));
             tile.setTag(packageName);
@@ -1242,13 +1667,19 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(tileWidth), dp(108));
             lp.setMargins(0, 0, dp(8), 0);
             appRow.addView(tile, lp);
-            if (initialAppFocus && settingsScreen == null && packageName.equals(focusedPackage)) tile.requestFocus();
+            linkTopControl(TAB_HOME, tile);
+            if (tabEntryFocus[TAB_HOME] == null || !tabEntryFocus[TAB_HOME].isAttachedToWindow())
+                linkTabEntry(TAB_HOME, tile);
+            if (initialAppFocus && activeTab == TAB_HOME && settingsScreen == null
+                    && packageName.equals(focusedPackage)) tile.requestFocus();
         }
-        if (!initialAppFocus && appRow.getChildCount() > 0) {
+        if (!initialAppFocus && activeTab == TAB_HOME && appRow.getChildCount() > 0) {
             initialAppFocus = true;
             appRow.post(() -> {
-                if (settingsScreen == null) {
-                    appRow.getChildAt(0).requestFocus();
+                if (activeTab == TAB_HOME && settingsScreen == null) {
+                    View current = getCurrentFocus();
+                    if (current == null || homeScroll.findFocus() != null)
+                        appRow.getChildAt(0).requestFocus();
                     homeScroll.scrollTo(0, 0);
                 } else if (restoredScroll > 0) {
                     homeScroll.scrollTo(0, restoredScroll);
@@ -1307,7 +1738,8 @@ public final class MainActivity extends Activity {
         if (youtubeRow == null || youtubeSection == null) return;
         youtubeRow.removeAllViews();
         List<YouTubeCard> cards = savedYouTubeCards();
-        youtubeSection.setVisibility(cards.isEmpty() ? View.GONE : View.VISIBLE);
+        youtubeSection.setVisibility(View.VISIBLE);
+        if (youtubeEmpty != null) youtubeEmpty.setVisibility(cards.isEmpty() ? View.VISIBLE : View.GONE);
         boolean retryMissingArtwork = !preferences.getBoolean("youtubeArtworkFeedFallbackTried", false);
         if (retryMissingArtwork) preferences.edit().putBoolean("youtubeArtworkFeedFallbackTried", true).apply();
         for (YouTubeCard card : cards) {
@@ -1378,6 +1810,7 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(240), dp(198));
             params.setMargins(0, dp(2), dp(16), dp(8));
             youtubeRow.addView(tile, params);
+            linkTopControl(TAB_SAVED, tile);
             loadYouTubeThumbnail(card, thumbnail, fallback);
             long refreshAfter = card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()
                     ? 60L * 60L * 1000L : 24L * 60L * 60L * 1000L;
@@ -1607,21 +2040,23 @@ public final class MainActivity extends Activity {
     private void addTopIcon(LinearLayout container, String title, int iconResource, Runnable action) {
         ImageView icon = new ImageView(this);
         icon.setImageResource(iconResource);
-        icon.setColorFilter(LiquidTheme.text(this));
+        icon.setColorFilter(0xD4FFFFFF);
         icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        icon.setPadding(dp(11), dp(11), dp(11), dp(11));
+        icon.setPadding(dp(compactNavigation ? 8 : 10), dp(compactNavigation ? 8 : 10),
+                dp(compactNavigation ? 8 : 10), dp(compactNavigation ? 8 : 10));
         icon.setContentDescription(title);
         icon.setTooltipText(title);
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 22));
-        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 22));
+        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0x24FFFFFF, 0x4DFFFFFF, 1, 22));
+        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(0x24FFFFFF, 0x4DFFFFFF, 1, 22));
         states.addState(new int[]{}, new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
         icon.setBackground(states);
         icon.setFocusable(true);
         icon.setClickable(true);
         icon.setOnFocusChangeListener(LiquidTheme::animateFocus);
         icon.setOnClickListener(v -> action.run());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(44), dp(44));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                dp(compactNavigation ? 34 : 40), dp(compactNavigation ? 34 : 40));
         lp.setMargins(dp(2), 0, dp(2), 0);
         container.addView(icon, lp);
     }
@@ -1685,19 +2120,23 @@ public final class MainActivity extends Activity {
     }
 
     private void renderGames() {
-        if (gameRow == null) return;
-        gameRow.removeAllViews();
+        if (gameGrid == null) return;
+        gameGrid.removeAllViews();
         List<GameRecord> games = new GameRepository(this).games();
-        if (games.isEmpty()) {
-            Button add = actionButton("Add your NES games");
-            add.setOnClickListener(v -> startActivity(new Intent(this, GameLibraryActivity.class)));
-            gameRow.addView(add, new LinearLayout.LayoutParams(dp(230), dp(186)));
-            return;
-        }
+        gamesEmpty.setVisibility(games.isEmpty() ? View.VISIBLE : View.GONE);
+        int widthDp = Math.round(getResources().getDisplayMetrics().widthPixels /
+                getResources().getDisplayMetrics().density);
+        int columns = widthDp >= 1050 ? 5 : 4;
+        gameGrid.setColumnCount(columns);
+        int cardWidth = dp(Math.max(150, (widthDp - 112) / columns - 12));
         for (GameRecord game : games) {
             LinearLayout card = GameUi.card(this, game, v -> startActivity(new Intent(this, GameDetailActivity.class).putExtra("gameId", game.id)));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(174), dp(204));
-            params.setMargins(0, 0, dp(12), 0); gameRow.addView(card, params);
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+            params.width = cardWidth;
+            params.height = dp(224);
+            params.setMargins(0, 0, dp(12), dp(12));
+            gameGrid.addView(card, params);
+            if (gameGrid.getChildCount() <= columns) linkTopControl(TAB_GAMES, card);
         }
     }
 
@@ -1760,6 +2199,7 @@ public final class MainActivity extends Activity {
                 renderedCategories.clear();
                 selectedChannelCategory = null;
             }
+            renderGuide();
             return;
         }
 
@@ -1783,6 +2223,8 @@ public final class MainActivity extends Activity {
                 LinearLayout.LayoutParams tabParams = new LinearLayout.LayoutParams(-2, dp(44));
                 tabParams.setMargins(0, 0, dp(10), 0);
                 channelCategoryTabs.addView(tab, tabParams);
+                linkTopControl(TAB_TV, tab);
+                if (channelCategoryTabs.getChildCount() == 1) linkTabEntry(TAB_TV, tab);
             }
         }
         if (!renderedCategories.contains(selectedChannelCategory)) selectedChannelCategory = renderedCategories.get(0);
@@ -1793,11 +2235,69 @@ public final class MainActivity extends Activity {
             if (row != null && category.getKey().equals(selectedChannelCategory)) row.adapter.setChannels(category.getValue());
         }
         updateChannelCategoryTabStyles();
+        renderGuide();
     }
 
     private void refreshCachedProgrammeDisplay() {
         IptvRepository.refreshProgrammeDisplay(channels, System.currentTimeMillis());
         for (ChannelRow row : channelRowMap.values()) row.adapter.refreshProgrammeLabels();
+        if (guideAdapter != null) guideAdapter.refreshTimes();
+    }
+
+    private void renderGuide() {
+        if (guideAdapter == null) return;
+        List<IptvRepository.Channel> selected = selectedChannelCategory == null
+                ? Collections.emptyList() : channelsForCategory(selectedChannelCategory);
+        boolean hasSchedule = false;
+        for (IptvRepository.Channel channel : selected) {
+            if (!channel.programmes.isEmpty() || !channel.now.isEmpty() || !channel.next.isEmpty()) {
+                hasSchedule = true;
+                break;
+            }
+        }
+        if (selected.isEmpty() || !hasSchedule) {
+            guideAdapter.setChannels(Collections.emptyList());
+            guideList.setVisibility(View.GONE);
+            guideEmpty.setVisibility(View.VISIBLE);
+            guideEmpty.setText(channels.isEmpty() ? "Add a playlist and programme guide in Settings."
+                    : selected.isEmpty() ? "All channels are hidden. Restore channels in Settings."
+                    : "No programme times for this category. Refresh the guide in Settings.");
+        } else {
+            guideEmpty.setVisibility(View.GONE);
+            guideList.setVisibility(View.VISIBLE);
+            guideAdapter.setChannels(selected);
+            guideList.getLayoutParams().height = dp(Math.min(4, selected.size()) * 100);
+            guideList.requestLayout();
+        }
+    }
+
+    private void showProgrammeDetails(IptvRepository.Channel channel, IptvRepository.Programme programme) {
+        long now = System.currentTimeMillis();
+        if (programme.startMs <= now) { playChannel(channel); return; }
+        GuideReminders reminders = ((DuoApplication) getApplication()).guideReminders();
+        GuideReminders.Reminder reminder = new GuideReminders.Reminder(channel.stableKey(),
+                channel.streamUrl, channel.name, programme.title, programme.startMs, programme.endMs);
+        boolean saved = reminders.has(reminder);
+        DateFormat format = preferences.getBoolean("24h", false)
+                ? new java.text.SimpleDateFormat("EEE, d MMM · HH:mm", Locale.getDefault())
+                : new java.text.SimpleDateFormat("EEE, d MMM · h:mm a", Locale.getDefault());
+        String when = format.format(new Date(programme.startMs)) + " – " + format.format(new Date(programme.endMs));
+        AlertDialog dialog = new AlertDialog.Builder(new android.view.ContextThemeWrapper(this,
+                android.R.style.Theme_Material_Dialog_Alert))
+                .setTitle(programme.title)
+                .setMessage(channel.name + "\n" + when + "\n\nReminders appear five minutes before the show while Duo is open.")
+                .setPositiveButton(saved ? "Remove reminder" : "Remind me", (ignored, which) -> {
+                    if (saved) reminders.remove(reminder);
+                    else if (!reminders.add(reminder)) {
+                        Toast.makeText(this, "This programme has already started.", Toast.LENGTH_SHORT).show();
+                    }
+                    guideAdapter.refreshTimes();
+                })
+                .setNeutralButton("Watch channel", (ignored, which) -> playChannel(channel))
+                .setNegativeButton("Close", null)
+                .create();
+        dialog.show();
+        styleDialog(dialog);
     }
 
     private Button createChannelCategoryTab(String category) {
@@ -1815,6 +2315,7 @@ public final class MainActivity extends Activity {
                 channelRowMap.put(selectedChannelCategory, row);
                 row.adapter.setChannels(channelsForCategory(category));
             }
+            renderGuide();
             channelCategoryScroll.smoothScrollTo(Math.max(0, view.getLeft() - dp(24)), 0);
         });
         return tab;
@@ -2235,6 +2736,9 @@ public final class MainActivity extends Activity {
             channelsRefreshing = false;
             channels.clear(); channels.addAll(loaded);
             renderChannels();
+            if (!loaded.isEmpty()) ((DuoApplication) getApplication()).guideReminders()
+                    .reconcile(channels, hiddenChannelKeys);
+            openPendingReminder();
             status.setText(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
             if (!channels.isEmpty() && !iptv.guideUrl().isEmpty() && iptv.isGuideStale(channels)) refreshGuide(false);
@@ -2252,6 +2756,8 @@ public final class MainActivity extends Activity {
             guideRefreshing = false;
             channels.clear(); channels.addAll(loaded);
             renderChannels();
+            if (!loaded.isEmpty()) ((DuoApplication) getApplication()).guideReminders()
+                    .reconcile(channels, hiddenChannelKeys);
             status.setText(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
             scheduleLiveRefreshCheck();
@@ -2307,11 +2813,11 @@ public final class MainActivity extends Activity {
         private final String[] sections = {"Live TV", "Channels", "Apps", "Appearance", "Clock", "Playback & DRM", "Home button", "Backup & restore", "YouTube", "Calendar", "Schedules", "Games", "Weather"};
         private final String[] sectionGlyphs = {"✦", "◈", "▦", "▧", "◷", "◉", "⌂", "⇧", "▶", "◷", "↻", "◆", "☀"};
         private final String[] descriptions = {
-                "Playlist and programme guide", "Choose which channels appear on Home",
+                "Playlist and programme guide", "Choose which channels appear in Live TV",
                 "Choose and order your home shortcuts", "Photo backdrop and wallpaper",
                 "Time and date on Home", "Default Widevine license settings",
                 "Open Duo when the TV Home button opens its built-in launcher",
-                "Save or restore launcher settings and channels", "Save videos and playlists on Home",
+                "Save or restore launcher settings and channels", "Save videos and playlists in Saved",
                 "Show events from a public Google Calendar", "Choose when content updates automatically",
                 "Import and manage your local NES library", "Current conditions and a three-day forecast"
         };
@@ -2423,7 +2929,10 @@ public final class MainActivity extends Activity {
             dialog.setOnDismissListener(ignored -> {
                 if (settingsScreen == this) settingsScreen = null;
                 if (appsChanged) renderApps();
-                if (channelsChanged) renderChannels();
+                if (channelsChanged) {
+                    renderChannels();
+                    ((DuoApplication) getApplication()).guideReminders().reconcile(channels, hiddenChannelKeys);
+                }
                 if (youtubeChanged) renderYouTubeCards();
                 if (screenActive && !backgroundPhotos.isEmpty()) {
                     if (slideA.getVisibility() == View.VISIBLE || slideB.getVisibility() == View.VISIBLE) {
@@ -2601,7 +3110,7 @@ public final class MainActivity extends Activity {
                 preferences.edit().remove("weatherLocationMode").remove("weatherLocationLabel")
                         .remove("weatherLatitude").remove("weatherLongitude").remove("weatherCache")
                         .remove("weatherUpdatedAt").remove("weatherAttemptedAt").apply();
-                weatherForecast = null; weatherExpanded = false; weatherRequestGeneration++; weatherRefreshing = false;
+                weatherForecast = null; weatherRequestGeneration++; weatherRefreshing = false;
                 renderWeather(); renderSection();
             });
             weatherFeedback = label("", 13, LiquidTheme.secondaryText(MainActivity.this), false);
@@ -2710,11 +3219,11 @@ public final class MainActivity extends Activity {
 
         private void renderYouTubeSettings(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormHint(form, "Paste a public YouTube video or playlist link to add a portrait card to Home. Add an optional title; the full artwork thumbnail stays visible on the card.");
+            addFormHint(form, "Paste a public YouTube video or playlist link to add a card to Saved. Add an optional title; the full artwork thumbnail stays visible on the card.");
             youtubeUrlField = addInput(form, "Video or playlist link", "https://www.youtube.com/watch?v=…", draftYoutubeUrl, false);
             youtubeTitleField = addInput(form, "Card title · optional", "Use the YouTube title", draftYoutubeTitle, false);
             youtubeArtField = addInput(form, "Artwork video link · optional", "Use for playlist artwork", draftYoutubeArt, false);
-            addFormButton(form, "Add to Home", view -> {
+            addFormButton(form, "Add to Saved", view -> {
                 String value = youtubeUrlField == null ? draftYoutubeUrl : youtubeUrlField.getText().toString();
                 String customTitle = youtubeTitleField == null ? draftYoutubeTitle : youtubeTitleField.getText().toString().trim();
                 String artworkVideo = youtubeArtField == null ? draftYoutubeArt : youtubeArtField.getText().toString().trim();
@@ -2726,7 +3235,7 @@ public final class MainActivity extends Activity {
                 List<YouTubeCard> cards = savedYouTubeCards();
                 for (YouTubeCard card : cards) {
                     if (card.url.equals(parsed.url)) {
-                        if (youtubeFeedback != null) youtubeFeedback.setText("That link is already on Home.");
+                        if (youtubeFeedback != null) youtubeFeedback.setText("That link is already in Saved.");
                         return;
                     }
                 }
@@ -2747,7 +3256,7 @@ public final class MainActivity extends Activity {
                 if (youtubeUrlField != null) youtubeUrlField.setText("");
                 if (youtubeTitleField != null) youtubeTitleField.setText("");
                 if (youtubeArtField != null) youtubeArtField.setText("");
-                if (youtubeFeedback != null) youtubeFeedback.setText("Added to Home.");
+                if (youtubeFeedback != null) youtubeFeedback.setText("Added to Saved.");
                 renderYouTubeSavedList();
                 if (youtubeUrlField != null) youtubeUrlField.requestFocus();
             });
@@ -2794,7 +3303,7 @@ public final class MainActivity extends Activity {
                 copy.addView(detail);
                 row.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
                 Button remove = settingsButton("Remove");
-                remove.setContentDescription("Remove " + card.title + " from Home");
+                remove.setContentDescription("Remove " + card.title + " from Saved");
                 Button editTitle = settingsButton("Title");
                 editTitle.setContentDescription("Edit title for " + card.title);
                 Button editArt = settingsButton("Art");
@@ -2816,7 +3325,7 @@ public final class MainActivity extends Activity {
                     for (YouTubeCard saved : latest) if (!saved.url.equals(card.url)) retained.add(saved);
                     saveYouTubeCards(retained);
                     youtubeChanged = true;
-                    if (youtubeFeedback != null) youtubeFeedback.setText("Removed from Home.");
+                    if (youtubeFeedback != null) youtubeFeedback.setText("Removed from Saved.");
                     renderYouTubeSavedList();
                 });
                 LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(68));
@@ -2911,7 +3420,7 @@ public final class MainActivity extends Activity {
 
         private void renderCalendarSettings(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormHint(form, "Add a public Google Calendar iCal address. In Google Calendar, open Settings → Integrate calendar → Public address in iCal format. Only events happening now appear on Home.");
+            addFormHint(form, "Add a public Google Calendar iCal address. In Google Calendar, open Settings → Integrate calendar → Public address in iCal format. Events appear in the Events tab.");
             calendarUrlField = addInput(form, "Public calendar iCal URL", "https://calendar.google.com/calendar/ical/…/public/basic.ics", draftCalendarUrl, false);
             calendarSummary = label(calendarSummaryText(), 13, LiquidTheme.secondaryText(MainActivity.this), false);
             calendarSummary.setPadding(dp(2), dp(8), dp(2), dp(4));
