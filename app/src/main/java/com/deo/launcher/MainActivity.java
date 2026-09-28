@@ -700,6 +700,20 @@ public final class MainActivity extends Activity {
         appScroll.addView(appRow);
         homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(132)));
 
+        calendarEventBar = new LinearLayout(this);
+        calendarEventBar.setOrientation(LinearLayout.VERTICAL);
+        calendarEventBar.setVisibility(View.GONE);
+        LinearLayout.LayoutParams homeCalendarParams = new LinearLayout.LayoutParams(-1, -2);
+        homeCalendarParams.topMargin = dp(14);
+        homeContent.addView(calendarEventBar, homeCalendarParams);
+        calendarEventTitle = label("Today", 22, Color.WHITE, true);
+        calendarEventTitle.setTextColor(0xFFE3EDF5);
+        calendarEventTitle.setLetterSpacing(.02f);
+        calendarEventBar.addView(calendarEventTitle, new LinearLayout.LayoutParams(-1, dp(44)));
+        calendarEventItems = new LinearLayout(this);
+        calendarEventItems.setOrientation(LinearLayout.VERTICAL);
+        calendarEventBar.addView(calendarEventItems, new LinearLayout.LayoutParams(-1, -2));
+
         LinearLayout gamesHeading = new LinearLayout(this);
         gamesHeading.setGravity(Gravity.CENTER_VERTICAL);
         TextView gamesTitle = label("Your games", 28, Color.WHITE, true);
@@ -1477,21 +1491,25 @@ public final class MainActivity extends Activity {
     }
 
     private void updateCalendarEventDisplay() {
-        if (todayItems == null || calendarMonthGrid == null) return;
+        if (todayItems == null || calendarMonthGrid == null || calendarEventItems == null) return;
         List<PublicCalendarRepository.Event> cached = cachedCalendarEvents();
         LocalDate today = LocalDate.now();
         long stamp = preferences.getLong("publicCalendarUpdatedAt", 0L);
         if (today.equals(renderedToday) && displayedMonth.equals(renderedMonth)
                 && stamp == renderedCalendarStamp) return;
         todayItems.removeAllViews();
+        calendarEventItems.removeAllViews();
         int todayCount = 0;
         for (PublicCalendarRepository.Event event : cached) {
             if (CalendarDates.includes(event, today, ZoneId.systemDefault())) {
                 addCalendarEventCard(todayItems, event);
+                addCalendarEventCard(calendarEventItems, event);
                 todayCount++;
             }
         }
         boolean hasTodayEvents = todayCount > 0;
+        calendarEventTitle.setText(todayCount == 1 ? "Today · 1 event" : "Today · " + todayCount + " events");
+        calendarEventBar.setVisibility(hasTodayEvents ? View.VISIBLE : View.GONE);
         todayHeading.setVisibility(hasTodayEvents ? View.VISIBLE : View.GONE);
         todayItems.setVisibility(hasTodayEvents ? View.VISIBLE : View.GONE);
         todayEmpty.setVisibility(View.GONE);
