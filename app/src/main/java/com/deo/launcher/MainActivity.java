@@ -137,7 +137,10 @@ public final class MainActivity extends Activity {
     private GridLayout gameGrid, calendarMonthGrid;
     private Button previousMonthButton, nextMonthButton;
     private TextView gamesEmpty, youtubeEmpty, todayEmpty, monthTitle;
+    private TextView calendarDetailDate, calendarDetailDay, calendarDetailMoon;
+    private TextView calendarDetailMoonName, calendarDetailIllumination, calendarDetailEvent;
     private LinearLayout todayHeading, todayItems;
+    private LinearLayout calendarDetailsPanel;
     private YearMonth displayedMonth = YearMonth.now();
     private LocalDate selectedCalendarDay = LocalDate.now();
     private YearMonth renderedMonth;
@@ -952,6 +955,10 @@ public final class MainActivity extends Activity {
         monthHeading.addView(monthTitle, new LinearLayout.LayoutParams(0, -2, 1));
         previousMonthButton = actionButton("Previous month");
         nextMonthButton = actionButton("Next month");
+        previousMonthButton.setTextSize(11);
+        nextMonthButton.setTextSize(11);
+        previousMonthButton.setPadding(dp(7), 0, dp(7), 0);
+        nextMonthButton.setPadding(dp(7), 0, dp(7), 0);
         previousMonthButton.setId(View.generateViewId());
         nextMonthButton.setId(View.generateViewId());
         linkTabEntry(TAB_EVENTS, previousMonthButton);
@@ -970,16 +977,61 @@ public final class MainActivity extends Activity {
             selectedCalendarDay = displayedMonth.atDay(1);
             renderMonthCalendar(cachedCalendarEvents());
         });
-        monthHeading.addView(previousMonthButton, new LinearLayout.LayoutParams(dp(188), dp(46)));
-        LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(dp(168), dp(46));
-        nextParams.leftMargin = dp(10);
+        monthHeading.addView(previousMonthButton, new LinearLayout.LayoutParams(dp(120), dp(36)));
+        LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(dp(108), dp(36));
+        nextParams.leftMargin = dp(6);
         monthHeading.addView(nextMonthButton, nextParams);
+
+        LinearLayout calendarBody = new LinearLayout(this);
+        calendarBody.setOrientation(LinearLayout.HORIZONTAL);
+        calendarBody.setGravity(Gravity.TOP);
+        calendarBody.setClipChildren(false);
+        calendarBody.setClipToPadding(false);
+        eventsContent.addView(calendarBody, new LinearLayout.LayoutParams(-1, -2));
 
         calendarMonthGrid = new GridLayout(this);
         calendarMonthGrid.setColumnCount(7);
         calendarMonthGrid.setClipChildren(false);
         calendarMonthGrid.setClipToPadding(false);
-        eventsContent.addView(calendarMonthGrid, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout.LayoutParams gridParams = new LinearLayout.LayoutParams(0, -2, 1);
+        gridParams.rightMargin = dp(24);
+        calendarBody.addView(calendarMonthGrid, gridParams);
+
+        LinearLayout details = new LinearLayout(this);
+        calendarDetailsPanel = details;
+        details.setOrientation(LinearLayout.VERTICAL);
+        details.setGravity(Gravity.CENTER_HORIZONTAL);
+        details.setPadding(dp(12), dp(12), dp(12), dp(12));
+        details.setBackground(roundedShape(0x18FFFFFF, 0x2AFFFFFF, 1, 28));
+        TextView detailLabel = label("SELECTED DATE", 11, LiquidTheme.secondaryText(this), true);
+        detailLabel.setLetterSpacing(.16f);
+        details.addView(detailLabel, new LinearLayout.LayoutParams(-1, -2));
+        calendarDetailDate = label("", 48, LiquidTheme.text(this), false);
+        calendarDetailDate.setGravity(Gravity.START);
+        calendarDetailDate.setTypeface(Typeface.create("sans-serif-thin", Typeface.NORMAL));
+        details.addView(calendarDetailDate, new LinearLayout.LayoutParams(-1, dp(56)));
+        calendarDetailDay = label("", 13, LiquidTheme.secondaryText(this), false);
+        details.addView(calendarDetailDay, new LinearLayout.LayoutParams(-1, dp(24)));
+        calendarDetailMoon = label("", 46, LiquidTheme.text(this), false);
+        calendarDetailMoon.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams moonParams = new LinearLayout.LayoutParams(-1, dp(64));
+        moonParams.topMargin = dp(5);
+        details.addView(calendarDetailMoon, moonParams);
+        calendarDetailMoonName = label("", 14, LiquidTheme.text(this), true);
+        calendarDetailMoonName.setGravity(Gravity.CENTER);
+        details.addView(calendarDetailMoonName, new LinearLayout.LayoutParams(-1, dp(23)));
+        calendarDetailIllumination = label("", 10, LiquidTheme.secondaryText(this), false);
+        calendarDetailIllumination.setGravity(Gravity.CENTER);
+        details.addView(calendarDetailIllumination, new LinearLayout.LayoutParams(-1, dp(20)));
+        calendarDetailEvent = label("", 11, 0xFFFFA0AE, true);
+        calendarDetailEvent.setPadding(dp(9), dp(7), dp(9), dp(7));
+        calendarDetailEvent.setMaxLines(6);
+        calendarDetailEvent.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        calendarDetailEvent.setBackground(roundedShape(0x1FFF6980, 0x42FF6980, 1, 17));
+        LinearLayout.LayoutParams eventParams = new LinearLayout.LayoutParams(-1, -2);
+        eventParams.topMargin = dp(8);
+        details.addView(calendarDetailEvent, eventParams);
+        calendarBody.addView(details, new LinearLayout.LayoutParams(dp(200), dp(440)));
 
         LinearLayout calendarFooter = new LinearLayout(this);
         calendarFooter.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
@@ -1002,21 +1054,31 @@ public final class MainActivity extends Activity {
         calendarMonthGrid.removeAllViews();
         int widthDp = Math.round(getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
-        int cellWidth = Math.max(74, (widthDp - 120) / 7);
+        int cellWidth = Math.max(52, (widthDp - 348) / 7);
         for (int i = 0; i < 7; i++) {
-            DayOfWeek weekday = DayOfWeek.MONDAY.plus(i);
+            DayOfWeek weekday = DayOfWeek.SUNDAY.plus(i);
             TextView heading = label(weekday.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-                    13, LiquidTheme.secondaryText(this), true);
-            heading.setGravity(Gravity.CENTER);
+                    12, i == 0 || i == 6 ? 0xFFA47883 : LiquidTheme.secondaryText(this), true);
+            heading.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            heading.setPadding(dp(12), 0, 0, 0);
+            heading.setLetterSpacing(.1f);
             GridLayout.LayoutParams params = new GridLayout.LayoutParams();
             params.width = dp(cellWidth);
             params.height = dp(32);
             calendarMonthGrid.addView(heading, params);
         }
-        int offset = displayedMonth.atDay(1).getDayOfWeek().getValue() - 1;
+        int offset = displayedMonth.atDay(1).getDayOfWeek().getValue() % 7;
         int cells = ((offset + displayedMonth.lengthOfMonth() + 6) / 7) * 7;
         ZoneId zone = ZoneId.systemDefault();
-        int cellHeight = cellWidth;
+        int screenHeightDp = Math.round(getResources().getDisplayMetrics().heightPixels /
+                getResources().getDisplayMetrics().density);
+        int rows = cells / 7;
+        int fittedHeight = (Math.max(300, screenHeightDp - 210) - 32) / rows - 4;
+        int cellHeight = Math.max(65, Math.min(cellWidth, fittedHeight));
+        if (calendarDetailsPanel != null) {
+            calendarDetailsPanel.getLayoutParams().height = dp(32 + rows * (cellHeight + 4));
+            calendarDetailsPanel.requestLayout();
+        }
         Button firstMonthDay = null;
         for (int i = 0; i < cells; i++) {
             int dayNumber = i - offset + 1;
@@ -1028,28 +1090,26 @@ public final class MainActivity extends Activity {
                 ArrayList<PublicCalendarRepository.Event> dayEvents = new ArrayList<>();
                 for (PublicCalendarRepository.Event event : events)
                     if (CalendarDates.includes(event, day, zone)) dayEvents.add(event);
-                StringBuilder dayText = new StringBuilder(String.valueOf(dayNumber));
-                for (PublicCalendarRepository.Event event : dayEvents)
-                    dayText.append("\n• ").append(event.title);
-                Button dateButton = actionButton(dayText.toString());
+                // CalendarDates.MoonPhase moonPhase = CalendarDates.moonPhase(day);
+                String eventTitle = dayEvents.isEmpty() ? "" : dayEvents.get(0).title
+                        + (dayEvents.size() > 1 ? "  +" + (dayEvents.size() - 1) : "");
+                CalendarDayButton dateButton = new CalendarDayButton(this);
+                styleFocusableTile(dateButton);
+                dateButton.setContent(dayNumber, day.getDayOfWeek().getDisplayName(
+                                TextStyle.SHORT, Locale.getDefault()).toUpperCase(Locale.getDefault()),
+                        eventTitle, null, null, day.equals(LocalDate.now()));
                 dateButton.setId(View.generateViewId());
-                dateButton.setTextSize(dayEvents.isEmpty() ? 15 : 13);
-                dateButton.setAllCaps(false);
-                dateButton.setGravity(Gravity.TOP | Gravity.START);
-                dateButton.setIncludeFontPadding(false);
-                dateButton.setPadding(dp(12), dp(9), dp(10), dp(8));
-                dateButton.setSingleLine(false);
-                dateButton.setHorizontallyScrolling(false);
-                dateButton.setMaxLines(Integer.MAX_VALUE);
-                dateButton.setEllipsize(null);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    dateButton.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY);
-                    dateButton.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NORMAL);
-                }
                 dateButton.setTag(day);
+                StringBuilder dayDescription = new StringBuilder(day.format(
+                        java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.getDefault())))
+                        .append(". ");
+                for (PublicCalendarRepository.Event event : dayEvents)
+                    dayDescription.append(". ").append(event.title);
+                dateButton.setContentDescription(dayDescription);
                 if (firstMonthDay == null) firstMonthDay = dateButton;
                 if (i < 7) dateButton.setNextFocusUpId(previousMonthButton.getId());
-                styleCalendarDateButton(dateButton, day.equals(selectedCalendarDay));
+                styleCalendarDateButton(dateButton, day.equals(selectedCalendarDay), day.equals(LocalDate.now()),
+                        day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY);
                 dateButton.setOnFocusChangeListener((view, focused) -> {
                     LiquidTheme.animateFocus(view, focused);
                     if (focused) selectCalendarDay(day);
@@ -1071,6 +1131,7 @@ public final class MainActivity extends Activity {
             nextMonthButton.setNextFocusDownId(firstMonthDay.getId());
         }
         updateCalendarDaySelection();
+        updateCalendarDetails(events);
     }
 
     private void selectCalendarDay(LocalDate day) {
@@ -1078,28 +1139,34 @@ public final class MainActivity extends Activity {
             selectedCalendarDay = day;
             updateCalendarDaySelection();
         }
+        updateCalendarDetails(cachedCalendarEvents());
     }
 
     private void updateCalendarDaySelection() {
         if (calendarMonthGrid == null) return;
         for (int i = 0; i < calendarMonthGrid.getChildCount(); i++) {
             View child = calendarMonthGrid.getChildAt(i);
-            if (child instanceof Button && child.getTag() instanceof LocalDate)
-                styleCalendarDateButton((Button) child, selectedCalendarDay.equals(child.getTag()));
+            if (child instanceof Button && child.getTag() instanceof LocalDate) {
+                LocalDate day = (LocalDate) child.getTag();
+                styleCalendarDateButton((Button) child, selectedCalendarDay.equals(day), day.equals(LocalDate.now()),
+                        day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY);
+            }
         }
     }
 
-    private void styleCalendarDateButton(Button button, boolean selected) {
-        final float selectedScale = 1.22f;
+    private void styleCalendarDateButton(Button button, boolean selected, boolean today, boolean weekend) {
+        final float selectedScale = 1.08f;
+        final int todayRed = 0xFFD32F2F;
+        final int idleSurface = weekend ? 0x12FF647D : LiquidTheme.surface(this);
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[]{android.R.attr.state_focused}, roundedShape(
-                LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 13));
+                today ? todayRed : LiquidTheme.raisedSurface(this),
+                today ? Color.WHITE : LiquidTheme.accent(this), 2, 13));
         states.addState(new int[]{}, roundedShape(
-                selected ? LiquidTheme.raisedSurface(this) : LiquidTheme.surface(this),
-                selected ? LiquidTheme.accent(this) : LiquidTheme.border(this), 1, 13));
+                today ? todayRed : selected ? LiquidTheme.raisedSurface(this) : idleSurface,
+                today ? Color.WHITE : selected ? LiquidTheme.accent(this) : LiquidTheme.border(this), 1, 13));
         button.setBackground(states);
-        float normalTextSize = String.valueOf(button.getText()).contains("\n") ? 13f : 15f;
-        button.setTextSize(selected ? normalTextSize / selectedScale : normalTextSize);
+        if (button instanceof CalendarDayButton) ((CalendarDayButton) button).setToday(today);
         button.animate().cancel();
         button.animate()
                 .scaleX(selected ? selectedScale : 1f)
@@ -1109,6 +1176,69 @@ public final class MainActivity extends Activity {
                 .setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 150 : 0)
                 .start();
     }
+
+private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) {
+    if (calendarDetailDate == null || selectedCalendarDay == null) return;
+
+    CalendarDates.MoonPhase moon =
+            CalendarDates.moonPhase(selectedCalendarDay);
+
+    calendarDetailDate.setText(
+            String.valueOf(selectedCalendarDay.getDayOfMonth())
+    );
+
+    calendarDetailDay.setText(
+            selectedCalendarDay.getDayOfWeek().getDisplayName(
+                    TextStyle.FULL,
+                    Locale.getDefault()
+            )
+            + "  ·  "
+            + selectedCalendarDay.getMonth().getDisplayName(
+                    TextStyle.FULL,
+                    Locale.getDefault()
+            )
+    );
+
+    calendarDetailMoon.setText(moon.symbol);
+    calendarDetailMoonName.setText(moon.name);
+    calendarDetailIllumination.setText(
+            "Lunar illumination  ·  " + moon.illumination + "%"
+    );
+
+    // ---------------------------------------------------------
+    // Find ALL events for selected day
+    // ---------------------------------------------------------
+
+    ArrayList<String> titles = new ArrayList<>();
+    ZoneId zone = ZoneId.systemDefault();
+
+    for (PublicCalendarRepository.Event event : events) {
+        if (CalendarDates.includes(event, selectedCalendarDay, zone)) {
+            titles.add(event.title);
+        }
+    }
+
+    // ---------------------------------------------------------
+    // Display events
+    // ---------------------------------------------------------
+
+    if (titles.isEmpty()) {
+
+        calendarDetailEvent.setVisibility(View.GONE);
+
+    } else {
+
+        StringBuilder text = new StringBuilder(" \n");
+
+        for (String title : titles) {
+            text.append("\n ").append(title);
+        }
+         text.append("\n ");
+
+        calendarDetailEvent.setText(text.toString());
+        calendarDetailEvent.setVisibility(View.VISIBLE);
+    }
+}
 
     private void addCalendarEventCard(LinearLayout parent, PublicCalendarRepository.Event event) {
         LinearLayout card = new LinearLayout(this);
@@ -1138,6 +1268,359 @@ public final class MainActivity extends Activity {
         image.setVisibility(View.GONE);
         return image;
     }
+    private final class CalendarDayButton extends Button {
+
+    private int dayNumber;
+    private String weekday = "";
+    private String eventTitle = "";
+    private String moonSymbol = "";
+    private String moonName = "";
+    private boolean today;
+
+    private final Paint datePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint weekdayPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint moonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint eventPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint todayPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    CalendarDayButton(Context context) {
+        super(context);
+
+        setText("");
+        setAllCaps(false);
+
+        setFocusable(true);
+        setFocusableInTouchMode(false);
+        setClickable(true);
+
+        setMinWidth(0);
+        setMinimumWidth(0);
+        setMinHeight(0);
+        setMinimumHeight(0);
+
+        // Compact TV calendar cell.
+        setPadding(dp(12), dp(7), dp(10), dp(6));
+
+        configurePaints();
+    }
+
+    private void configurePaints() {
+
+        // Large date number.
+        datePaint.setTextSize(sp(23));
+        datePaint.setTypeface(
+                Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        );
+
+        // MON / TUE / WED...
+        weekdayPaint.setTextSize(sp(9));
+        weekdayPaint.setTypeface(
+                Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        );
+
+        // Moon phase.
+        moonPaint.setTextSize(sp(9));
+        moonPaint.setTypeface(
+                Typeface.create("sans-serif", Typeface.NORMAL)
+        );
+
+        // Holiday/event.
+        eventPaint.setTextSize(sp(9));
+        eventPaint.setTypeface(
+                Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        );
+
+        todayPaint.setStyle(Paint.Style.FILL);
+    }
+
+    public void setContent(
+            int dayNumber,
+            String weekday,
+            String eventTitle,
+            String moonSymbol,
+            String moonName,
+            boolean today) {
+
+        this.dayNumber = dayNumber;
+        this.weekday = safe(weekday);
+        this.eventTitle = safe(eventTitle);
+        this.moonSymbol = safe(moonSymbol);
+        this.moonName = safe(moonName);
+        this.today = today;
+
+        invalidate();
+    }
+
+    public void setToday(boolean today) {
+        if (this.today == today) {
+            return;
+        }
+
+        this.today = today;
+        invalidate();
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+
+        /*
+         * Important:
+         * Don't call super.onDraw().
+         *
+         * Button has no normal text. We draw all content ourselves.
+         */
+
+        int save = canvas.save();
+
+        /*
+         * Absolutely prevent event/moon text from escaping
+         * outside the rounded calendar tile.
+         */
+        canvas.clipRect(
+                getPaddingLeft(),
+                getPaddingTop(),
+                getWidth() - getPaddingRight(),
+                getHeight() - getPaddingBottom()
+        );
+
+        final int primary =
+                LiquidTheme.text(MainActivity.this);
+
+        final int secondary =
+                LiquidTheme.secondaryText(MainActivity.this);
+
+        final int eventColor =
+                0xFFFFA0AE;
+
+        datePaint.setColor(primary);
+        weekdayPaint.setColor(secondary);
+        moonPaint.setColor(secondary);
+        eventPaint.setColor(eventColor);
+
+        final float left = getPaddingLeft();
+        final float right =
+                getWidth() - getPaddingRight();
+
+        /*
+         * =========================================================
+         * ROW 1
+         *
+         * 29  THU                              ●
+         * =========================================================
+         */
+
+        Paint.FontMetrics dateFm =
+                datePaint.getFontMetrics();
+
+        float row1Baseline =
+                getPaddingTop() - dateFm.ascent;
+
+        canvas.drawText(
+                String.valueOf(dayNumber),
+                left,
+                row1Baseline,
+                datePaint
+        );
+
+        /*
+         * Put weekday beside the date rather than underneath it.
+         *
+         * Width is calculated dynamically because "8" and "29"
+         * don't have the same width.
+         */
+        float dateWidth =
+                datePaint.measureText(String.valueOf(dayNumber));
+
+        float weekdayX =
+                left + dateWidth + dp(6);
+
+        canvas.drawText(
+                weekday,
+                weekdayX,
+                row1Baseline - dp(1),
+                weekdayPaint
+        );
+
+        /*
+         * TODAY DOT
+         */
+
+        if (today) {
+
+            todayPaint.setColor(
+                    LiquidTheme.isLight(MainActivity.this)
+                            ? 0xFFD32F2F
+                            : 0xFFFFE0E0
+            );
+
+            float radius = dp(3);
+
+            canvas.drawCircle(
+                    right - radius,
+                    getPaddingTop() + radius,
+                    radius,
+                    todayPaint
+            );
+        }
+
+        /*
+         * =========================================================
+         * ROW 2
+         *
+         * 🌕  Waning gibbous
+         * =========================================================
+         */
+
+        String moonText;
+
+        if (moonSymbol.isEmpty()) {
+
+            moonText = moonName;
+
+        } else if (moonName.isEmpty()) {
+
+            moonText = moonSymbol;
+
+        } else {
+
+            moonText =
+                    moonSymbol + "  " + moonName;
+        }
+
+        moonText = ellipsize(
+                moonText,
+                moonPaint,
+                right - left
+        );
+
+        float row2Baseline =
+                row1Baseline;
+
+        // canvas.drawText(
+        //         moonText,
+        //         left,
+        //         row2Baseline,
+        //         moonPaint
+        // );
+
+        /*
+         * =========================================================
+         * ROW 3
+         *
+         * • Karwa Chauth
+         *
+         * Only draw this row when there is an event.
+         * =========================================================
+         */
+
+        if (!eventTitle.isEmpty()) {
+
+            String eventText =
+                    "• " + eventTitle;
+
+            eventText = ellipsize(
+                    eventText,
+                    eventPaint,
+                    right - left
+            );
+
+            float row3Baseline =
+                    row2Baseline + dp(15);
+
+            /*
+             * Extra protection for very short cells.
+             */
+            Paint.FontMetrics eventFm =
+                    eventPaint.getFontMetrics();
+
+            float maxBaseline =
+                    getHeight()
+                            - getPaddingBottom()
+                            - eventFm.descent;
+
+            row3Baseline =
+                    Math.min(row3Baseline, maxBaseline);
+
+            canvas.drawText(
+                    eventText,
+                    left,
+                    row3Baseline,
+                    eventPaint
+            );
+        }
+
+        canvas.restoreToCount(save);
+    }
+
+    /**
+     * Ellipsizes text according to actual Paint measurements.
+     *
+     * Example:
+     *
+     * "Waning gibbous" -> "Waning gib…"
+     * "Mahatma Gandhi Jayanti" -> "Mahatma Gand…"
+     */
+    private String ellipsize(
+            String text,
+            Paint paint,
+            float availableWidth) {
+
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+
+        if (availableWidth <= 0) {
+            return "";
+        }
+
+        if (paint.measureText(text) <= availableWidth) {
+            return text;
+        }
+
+        final String ellipsis = "…";
+
+        float ellipsisWidth =
+                paint.measureText(ellipsis);
+
+        int end = text.length();
+
+        while (end > 0) {
+
+            float width =
+                    paint.measureText(
+                            text,
+                            0,
+                            end
+                    );
+
+            if (width + ellipsisWidth <= availableWidth) {
+                break;
+            }
+
+            end--;
+        }
+
+        if (end <= 0) {
+            return ellipsis;
+        }
+
+        return text
+                .substring(0, end)
+                .trim()
+                + ellipsis;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private float sp(float value) {
+        return value *
+                getResources()
+                        .getDisplayMetrics()
+                        .scaledDensity;
+    }
+}
 
     private static final class BackdropImageView extends ImageView {
         private final Matrix cropMatrix = new Matrix();
@@ -1510,8 +1993,8 @@ public final class MainActivity extends Activity {
         boolean hasTodayEvents = todayCount > 0;
         calendarEventTitle.setText(todayCount == 1 ? "Today · 1 event" : "Today · " + todayCount + " events");
         calendarEventBar.setVisibility(hasTodayEvents ? View.VISIBLE : View.GONE);
-        todayHeading.setVisibility(hasTodayEvents ? View.VISIBLE : View.GONE);
-        todayItems.setVisibility(hasTodayEvents ? View.VISIBLE : View.GONE);
+        todayHeading.setVisibility(View.GONE);
+        todayItems.setVisibility(View.GONE);
         todayEmpty.setVisibility(View.GONE);
         renderMonthCalendar(cached);
     }
@@ -2315,20 +2798,26 @@ public final class MainActivity extends Activity {
         tab.setTextSize(14);
         tab.setPadding(dp(18), 0, dp(18), 0);
         tab.setMinWidth(dp(72));
-        tab.setOnClickListener(view -> {
-            if (category.equals(selectedChannelCategory)) return;
-            selectedChannelCategory = category;
-            updateChannelCategoryTabStyles();
-            ChannelRow row = channelRowMap.isEmpty() ? null : channelRowMap.values().iterator().next();
-            if (row != null) {
-                channelRowMap.clear();
-                channelRowMap.put(selectedChannelCategory, row);
-                row.adapter.setChannels(channelsForCategory(category));
-            }
-            renderGuide();
-            channelCategoryScroll.smoothScrollTo(Math.max(0, view.getLeft() - dp(24)), 0);
+        tab.setOnFocusChangeListener((view, focused) -> {
+            LiquidTheme.animateFocus(view, focused);
+            if (focused) selectChannelCategory(category, view);
         });
+        tab.setOnClickListener(view -> selectChannelCategory(category, view));
         return tab;
+    }
+
+    private void selectChannelCategory(String category, View view) {
+        if (category.equals(selectedChannelCategory)) return;
+        selectedChannelCategory = category;
+        updateChannelCategoryTabStyles();
+        ChannelRow row = channelRowMap.isEmpty() ? null : channelRowMap.values().iterator().next();
+        if (row != null) {
+            channelRowMap.clear();
+            channelRowMap.put(selectedChannelCategory, row);
+            row.adapter.setChannels(channelsForCategory(category));
+        }
+        renderGuide();
+        channelCategoryScroll.smoothScrollTo(Math.max(0, view.getLeft() - dp(24)), 0);
     }
 
     private List<IptvRepository.Channel> channelsForCategory(String category) {

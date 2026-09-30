@@ -128,7 +128,8 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
 
         String currentTitle = current != null ? current.title : channel.now;
         holder.now.setText(currentTitle.isEmpty() ? "NOW\nNo schedule available"
-                : "NOW  ·  " + (current == null ? "Time unavailable" : range(current)) + "\n" + currentTitle);
+                : "NOW  ·  " + (current == null ? "Time unavailable"
+                : range(current) + "  ·  " + timeLeft(current, time)) + "\n" + currentTitle);
         holder.now.setAlpha(currentTitle.isEmpty() ? .65f : 1f);
         holder.now.setOnClickListener(view -> actions.watch(channel));
         holder.now.setContentDescription("Watch " + channel.name + ". " + currentTitle);
@@ -183,6 +184,14 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
                 ? new SimpleDateFormat("HH:mm", Locale.getDefault())
                 : new SimpleDateFormat("h:mm a", Locale.getDefault());
         return format.format(new Date(programme.startMs)) + "–" + format.format(new Date(programme.endMs));
+    }
+
+    private String timeLeft(IptvRepository.Programme programme, long now) {
+        long minutes = Math.max(1L, (programme.endMs - now + 59_999L) / 60_000L);
+        if (minutes < 60) return minutes + " min left";
+        long hours = minutes / 60;
+        long remainder = minutes % 60;
+        return remainder == 0 ? hours + " hr left" : hours + " hr " + remainder + " min left";
     }
 
     private TextView cell(int size, boolean bold) {
