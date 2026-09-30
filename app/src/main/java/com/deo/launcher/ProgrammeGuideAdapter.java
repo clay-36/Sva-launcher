@@ -7,6 +7,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -144,6 +145,17 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
         holder.next.setOnClickListener(following == null ? null : view -> actions.details(channel, following));
         holder.next.setContentDescription(following == null ? "No timed upcoming programme for " + channel.name
                 : "Details and reminder for " + following.title + " on " + channel.name);
+
+        boolean lastRow = position == channels.size() - 1;
+        holder.channelCell.setOnKeyListener((view, keyCode, event) ->
+                (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && lastRow)
+                        || keyCode == KeyEvent.KEYCODE_DPAD_LEFT);
+        holder.now.setOnKeyListener((view, keyCode, event) ->
+                (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && lastRow)
+                        || (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && following == null));
+        holder.next.setOnKeyListener((view, keyCode, event) ->
+                (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && lastRow)
+                        || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT);
     }
 
     @Override public int getItemCount() { return channels.size(); }

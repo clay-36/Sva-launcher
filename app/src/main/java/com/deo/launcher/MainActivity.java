@@ -2266,20 +2266,12 @@ public final class MainActivity extends Activity {
         if (guideAdapter == null) return;
         List<IptvRepository.Channel> selected = selectedChannelCategory == null
                 ? Collections.emptyList() : channelsForCategory(selectedChannelCategory);
-        boolean hasSchedule = false;
-        for (IptvRepository.Channel channel : selected) {
-            if (!channel.programmes.isEmpty() || !channel.now.isEmpty() || !channel.next.isEmpty()) {
-                hasSchedule = true;
-                break;
-            }
-        }
-        if (selected.isEmpty() || !hasSchedule) {
+        if (selected.isEmpty()) {
             guideAdapter.setChannels(Collections.emptyList());
             guideList.setVisibility(View.GONE);
             guideEmpty.setVisibility(View.VISIBLE);
             guideEmpty.setText(channels.isEmpty() ? "Add a playlist and programme guide in Settings."
-                    : selected.isEmpty() ? "All channels are hidden. Restore channels in Settings."
-                    : "No programme times for this category. Refresh the guide in Settings.");
+                    : "All channels are hidden. Restore channels in Settings.");
         } else {
             guideEmpty.setVisibility(View.GONE);
             guideList.setVisibility(View.VISIBLE);
