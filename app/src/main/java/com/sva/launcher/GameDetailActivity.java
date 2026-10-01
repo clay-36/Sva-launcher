@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -32,7 +32,7 @@ public final class GameDetailActivity extends Activity {
         ImageView cover = new ImageView(this); cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         java.io.File art = repository.artworkFile(game);
         if (art.isFile()) GameUi.loadArtwork(cover, art, GameUi.dp(this, 480));
-        else { cover.setImageResource(R.drawable.duo_image); cover.setPadding(60,60,60,60); }
+        else { cover.setImageResource(R.drawable.sva_image); cover.setPadding(60,60,60,60); }
         root.addView(cover, new LinearLayout.LayoutParams(GameUi.dp(this, 330), GameUi.dp(this, 430)));
         LinearLayout copy = new LinearLayout(this); copy.setOrientation(LinearLayout.VERTICAL); copy.setPadding(GameUi.dp(this, 54), 0, 0, 0);
         copy.addView(GameUi.text(this, "NINTENDO ENTERTAINMENT SYSTEM", 12, true));
@@ -74,7 +74,7 @@ public final class GameDetailActivity extends Activity {
 
     private void remove() {
         new AlertDialog.Builder(this).setTitle("Remove " + game.title + "?")
-                .setMessage("Duo's imported copy, artwork, and battery save will be deleted. Your original file will not be changed.")
+                .setMessage("Sva's imported copy, artwork, and battery save will be deleted. Your original file will not be changed.")
                 .setPositiveButton("Remove", (d, w) -> { try { repository.remove(id); finish(); } catch (Exception e) { Toast.makeText(this, "Could not remove game.", Toast.LENGTH_LONG).show(); } })
                 .setNegativeButton("Cancel", null).show();
     }

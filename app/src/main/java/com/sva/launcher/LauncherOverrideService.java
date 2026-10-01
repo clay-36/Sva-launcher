@@ -1,10 +1,10 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Intent;
 import android.view.accessibility.AccessibilityEvent;
 
-/** Reopens Duo when the TV's built-in launcher handles the Home button. */
+/** Reopens Sva when the TV's built-in launcher handles the Home button. */
 public final class LauncherOverrideService extends AccessibilityService {
     private static final long REOPEN_THROTTLE_MS = 1200L;
     private static final String[] STOCK_LAUNCHERS = {

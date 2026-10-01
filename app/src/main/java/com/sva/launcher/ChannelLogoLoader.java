@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.content.Context;
 import android.app.ActivityManager;
@@ -110,7 +110,7 @@ final class ChannelLogoLoader {
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(7000);
             connection.setInstanceFollowRedirects(true);
-            connection.setRequestProperty("User-Agent", "DuoLauncher/1.0");
+            connection.setRequestProperty("User-Agent", "SvaLauncher/1.0");
             int code = connection.getResponseCode();
             if (code < 200 || code >= 300) return null;
             if (connection.getContentLength() > MAX_IMAGE_BYTES) return null;

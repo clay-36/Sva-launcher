@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.content.ClipData;
 import android.content.ContentResolver;

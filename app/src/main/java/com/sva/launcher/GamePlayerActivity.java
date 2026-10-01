@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.app.Activity;
 import android.content.Context;
@@ -72,7 +72,7 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
         pauseTitle = GameUi.text(this, game.title, 26, true); pauseTitle.setGravity(Gravity.CENTER); panel.addView(pauseTitle, new LinearLayout.LayoutParams(GameUi.dp(this, 430), GameUi.dp(this, 58)));
         Button resume = GameUi.button(this, "Resume"); resume.setOnClickListener(v -> hidePause()); panel.addView(resume, new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56)));
         Button restart = GameUi.button(this, "Restart"); restart.setOnClickListener(v -> { session.reset(); hidePause(); }); LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56)); action.topMargin = GameUi.dp(this, 10); panel.addView(restart, action);
-        Button exit = GameUi.button(this, "Exit to Duo"); exit.setOnClickListener(v -> finish()); LinearLayout.LayoutParams exitParams = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56)); exitParams.topMargin = GameUi.dp(this, 10); panel.addView(exit, exitParams);
+        Button exit = GameUi.button(this, "Exit to Sva"); exit.setOnClickListener(v -> finish()); LinearLayout.LayoutParams exitParams = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56)); exitParams.topMargin = GameUi.dp(this, 10); panel.addView(exit, exitParams);
         pauseLayer.addView(panel, new FrameLayout.LayoutParams(GameUi.dp(this, 510), GameUi.dp(this, 310), Gravity.CENTER)); root.addView(pauseLayer, new FrameLayout.LayoutParams(-1, -1));
         setContentView(root);
     }

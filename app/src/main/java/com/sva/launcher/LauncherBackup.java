@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -21,7 +21,7 @@ final class LauncherBackup {
     static JSONObject create(SharedPreferences launcher, SharedPreferences iptv,
                              IptvRepository repository) throws Exception {
         JSONObject backup = new JSONObject();
-        backup.put("format", "duo-launcher-backup");
+        backup.put("format", "sva-launcher-backup");
         backup.put("version", VERSION);
         backup.put("createdAt", System.currentTimeMillis());
         backup.put("launcher", encodePreferences(launcher.getAll()));
@@ -32,7 +32,7 @@ final class LauncherBackup {
 
     static void restore(JSONObject backup, SharedPreferences launcher,
                         SharedPreferences iptv, IptvRepository repository) throws Exception {
-        if (backup == null || !"duo-launcher-backup".equals(backup.optString("format"))
+        if (backup == null || !"sva-launcher-backup".equals(backup.optString("format"))
                 || backup.optInt("version", -1) != VERSION) {
             throw new IllegalArgumentException("This backup file is not supported.");
         }

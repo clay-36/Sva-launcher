@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;

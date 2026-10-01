@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.app.Activity;
 import android.graphics.Color;
@@ -76,7 +76,7 @@ final class GameUi {
         File art = new GameRepository(activity).artworkFile(game);
         if (art.isFile()) loadArtwork(image, art, dp(activity, 220));
         else {
-            image.setImageResource(R.drawable.duo_image);
+            image.setImageResource(R.drawable.sva_image);
             image.setBackgroundColor(0xff091421);
             image.setPadding(dp(activity, 24), dp(activity, 24), dp(activity, 24), dp(activity, 24));
         }
@@ -93,7 +93,7 @@ final class GameUi {
         image.setTag(key);
         Bitmap cached = ARTWORK_CACHE.get(key);
         if (cached != null) { image.setPadding(0, 0, 0, 0); image.setImageBitmap(cached); return; }
-        image.setImageResource(R.drawable.duo_image);
+        image.setImageResource(R.drawable.sva_image);
         ARTWORK_WORKER.execute(() -> {
             BitmapFactory.Options bounds = new BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;

@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import java.net.URI;
 import java.net.URLDecoder;

@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -62,7 +62,7 @@ final class PublicCalendarRepository {
             connection.setReadTimeout(20000);
             connection.setInstanceFollowRedirects(true);
             connection.setRequestProperty("Accept", "text/calendar, text/plain;q=0.9, */*;q=0.5");
-            connection.setRequestProperty("User-Agent", "DuoLauncher/1.0 (Android TV)");
+            connection.setRequestProperty("User-Agent", "SvaLauncher/1.0 (Android TV)");
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) throw new IllegalStateException("Calendar feed returned HTTP " + status + ".");
             try (InputStream input = connection.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {

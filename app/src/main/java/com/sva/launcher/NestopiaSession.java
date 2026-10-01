@@ -1,9 +1,9 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.view.Surface;
 
 final class NestopiaSession {
-    static { System.loadLibrary("duo_nes"); }
+    static { System.loadLibrary("sva_nes"); }
     private long handle;
 
     synchronized boolean start(String romPath, String savePath, String systemPath) {

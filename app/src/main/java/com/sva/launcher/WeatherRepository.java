@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -152,7 +152,7 @@ final class WeatherRepository {
     private static String download(String address) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
         connection.setConnectTimeout(6000); connection.setReadTimeout(8000);
-        connection.setRequestProperty("User-Agent", "DuoLauncher/1.0");
+        connection.setRequestProperty("User-Agent", "SvaLauncher/1.0");
         try {
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) throw new IllegalStateException("Weather service returned " + status + ".");

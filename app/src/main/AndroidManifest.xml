@@ -9,11 +9,11 @@
         tools:ignore="QueryAllPackagesPermission" />
 
     <application
-        android:name=".DuoApplication"
+        android:name=".SvaApplication"
         android:allowBackup="false"
-        android:banner="@drawable/duo_image"
-        android:icon="@drawable/duo_image"
-        android:roundIcon="@drawable/duo_image"
+        android:banner="@drawable/sva_image"
+        android:icon="@drawable/sva_image"
+        android:roundIcon="@drawable/sva_image"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="true">

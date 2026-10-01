@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -87,7 +87,7 @@ import org.json.JSONObject;
 public final class MainActivity extends Activity {
     private static final int TAB_HOME = 0, TAB_TV = 1, TAB_GAMES = 2, TAB_EVENTS = 3, TAB_SAVED = 4;
     private static final String[] TAB_TITLES = {"Home", "Live TV", "Games", "Events", "Saved"};
-    static final String ACTION_WATCH_REMINDER = "com.deo.launcher.WATCH_REMINDER";
+    static final String ACTION_WATCH_REMINDER = "com.sva.launcher.WATCH_REMINDER";
     static final String EXTRA_REMINDER_CHANNEL_KEY = "reminderChannelKey";
     static final String EXTRA_REMINDER_STREAM_URL = "reminderStreamUrl";
     private static final int PICK_WALLPAPER = 4107;
@@ -346,7 +346,7 @@ public final class MainActivity extends Activity {
         Intent picker = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         picker.addCategory(Intent.CATEGORY_OPENABLE);
         picker.setType("application/json");
-        picker.putExtra(Intent.EXTRA_TITLE, "duo-launcher-backup.json");
+        picker.putExtra(Intent.EXTRA_TITLE, "sva-launcher-backup.json");
         try { startActivityForResult(picker, PICK_BACKUP_EXPORT); }
         catch (Exception e) { Toast.makeText(this, "Could not open the file picker.", Toast.LENGTH_LONG).show(); }
     }
@@ -483,7 +483,7 @@ public final class MainActivity extends Activity {
                 if (isFinishing() || isDestroyed() || !channels.isEmpty()) return;
                 channels.addAll(cached);
                 renderChannels();
-                if (!cached.isEmpty()) ((DuoApplication) getApplication()).guideReminders()
+                if (!cached.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
                         .reconcile(channels, hiddenChannelKeys);
                 openPendingReminder();
                 if (!cached.isEmpty()) status.setText("Channels loaded from device cache.");
@@ -827,7 +827,7 @@ public final class MainActivity extends Activity {
         guideList.setClipToPadding(false);
         guideList.setOverScrollMode(View.OVER_SCROLL_NEVER);
         guideAdapter = new ProgrammeGuideAdapter(this, glassBackdrop, logoLoader,
-                ((DuoApplication) getApplication()).guideReminders(), new ProgrammeGuideAdapter.Actions() {
+                ((SvaApplication) getApplication()).guideReminders(), new ProgrammeGuideAdapter.Actions() {
             @Override public void watch(IptvRepository.Channel channel) { playChannel(channel); }
             @Override public void details(IptvRepository.Channel channel, IptvRepository.Programme programme) {
                 showProgrammeDetails(channel, programme);
@@ -2767,7 +2767,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private void showProgrammeDetails(IptvRepository.Channel channel, IptvRepository.Programme programme) {
         long now = System.currentTimeMillis();
         if (programme.startMs <= now) { playChannel(channel); return; }
-        GuideReminders reminders = ((DuoApplication) getApplication()).guideReminders();
+        GuideReminders reminders = ((SvaApplication) getApplication()).guideReminders();
         GuideReminders.Reminder reminder = new GuideReminders.Reminder(channel.stableKey(),
                 channel.streamUrl, channel.name, programme.title, programme.startMs, programme.endMs);
         boolean saved = reminders.has(reminder);
@@ -2778,7 +2778,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         AlertDialog dialog = new AlertDialog.Builder(new android.view.ContextThemeWrapper(this,
                 android.R.style.Theme_Material_Dialog_Alert))
                 .setTitle(programme.title)
-                .setMessage(channel.name + "\n" + when + "\n\nReminders appear five minutes before the show while Duo is open.")
+                .setMessage(channel.name + "\n" + when + "\n\nReminders appear five minutes before the show while Sva is open.")
                 .setPositiveButton(saved ? "Remove reminder" : "Remind me", (ignored, which) -> {
                     if (saved) reminders.remove(reminder);
                     else if (!reminders.add(reminder)) {
@@ -3235,7 +3235,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             channelsRefreshing = false;
             channels.clear(); channels.addAll(loaded);
             renderChannels();
-            if (!loaded.isEmpty()) ((DuoApplication) getApplication()).guideReminders()
+            if (!loaded.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
                     .reconcile(channels, hiddenChannelKeys);
             openPendingReminder();
             status.setText(message);
@@ -3255,7 +3255,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             guideRefreshing = false;
             channels.clear(); channels.addAll(loaded);
             renderChannels();
-            if (!loaded.isEmpty()) ((DuoApplication) getApplication()).guideReminders()
+            if (!loaded.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
                     .reconcile(channels, hiddenChannelKeys);
             status.setText(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
@@ -3315,7 +3315,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 "Playlist and programme guide", "Choose which channels appear in Live TV",
                 "Choose and order your home shortcuts", "Photo backdrop and wallpaper",
                 "Time and date on Home", "Default Widevine license settings",
-                "Open Duo when the TV Home button opens its built-in launcher",
+                "Open Sva when the TV Home button opens its built-in launcher",
                 "Save or restore launcher settings and channels", "Save videos and playlists in Saved",
                 "Show events from a public Google Calendar", "Choose when content updates automatically",
                 "Import and manage your local NES library", "Current conditions and a three-day forecast"
@@ -3353,7 +3353,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             LinearLayout heading = new LinearLayout(MainActivity.this);
             heading.setGravity(Gravity.CENTER_VERTICAL);
             shell.addView(heading, new LinearLayout.LayoutParams(-1, dp(82)));
-            TextView brand = label("DUO", 22, LiquidTheme.text(MainActivity.this), true);
+            TextView brand = label("SVA", 22, LiquidTheme.text(MainActivity.this), true);
             brand.setLetterSpacing(.16f);
             heading.addView(brand, new LinearLayout.LayoutParams(dp(72), -2));
             View divider = new View(MainActivity.this);
@@ -3430,7 +3430,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 if (appsChanged) renderApps();
                 if (channelsChanged) {
                     renderChannels();
-                    ((DuoApplication) getApplication()).guideReminders().reconcile(channels, hiddenChannelKeys);
+                    ((SvaApplication) getApplication()).guideReminders().reconcile(channels, hiddenChannelKeys);
                 }
                 if (youtubeChanged) renderYouTubeCards();
                 if (screenActive && !backgroundPhotos.isEmpty()) {
@@ -3548,11 +3548,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderGameSettings(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormHint(form, "Duo supports user-provided .nes files only. Games are copied into private app storage; original files are never changed.");
+            addFormHint(form, "Sva supports user-provided .nes files only. Games are copied into private app storage; original files are never changed.");
             addFormButton(form, "Open game library and import", v -> startActivity(new Intent(MainActivity.this, GameLibraryActivity.class)));
             addFormButton(form, "Configure game controllers", v -> startActivity(new Intent(MainActivity.this, ControllerSettingsActivity.class)));
-            addFormHint(form, "Nestopia UE is embedded in Duo. On a TV remote, use the arrow buttons to move, OK for A, and hold OK for Start. Gamepads are assigned to players one and two automatically. During play, Back opens Resume, Restart, and Exit.");
-            addFormHint(form, "Nestopia UE · GPL-2.0-or-later · Duo combined application GPLv3. Source: github.com/libretro/nestopia");
+            addFormHint(form, "Nestopia UE is embedded in Sva. On a TV remote, use the arrow buttons to move, OK for A, and hold OK for Start. Gamepads are assigned to players one and two automatically. During play, Back opens Resume, Restart, and Exit.");
+            addFormHint(form, "Nestopia UE · GPL-2.0-or-later · Sva combined application GPLv3. Source: github.com/libretro/nestopia");
         }
 
         private void renderWeatherSettings(LinearLayout page) {
@@ -3625,9 +3625,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             LinearLayout form = scrollForm(page);
             boolean enabled = isLauncherOverrideEnabled();
             form.addView(label(enabled
-                    ? "Duo launcher override is enabled"
-                    : "Duo launcher override is not enabled", 18, Color.WHITE, true));
-            addFormHint(form, "Some TVs keep their built-in launcher as Home even when another launcher is selected. Enable Duo Launcher in Android Accessibility settings to reopen Duo whenever the TV opens its built-in launcher.");
+                    ? "Sva launcher override is enabled"
+                    : "Sva launcher override is not enabled", 18, Color.WHITE, true));
+            addFormHint(form, "Some TVs keep their built-in launcher as Home even when another launcher is selected. Enable Sva Launcher in Android Accessibility settings to reopen Sva whenever the TV opens its built-in launcher.");
             addFormHint(form, "This uses an Accessibility service. Android requires you to turn it on in system settings. You can turn it off there at any time.");
             addFormButton(form, "Open Accessibility settings", v -> {
                 try {
@@ -3636,7 +3636,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     Toast.makeText(MainActivity.this, "Could not open Accessibility settings.", Toast.LENGTH_LONG).show();
                 }
             });
-            addFormButton(form, "Try setting Duo as the Home app", v -> {
+            addFormButton(form, "Try setting Sva as the Home app", v -> {
                 try {
                     startActivity(new Intent("android.settings.HOME_SETTINGS"));
                 } catch (Exception e) {
@@ -3657,7 +3657,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderSchedules(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormHint(form, "Schedules run while Duo is open. Overdue content is checked when Home resumes; manual refresh buttons continue to work when automatic refresh is disabled.");
+            addFormHint(form, "Schedules run while Sva is open. Overdue content is checked when Home resumes; manual refresh buttons continue to work when automatic refresh is disabled.");
             addScheduleButton(form, "Photo slideshow", SchedulePreferences.SLIDESHOW,
                     SchedulePreferences.SLIDESHOW_VALUES, SchedulePreferences.DEFAULT_SLIDESHOW, true, false,
                     () -> {
@@ -3679,7 +3679,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addScheduleButton(form, "Weather", SchedulePreferences.WEATHER,
                     SchedulePreferences.WEATHER_VALUES, SchedulePreferences.DEFAULT_WEATHER, false, true,
                     () -> { weatherRefreshedThisLaunch = false; maybeRefreshWeather(false); scheduleWeatherRefresh(); });
-            addFormHint(form, "Paused keeps the current photo visible. Every launch refreshes Google Photos or weather once when Duo starts. Manual only disables automatic network refreshes.");
+            addFormHint(form, "Paused keeps the current photo visible. Every launch refreshes Google Photos or weather once when Sva starts. Manual only disables automatic network refreshes.");
             addFormButton(form, "Restore schedule defaults", v -> {
                 preferences.edit()
                         .putLong(SchedulePreferences.SLIDESHOW, SchedulePreferences.DEFAULT_SLIDESHOW)
@@ -3970,7 +3970,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             calendarFeedback = label("", 13, LiquidTheme.secondaryText(MainActivity.this), false);
             calendarFeedback.setPadding(dp(2), dp(7), dp(2), dp(4));
             form.addView(calendarFeedback);
-            addFormHint(form, "The on-device schedule is checked when Duo opens. Change its automatic refresh cadence under Schedules. Events appear while their start and end times are active.");
+            addFormHint(form, "The on-device schedule is checked when Sva opens. Change its automatic refresh cadence under Schedules. Events appear while their start and end times are active.");
         }
 
         private String calendarSummaryText() {

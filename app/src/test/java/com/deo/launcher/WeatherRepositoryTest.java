@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import org.json.JSONObject;
 import org.junit.Test;

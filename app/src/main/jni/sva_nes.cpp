@@ -145,7 +145,7 @@ struct Session {
             case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_INTL: case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS: return true;
             case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE: *static_cast<bool*>(data) = false; return true;
             // Returning true promises the core that value points to a valid
-            // option string. Duo currently uses every Nestopia default, so an
+            // option string. Sva currently uses every Nestopia default, so an
             // unknown option must be reported as unavailable instead. Nestopia
             // legitimately calls strcmp() when this returns true.
             case RETRO_ENVIRONMENT_GET_VARIABLE: static_cast<retro_variable*>(data)->value = nullptr; return false;

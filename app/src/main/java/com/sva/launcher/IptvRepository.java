@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -468,7 +468,7 @@ final class IptvRepository {
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
         connection.setConnectTimeout(10000);
         connection.setReadTimeout(20000);
-        connection.setRequestProperty("User-Agent", "DuoLauncher/1.0");
+        connection.setRequestProperty("User-Agent", "SvaLauncher/1.0");
         int code = connection.getResponseCode();
         if (code < 200 || code >= 300) {
             connection.disconnect();

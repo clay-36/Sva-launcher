@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Duo Launcher</string>
-    <string name="launcher_override_service_label">Duo Launcher</string>
-    <string name="launcher_override_service_description">Opens Duo Launcher when the TV opens its built-in home launcher.</string>
+    <string name="app_name">Sva Launcher</string>
+    <string name="launcher_override_service_label">Sva Launcher</string>
+    <string name="launcher_override_service_description">Opens Sva Launcher when the TV opens its built-in home launcher.</string>
 </resources>

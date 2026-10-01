@@ -1,10 +1,10 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.app.Activity;
 import android.app.Application;
 import android.os.Bundle;
 
-public final class DuoApplication extends Application implements Application.ActivityLifecycleCallbacks {
+public final class SvaApplication extends Application implements Application.ActivityLifecycleCallbacks {
     private GuideReminders guideReminders;
 
     @Override public void onCreate() {

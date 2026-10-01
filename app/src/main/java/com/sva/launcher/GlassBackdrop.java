@@ -1,4 +1,4 @@
-package com.deo.launcher;
+package com.sva.launcher;
 
 import android.animation.ValueAnimator;
 import android.graphics.Bitmap;

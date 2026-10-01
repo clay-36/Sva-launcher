@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="app/src/main/res/drawable/duo_image.png" alt="Duo Launcher logo" width="128" />
+  <img src="app/src/main/res/drawable/sva_image.png" alt="Sva Launcher logo" width="128" />
 </p>
 
-<h1 align="center">Duo Launcher</h1>
+<h1 align="center">Sva Launcher</h1>
 
 <p align="center">
   <strong>A calm, personal home screen for Android TV.</strong><br />
@@ -23,13 +23,13 @@
   <a href="#contributing">Contributing</a>
 </p>
 
-> Duo is a launcher and media front end. It does not provide TV channels, programme data, ROMs, BIOS files, game artwork, or paid-media credentials. Bring content that you are legally allowed to use.
+> Sva is a launcher and media front end. It does not provide TV channels, programme data, ROMs, BIOS files, game artwork, or paid-media credentials. Bring content that you are legally allowed to use.
 
 ## Screenshots
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Screenshot%202026-10-01%20at%2000.43.00.png" alt="Duo home screen with apps, weather, clock, and a city wallpaper" /><br /><sub><strong>Home</strong> — apps and useful information at a glance</sub></td>
+    <td width="50%" align="center"><img src="screenshots/Screenshot%202026-10-01%20at%2000.43.00.png" alt="Sva home screen with apps, weather, clock, and a city wallpaper" /><br /><sub><strong>Home</strong> — apps and useful information at a glance</sub></td>
     <td width="50%" align="center"><img src="screenshots/Screenshot%202026-10-01%20at%2000.43.26.png" alt="Live TV channels grouped by category" /><br /><sub><strong>Live TV</strong> — categories, channel logos, and now/next data</sub></td>
   </tr>
   <tr>
@@ -55,19 +55,19 @@
 - **Weather** — current conditions and a three-day forecast from Open-Meteo, using a chosen city or optional approximate device location.
 - **Configurable refresh schedules** — independently control updates for photos, playlists, programme data, calendars, and Google Photos.
 - **Backup and restore** — export launcher preferences, app and channel choices, and IPTV/DRM configuration to JSON.
-- **Home-button helper** — an optional Accessibility service can reopen Duo on TVs that insist on returning to the manufacturer's launcher.
+- **Home-button helper** — an optional Accessibility service can reopen Sva on TVs that insist on returning to the manufacturer's launcher.
 
 Cached channels, guide data, calendar entries, weather, and artwork remain available where supported when the network is unavailable.
 
 ## Getting started
 
-1. Build and install the APK, then open **Duo Launcher**.
-2. When Android asks for a Home app, select Duo. You can change this later in Android settings.
+1. Build and install the APK, then open **Sva Launcher**.
+2. When Android asks for a Home app, select Sva. You can change this later in Android settings.
 3. Open the gear icon and configure only the sections you need:
 
    | Section | What to add |
    | --- | --- |
-   | **Apps** | Choose and reorder installed app shortcuts. Without a saved selection, Duo shows up to eight apps. |
+   | **Apps** | Choose and reorder installed app shortcuts. Without a saved selection, Sva shows up to eight apps. |
    | **Appearance** | Select a wallpaper, a local photo folder, or a public Google Photos album. |
    | **Live TV** | Add an M3U/M3U8 playlist URL and, optionally, an XMLTV or XMLTV.GZ guide URL. |
    | **Channels** | Search, hide, and restore channels from the loaded playlist. |
@@ -77,11 +77,11 @@ Cached channels, guide data, calendar entries, weather, and artwork remain avail
    | **Weather** | Search for a city or explicitly request approximate device location. |
    | **Schedules** | Set an independent refresh cadence for each network-backed source. |
 
-If the TV continues to open its built-in launcher, go to **Settings → Home button**, open Android's Accessibility settings, and enable Duo's service. This helper is optional and can be disabled at any time.
+If the TV continues to open its built-in launcher, go to **Settings → Home button**, open Android's Accessibility settings, and enable Sva's service. This helper is optional and can be disabled at any time.
 
 ## Live TV notes
 
-Guide entries are matched to channels by `tvg-id`. Selecting a current programme starts playback; selecting an upcoming programme creates an in-app reminder five minutes before it begins. Reminders are shown only while Duo is open and do not create background notifications.
+Guide entries are matched to channels by `tvg-id`. Selecting a current programme starts playback; selecting an upcoming programme creates an in-app reminder five minutes before it begins. Reminders are shown only while Sva is open and do not create background notifications.
 
 For Widevine streams, configure a default license URL and request headers under **Playback & DRM**, or use per-channel Kodi properties in the playlist. Per-channel values take precedence:
 
@@ -104,7 +104,7 @@ Widevine playback supports DASH and FMP4/CMAF HLS when the device supports the s
 | Hold remote OK | Start |
 | Back | Resume, Restart, and Exit menu |
 
-Standard Android gamepads are assigned automatically for up to two players and can be remapped under **Settings → Games**. Save data is kept in Duo's private app storage.
+Standard Android gamepads are assigned automatically for up to two players and can be remapped under **Settings → Games**. Save data is kept in Sva's private app storage.
 
 ## Build from source
 
@@ -118,8 +118,8 @@ Standard Android gamepads are assigned automatically for up to two players and c
 Clone and build the project:
 
 ```sh
-git clone https://github.com/clay-36/Duo-launcher-iptv.git
-cd Duo-launcher-iptv
+git clone https://github.com/clay-36/Sva-launcher-iptv.git
+cd Sva-launcher-iptv
 ./gradlew assembleDebug
 ```
 
@@ -159,6 +159,6 @@ When reporting a bug, include the TV/device model, Android version, reproduction
 
 ## License
 
-Duo Launcher and the distributed combination with Nestopia UE are licensed under [GPLv3](LICENSE). Nestopia remains GPL-2.0-or-later and its original notices are preserved. See [NOTICE](NOTICE) for third-party attribution.
+Sva Launcher and the distributed combination with Nestopia UE are licensed under [GPLv3](LICENSE). Nestopia remains GPL-2.0-or-later and its original notices are preserved. See [NOTICE](NOTICE) for third-party attribution.
 
 Every distributed APK must provide access to its matching complete source revision, including the native build files and pinned emulator core source.
