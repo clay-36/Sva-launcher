@@ -25,6 +25,12 @@
 
 > Sva is a launcher and media front end. It does not provide TV channels, programme data, ROMs, BIOS files, game artwork, or paid-media credentials. Bring content that you are legally allowed to use.
 
+
+<p align="center">
+  <strong>Launcher that does all and still ultra fast and opensource!</strong><br/>
+  Home screen with your google photos memories, IPTV directly integrated in launcher with old cabel TV vibe! Reminders of your fav events, Gaming and many more things. 
+</p>
+
 ## Screenshots
 
 <table>
@@ -54,7 +60,7 @@
 - **Integrated playback** — watch with Media3 ExoPlayer, move between channels with Up/Down, view programme progress, prefer Hindi audio when available, and configure global or per-channel Widevine settings.
 - **NES library** — import your own `.nes` files and launch them directly through the embedded Nestopia UE core, without a separate emulator menu.
 - **Events calendar** — connect a public Google Calendar iCal feed, see today's events, browse 12 months in either direction, and view selected-day details and lunar illumination.
-- **Saved videos** — create artwork-rich shortcuts for public YouTube videos and playlists.
+- **Saved videos** — create artwork-rich shortcuts for YouTube videos and playlists.
 - **Weather** — current conditions and a three-day forecast from Open-Meteo, using a chosen city or optional approximate device location.
 - **Configurable refresh schedules** — independently control updates for photos, playlists, programme data, calendars, and Google Photos.
 - **Backup and restore** — export launcher preferences, app and channel choices, and IPTV/DRM configuration to JSON.
@@ -74,7 +80,7 @@ Cached channels, guide data, calendar entries, weather, and artwork remain avail
    | **Appearance** | Select a wallpaper, a local photo folder, or a public Google Photos album. |
    | **Live TV** | Add an M3U/M3U8 playlist URL and, optionally, an XMLTV or XMLTV.GZ guide URL. |
    | **Channels** | Search, hide, and restore channels from the loaded playlist. |
-   | **YouTube** | Save public video and playlist links as cards in the Saved tab. |
+   | **YouTube** | Save video and playlist links as cards in the Saved tab. |
    | **Calendar** | Add a public Google Calendar iCal link for the Events tab. |
    | **Games** | Import `.nes` files and optionally remap connected gamepads. |
    | **Weather** | Search for a city or explicitly request approximate device location. |
