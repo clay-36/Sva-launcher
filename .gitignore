@@ -9,3 +9,5 @@ captures/
 .externalNativeBuild/
 .cxx/
 sva-launcher
+secrets
+.env

@@ -33,6 +33,25 @@ android {
             path "src/main/jni/Android.mk"
         }
     }
+    signingConfigs {
+        release {
+            storeFile file("../secrets/@flash777__everyside.jks")
+            storePassword System.getenv("SVA_STORE_PASSWORD")
+            keyAlias System.getenv("SVA_KEY_ALIAS")
+            keyPassword System.getenv("SVA_KEY_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile(
+                    "proguard-android-optimize.txt"
+            ), "proguard-rules.pro"
+        }
+    }
 
 }
 
