@@ -34,11 +34,14 @@
   </tr>
   <tr>
     <td width="50%" align="center"><img src="screenshots/Screenshot%202026-10-01%20at%2000.43.38.png" alt="TV programme guide showing current and upcoming programmes" /><br /><sub><strong>TV guide</strong> — current and upcoming programmes</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005834.png" alt="Monthly events calendar with selected-day details and lunar illumination" /><br /><sub><strong>Events</strong> — a remote-friendly monthly calendar</sub></td>
+    <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_004504.png" alt="DRM Supported inbult IPTV" /><br /><sub><strong>Live TV</strong> — DRM supported with prev/next nevigation</sub></td>
   </tr>
-  <tr>
-    <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005635.png" alt="Imported NES games in the Games tab" /><br /><sub><strong>Games</strong> — a local NES library powered by Nestopia UE</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_010438.png" alt="Saved YouTube videos and playlists" /><br /><sub><strong>Saved</strong> — shortcuts to videos and playlists</sub></td>
+  <tr><td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005834.png" alt="Monthly events calendar with selected-day details and lunar illumination" /><br /><sub><strong>Events</strong> — a remote-friendly monthly calendar</sub></td>
+   <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005635.png" alt="Imported NES games in the Games tab" /><br /><sub><strong>Games</strong> — a local NES library powered by Nestopia UE</sub></td>
+</tr>
+<tr>
+  <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005809.png" alt="Bring your own NES games" /><br /><sub><strong>Games</strong> — install your own NES roms</sub></td>
+<td width="50%" align="center"><img src="screenshots/Screenshot_20261001_010438.png" alt="Saved YouTube videos and playlists" /><br /><sub><strong>Saved</strong> — shortcuts to videos and playlists</sub></td>
   </tr>
 </table>
 
