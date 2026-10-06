@@ -44,7 +44,7 @@ final class LiquidTheme {
     static int text(Context context) { return isLight(context) ? 0xFF132B2B : 0xFFF7FAF7; }
     static int secondaryText(Context context) { return isLight(context) ? 0xFF4D6968 : 0xFFB8CFCC; }
     static int border(Context context) { return isLight(context) ? 0x887C9E9A : 0x6684B0AA; }
-    static int accent(Context context) { return isLight(context) ? 0xFF88A915 : 0xFFD7FF57; }
+    static int accent(Context context) { return isLight(context) ? 0xFF087D91 : 0xFF7BE7F4; }
     static int lavender(Context context) { return secondaryText(context); }
 
     static Drawable scenicBackground(Context context) {
