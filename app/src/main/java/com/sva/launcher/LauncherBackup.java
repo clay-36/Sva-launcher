@@ -32,7 +32,7 @@ final class LauncherBackup {
 
     static void restore(JSONObject backup, SharedPreferences launcher,
                         SharedPreferences iptv, IptvRepository repository) throws Exception {
-        if (backup == null || !"sva-launcher-backup".equals(backup.optString("format"))
+        if (backup == null
                 || backup.optInt("version", -1) != VERSION) {
             throw new IllegalArgumentException("This backup file is not supported.");
         }
