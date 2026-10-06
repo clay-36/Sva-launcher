@@ -2444,7 +2444,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             List<AppEntry> loaded = installedApps();
             List<String> selected = selectedPackages(loaded);
             if (selected.isEmpty() && !preferences.getBoolean("customApps", false)) {
-                for (int i = 0; i < Math.min(8, loaded.size()); i++) selected.add(loaded.get(i).packageName);
+                for (AppEntry entry : loaded) selected.add(entry.packageName);
             }
             Set<String> selectedSet = new HashSet<>(selected);
             PackageManager packageManager = getPackageManager();
@@ -2470,11 +2470,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         int tileWidth = compactNavigation ? 148 : 167;
         List<String> selected = selectedPackages(all);
         if (selected.isEmpty() && !preferences.getBoolean("customApps", false)) {
-            for (int i = 0; i < Math.min(8, all.size()); i++) selected.add(all.get(i).packageName);
+            for (AppEntry entry : all) selected.add(entry.packageName);
         }
         int displayed = 0;
         for (String packageName : selected) {
-            if (displayed >= 5) break;
             AppEntry entry = findApp(all, packageName);
             if (entry == null) continue;
             LinearLayout tile = new LinearLayout(this);
@@ -4876,7 +4875,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 if (!initialized) {
                     selectedOrder.addAll(selectedPackages(apps));
                     if (selectedOrder.isEmpty() && !preferences.getBoolean("customApps", false)) {
-                        for (int i = 0; i < Math.min(8, apps.size()); i++) selectedOrder.add(apps.get(i).packageName);
+                        for (AppEntry entry : apps) selectedOrder.add(entry.packageName);
                     }
                     initialized = true;
                 }
