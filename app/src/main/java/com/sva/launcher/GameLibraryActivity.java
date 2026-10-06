@@ -34,7 +34,7 @@ public final class GameLibraryActivity extends Activity {
     private void build() {
         LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(GameUi.dp(this, 48), GameUi.dp(this, 30), GameUi.dp(this, 48), GameUi.dp(this, 30));
-        page.setBackgroundColor(0xff091421);
+        page.setBackground(LiquidTheme.scenicBackground(this));
         LinearLayout heading = new LinearLayout(this); heading.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = GameUi.text(this, "Games", 32, true); heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         Button addFiles = GameUi.button(this, "Add files"); addFiles.setOnClickListener(v -> pickFiles());
@@ -44,7 +44,7 @@ public final class GameLibraryActivity extends Activity {
         folderParams.leftMargin = GameUi.dp(this, 12); heading.addView(addFolder, folderParams);
         page.addView(heading, new LinearLayout.LayoutParams(-1, GameUi.dp(this, 70)));
         TextView hint = GameUi.text(this, "Your local NES library · user-provided .nes files only", 14, false);
-        hint.setTextColor(0xffb7c5d1); page.addView(hint, new LinearLayout.LayoutParams(-1, GameUi.dp(this, 42)));
+        hint.setTextColor(LiquidTheme.secondaryText(this)); page.addView(hint, new LinearLayout.LayoutParams(-1, GameUi.dp(this, 42)));
         ScrollView scroll = new ScrollView(this); grid = new GridLayout(this); grid.setColumnCount(5);
         grid.setUseDefaultMargins(false); scroll.addView(grid); page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         empty = GameUi.text(this, "No games yet. Add your own .nes files to get started.", 18, false);

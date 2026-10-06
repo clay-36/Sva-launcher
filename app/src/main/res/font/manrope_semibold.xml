@@ -1,0 +1,7 @@
+<font-family xmlns:android="http://schemas.android.com/apk/res/android">
+    <font
+        android:font="@font/manrope"
+        android:fontStyle="normal"
+        android:fontWeight="600"
+        android:fontVariationSettings="'wght' 600" />
+</font-family>

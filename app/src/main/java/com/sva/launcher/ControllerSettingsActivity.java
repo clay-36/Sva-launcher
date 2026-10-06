@@ -27,10 +27,10 @@ public final class ControllerSettingsActivity extends Activity {
                     || (device.getSources() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) controllers.add(device);
         }
         LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setGravity(Gravity.CENTER_HORIZONTAL);
-        page.setPadding(GameUi.dp(this, 64), GameUi.dp(this, 42), GameUi.dp(this, 64), GameUi.dp(this, 42)); page.setBackgroundColor(0xff091421);
+        page.setPadding(GameUi.dp(this, 64), GameUi.dp(this, 42), GameUi.dp(this, 64), GameUi.dp(this, 42)); page.setBackground(LiquidTheme.scenicBackground(this));
         page.addView(GameUi.text(this, "Game controllers", 30, true));
         TextView hint = GameUi.text(this, "Choose a connected controller to remap. Left-stick and hat directions always work automatically.", 15, false);
-        hint.setTextColor(0xffb7c5d1); LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, GameUi.dp(this, 62)); hintParams.topMargin = GameUi.dp(this, 12); page.addView(hint, hintParams);
+        hint.setTextColor(LiquidTheme.secondaryText(this)); LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, GameUi.dp(this, 62)); hintParams.topMargin = GameUi.dp(this, 12); page.addView(hint, hintParams);
         if (controllers.isEmpty()) { TextView empty = GameUi.text(this, "Connect an Android gamepad, then reopen this screen.", 19, false); empty.setGravity(Gravity.CENTER); page.addView(empty, new LinearLayout.LayoutParams(-1, 0, 1)); }
         for (InputDevice device : controllers) {
             Button button = GameUi.button(this, "Remap  ·  " + device.getName()); button.setOnClickListener(v -> begin(device));
@@ -41,7 +41,7 @@ public final class ControllerSettingsActivity extends Activity {
 
     private void begin(InputDevice device) {
         mappingDevice = device; mapping = new ControllerProfile(); step = 0;
-        LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setGravity(Gravity.CENTER); page.setBackgroundColor(Color.BLACK);
+        LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setGravity(Gravity.CENTER); page.setBackground(LiquidTheme.scenicBackground(this));
         prompt = GameUi.text(this, "", 28, true); prompt.setGravity(Gravity.CENTER); page.addView(prompt, new LinearLayout.LayoutParams(-1, GameUi.dp(this, 120)));
         page.addView(GameUi.text(this, "Press Back to cancel. Each input must be a controller button.", 15, false)); setContentView(page); updatePrompt();
     }

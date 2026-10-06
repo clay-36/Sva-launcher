@@ -91,13 +91,13 @@ public final class PlaybackActivity extends Activity {
         message.setTextColor(LiquidTheme.text(this));
         message.setTextSize(12);
         message.setLetterSpacing(.08f);
-        message.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
+        message.setTypeface(LiquidTheme.font(this));
         message.setShadowLayer(dp(8), 0, 0, 0x44000000);
         infoPanel.addView(message);
         programmeTitle = new TextView(this);
         programmeTitle.setTextColor(LiquidTheme.text(this));
         programmeTitle.setTextSize(23);
-        programmeTitle.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
+        programmeTitle.setTypeface(LiquidTheme.font(this));
         LinearLayout.LayoutParams programmeTitleParams = new LinearLayout.LayoutParams(-1, -2);
         programmeTitleParams.topMargin = dp(7);
         infoPanel.addView(programmeTitle, programmeTitleParams);

@@ -132,7 +132,7 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         fallback.setGravity(Gravity.CENTER);
         fallback.setTextColor(LiquidTheme.text(activity));
         fallback.setTextSize(27);
-        fallback.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        fallback.setTypeface(LiquidTheme.font(activity));
         logoBox.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
 
         ImageView image = new ImageView(activity);
@@ -148,7 +148,7 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         TextView name = new TextView(activity);
         name.setTextColor(LiquidTheme.text(activity));
         name.setTextSize(16);
-        name.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
+        name.setTypeface(LiquidTheme.font(activity));
         name.setGravity(Gravity.CENTER);
         name.setMaxLines(2);
         text.addView(name);

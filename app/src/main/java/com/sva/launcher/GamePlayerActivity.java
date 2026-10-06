@@ -32,7 +32,7 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
     private final int[] masks = new int[2];
     private int remoteMask;
     private GameRepository repository; private GameRecord game; private FrameLayout pauseLayer;
-    private TextView pauseTitle; private boolean started, menuVisible, remoteBackHeld;
+    private TextView pauseTitle; private boolean started, menuVisible;
     private AudioManager audioManager; private AudioFocusRequest focusRequest;
 
     @Override public void onCreate(Bundle state) {
@@ -65,10 +65,10 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
             @Override public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) { session.surface(holder.getSurface()); }
             @Override public void surfaceDestroyed(SurfaceHolder holder) { session.surface(null); session.pause(true); }
         });
-        pauseLayer = new FrameLayout(this); pauseLayer.setBackgroundColor(0xcc06101a); pauseLayer.setVisibility(View.GONE);
+        pauseLayer = new FrameLayout(this); pauseLayer.setBackgroundColor(0xd9041013); pauseLayer.setVisibility(View.GONE);
         LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL); panel.setGravity(Gravity.CENTER_HORIZONTAL);
         panel.setPadding(GameUi.dp(this, 36), GameUi.dp(this, 28), GameUi.dp(this, 36), GameUi.dp(this, 28));
-        panel.setBackground(GameUi.shape(0xff142433, 0xffbce7ff, 2, 22));
+        panel.setBackground(GameUi.shape(LiquidTheme.surface(this), LiquidTheme.accent(this), 2, 22));
         pauseTitle = GameUi.text(this, game.title, 26, true); pauseTitle.setGravity(Gravity.CENTER); panel.addView(pauseTitle, new LinearLayout.LayoutParams(GameUi.dp(this, 430), GameUi.dp(this, 58)));
         Button resume = GameUi.button(this, "Resume"); resume.setOnClickListener(v -> hidePause()); panel.addView(resume, new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56)));
         Button restart = GameUi.button(this, "Restart"); restart.setOnClickListener(v -> { session.reset(); hidePause(); }); LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56)); action.topMargin = GameUi.dp(this, 10); panel.addView(restart, action);
@@ -85,13 +85,9 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         if (menuVisible) return super.dispatchKeyEvent(event);
         if (ports.get(event.getDeviceId()) == null && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() > 0) {
-                remoteBackHeld = true; remoteMask |= 1 << 3; pushInput(0);
-            } else if (event.getAction() == KeyEvent.ACTION_UP) {
-                remoteMask &= ~(1 << 3); pushInput(0);
-                if (!remoteBackHeld) showPause(game.title);
-                remoteBackHeld = false;
-            }
+            // Back is the dedicated pause control. Never treat a held Back
+            // press as an NES Start press.
+            if (event.getAction() == KeyEvent.ACTION_UP) showPause(game.title);
             return true;
         }
         if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) return super.dispatchKeyEvent(event);

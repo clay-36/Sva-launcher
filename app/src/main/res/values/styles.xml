@@ -1,0 +1,17 @@
+<resources>
+    <style name="SvaTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">@font/manrope_semibold</item>
+    </style>
+    <style name="SvaFullScreenDialogTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">@font/manrope_semibold</item>
+    </style>
+    <style name="SvaAlertDialogTheme" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:fontFamily">@font/manrope_semibold</item>
+    </style>
+    <style name="SvaLightAlertDialogTheme" parent="@android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:fontFamily">@font/manrope_semibold</item>
+    </style>
+    <style name="SvaDeviceAlertDialogTheme" parent="@android:style/Theme.DeviceDefault.Dialog.Alert">
+        <item name="android:fontFamily">@font/manrope_semibold</item>
+    </style>
+</resources>

@@ -28,14 +28,17 @@ public final class GameDetailActivity extends Activity {
 
     private void render() {
         LinearLayout root = new LinearLayout(this); root.setGravity(Gravity.CENTER_VERTICAL);
-        root.setPadding(GameUi.dp(this, 80), GameUi.dp(this, 50), GameUi.dp(this, 80), GameUi.dp(this, 50)); root.setBackgroundColor(0xff091421);
+        root.setPadding(GameUi.dp(this, 80), GameUi.dp(this, 50), GameUi.dp(this, 80), GameUi.dp(this, 50)); root.setBackground(LiquidTheme.scenicBackground(this));
         ImageView cover = new ImageView(this); cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         java.io.File art = repository.artworkFile(game);
         if (art.isFile()) GameUi.loadArtwork(cover, art, GameUi.dp(this, 480));
         else { cover.setImageResource(R.drawable.sva_image); cover.setPadding(60,60,60,60); }
         root.addView(cover, new LinearLayout.LayoutParams(GameUi.dp(this, 330), GameUi.dp(this, 430)));
         LinearLayout copy = new LinearLayout(this); copy.setOrientation(LinearLayout.VERTICAL); copy.setPadding(GameUi.dp(this, 54), 0, 0, 0);
-        copy.addView(GameUi.text(this, "NINTENDO ENTERTAINMENT SYSTEM", 12, true));
+        TextView eyebrow = GameUi.text(this, "NINTENDO ENTERTAINMENT SYSTEM", 12, true);
+        eyebrow.setTextColor(LiquidTheme.accent(this));
+        eyebrow.setLetterSpacing(.18f);
+        copy.addView(eyebrow);
         TextView title = GameUi.text(this, game.title, 38, true); LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2); titleParams.topMargin = GameUi.dp(this, 16); copy.addView(title, titleParams);
         Button play = GameUi.button(this, "Play"); play.setOnClickListener(v -> play());
         LinearLayout.LayoutParams playParams = new LinearLayout.LayoutParams(GameUi.dp(this, 240), GameUi.dp(this, 64)); playParams.topMargin = GameUi.dp(this, 38); copy.addView(play, playParams);

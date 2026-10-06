@@ -186,7 +186,18 @@ struct Session {
     }
     static void audioSample(int16_t left, int16_t right) { int16_t pair[]{left,right}; audioBatch(pair,1); }
     static size_t audioBatch(const int16_t* data, size_t frames) {
-        if (active && active->audio && frames) { aaudio_result_t written = AAudioStream_write(active->audio, data, static_cast<int32_t>(frames), 100000000); return written > 0 ? static_cast<size_t>(written) : 0; }
+        if (active && active->audio && frames) {
+            // This runs on the emulation thread. A 100 ms blocking write here
+            // stalls video and input whenever the audio device is full. Submit
+            // only currently writable frames without waiting; any overflow is
+            // preferable to pausing the game.
+            int64_t queued = std::max<int64_t>(0, AAudioStream_getFramesWritten(active->audio)
+                    - AAudioStream_getFramesRead(active->audio));
+            int64_t writable = std::max<int64_t>(0, AAudioStream_getBufferSizeInFrames(active->audio)
+                    - queued);
+            int32_t request = static_cast<int32_t>(std::min<int64_t>(frames, writable));
+            if (request > 0) AAudioStream_write(active->audio, data, request, 0);
+        }
         return frames;
     }
     static void inputPoll() {}
@@ -199,12 +210,12 @@ struct Session {
 std::string stringFrom(JNIEnv* env, jstring value) { const char* chars = env->GetStringUTFChars(value, nullptr); std::string result(chars ? chars : ""); if (chars) env->ReleaseStringUTFChars(value, chars); return result; }
 }
 
-extern "C" JNIEXPORT jlong JNICALL Java_com_deo_launcher_NestopiaSession_nativeStart(JNIEnv* env, jclass, jstring rom, jstring save, jstring system) {
+extern "C" JNIEXPORT jlong JNICALL Java_com_sva_launcher_NestopiaSession_nativeStart(JNIEnv* env, jclass, jstring rom, jstring save, jstring system) {
     auto* session = new Session(); session->rom_path = stringFrom(env, rom); session->save_path = stringFrom(env, save); session->system_path = stringFrom(env, system);
     if (!session->start()) { delete session; return 0; } return reinterpret_cast<jlong>(session);
 }
-extern "C" JNIEXPORT void JNICALL Java_com_deo_launcher_NestopiaSession_nativeSurface(JNIEnv* env, jclass, jlong handle, jobject surface) { reinterpret_cast<Session*>(handle)->setWindow(env, surface); }
-extern "C" JNIEXPORT void JNICALL Java_com_deo_launcher_NestopiaSession_nativeInput(JNIEnv*, jclass, jlong handle, jint port, jint mask) { if (port >= 0 && port < 2) reinterpret_cast<Session*>(handle)->input[port] = static_cast<uint32_t>(mask); }
-extern "C" JNIEXPORT void JNICALL Java_com_deo_launcher_NestopiaSession_nativePause(JNIEnv*, jclass, jlong handle, jboolean paused) { auto* s = reinterpret_cast<Session*>(handle); s->paused = paused; if (!paused) s->wake.notify_all(); else s->save(); }
-extern "C" JNIEXPORT void JNICALL Java_com_deo_launcher_NestopiaSession_nativeReset(JNIEnv*, jclass, jlong handle) { reinterpret_cast<Session*>(handle)->reset_requested = true; }
-extern "C" JNIEXPORT void JNICALL Java_com_deo_launcher_NestopiaSession_nativeStop(JNIEnv*, jclass, jlong handle) { auto* session = reinterpret_cast<Session*>(handle); session->stop(); delete session; }
+extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativeSurface(JNIEnv* env, jclass, jlong handle, jobject surface) { reinterpret_cast<Session*>(handle)->setWindow(env, surface); }
+extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativeInput(JNIEnv*, jclass, jlong handle, jint port, jint mask) { if (port >= 0 && port < 2) reinterpret_cast<Session*>(handle)->input[port] = static_cast<uint32_t>(mask); }
+extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativePause(JNIEnv*, jclass, jlong handle, jboolean paused) { auto* s = reinterpret_cast<Session*>(handle); s->paused = paused; if (!paused) s->wake.notify_all(); else s->save(); }
+extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativeReset(JNIEnv*, jclass, jlong handle) { reinterpret_cast<Session*>(handle)->reset_requested = true; }
+extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativeStop(JNIEnv*, jclass, jlong handle) { auto* session = reinterpret_cast<Session*>(handle); session->stop(); delete session; }

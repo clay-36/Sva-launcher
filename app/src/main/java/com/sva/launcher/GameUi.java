@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.view.Gravity;
@@ -41,22 +40,22 @@ final class GameUi {
 
     static TextView text(Activity activity, String value, float size, boolean bold) {
         TextView text = new TextView(activity);
-        text.setText(value); text.setTextColor(Color.WHITE); text.setTextSize(size);
-        if (bold) text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        text.setText(value); text.setTextColor(LiquidTheme.text(activity)); text.setTextSize(size);
+        text.setTypeface(LiquidTheme.font(activity));
         return text;
     }
 
     static Button button(Activity activity, String value) {
         Button button = new Button(activity);
-        button.setText(value); button.setTextColor(Color.WHITE); button.setTextSize(15);
+        button.setTypeface(LiquidTheme.font(activity));
+        button.setText(value); button.setTextColor(LiquidTheme.text(activity)); button.setTextSize(15);
         button.setAllCaps(false); button.setFocusable(true); button.setFocusableInTouchMode(false);
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, shape(0xff33495f, 0xffbce7ff, 3, 15));
-        states.addState(new int[]{android.R.attr.state_pressed}, shape(0xff33495f, 0xffbce7ff, 3, 15));
-        states.addState(new int[]{}, shape(0xff182838, 0xff5f7488, 1, 15));
+        states.addState(new int[]{android.R.attr.state_focused}, shape(LiquidTheme.raisedSurface(activity), LiquidTheme.accent(activity), 3, 13));
+        states.addState(new int[]{android.R.attr.state_pressed}, shape(LiquidTheme.raisedSurface(activity), LiquidTheme.accent(activity), 3, 13));
+        states.addState(new int[]{}, shape(LiquidTheme.surface(activity), LiquidTheme.border(activity), 1, 13));
         button.setBackground(states);
-        button.setOnFocusChangeListener((view, focused) -> view.animate().scaleX(focused ? 1.04f : 1f)
-                .scaleY(focused ? 1.04f : 1f).setDuration(110).start());
+        button.setOnFocusChangeListener(LiquidTheme::animateFocus);
         return button;
     }
 
@@ -66,18 +65,17 @@ final class GameUi {
         card.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
         card.setFocusable(true); card.setClickable(true); card.setOnClickListener(click);
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, shape(0xff253a4c, 0xffbce7ff, 3, 14));
-        states.addState(new int[]{}, shape(0xff132231, 0xff526779, 1, 14));
+        states.addState(new int[]{android.R.attr.state_focused}, shape(LiquidTheme.raisedSurface(activity), LiquidTheme.accent(activity), 3, 14));
+        states.addState(new int[]{}, shape(LiquidTheme.surface(activity), LiquidTheme.border(activity), 1, 14));
         card.setBackground(states);
-        card.setOnFocusChangeListener((view, focused) -> view.animate().scaleX(focused ? 1.035f : 1f)
-                .scaleY(focused ? 1.035f : 1f).setDuration(110).start());
+        card.setOnFocusChangeListener(LiquidTheme::animateFocus);
         ImageView image = new ImageView(activity);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         File art = new GameRepository(activity).artworkFile(game);
         if (art.isFile()) loadArtwork(image, art, dp(activity, 220));
         else {
             image.setImageResource(R.drawable.sva_image);
-            image.setBackgroundColor(0xff091421);
+            image.setBackgroundColor(LiquidTheme.background(activity));
             image.setPadding(dp(activity, 24), dp(activity, 24), dp(activity, 24), dp(activity, 24));
         }
         card.addView(image, new LinearLayout.LayoutParams(-1, dp(activity, 142)));

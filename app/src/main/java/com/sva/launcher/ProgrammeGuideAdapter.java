@@ -3,14 +3,13 @@ package com.sva.launcher;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.view.Gravity;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -20,11 +19,13 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/** Compact, remote-focusable now/next rows for a single playlist category. */
+/** One channel per row, with its cached schedule browsable horizontally. */
 final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAdapter.Holder> {
     interface Actions {
         void watch(IptvRepository.Channel channel);
@@ -37,6 +38,15 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
     private final Actions actions;
     private final GuideReminders reminders;
     private final List<IptvRepository.Channel> channels = new ArrayList<>();
+
+    static List<IptvRepository.Programme> upcomingProgrammes(IptvRepository.Channel channel, long now) {
+        List<IptvRepository.Programme> schedule = new ArrayList<>();
+        for (IptvRepository.Programme programme : channel.programmes) {
+            if (programme.endMs > now) schedule.add(programme);
+        }
+        Collections.sort(schedule, Comparator.comparingLong(programme -> programme.startMs));
+        return schedule;
+    }
 
     ProgrammeGuideAdapter(Activity activity, GlassBackdrop backdrop, ChannelLogoLoader logos,
             GuideReminders reminders, Actions actions) {
@@ -83,7 +93,7 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
         fallback.setGravity(Gravity.CENTER);
         fallback.setTextColor(LiquidTheme.text(activity));
         fallback.setTextSize(20);
-        fallback.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        fallback.setTypeface(LiquidTheme.font(activity));
         logoBox.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
 
         ImageView logo = new ImageView(activity);
@@ -95,30 +105,34 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
         TextView channel = new TextView(activity);
         channel.setTextSize(16);
         channel.setTextColor(LiquidTheme.text(activity));
-        channel.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        channel.setTypeface(LiquidTheme.font(activity));
         channel.setMaxLines(2);
         channel.setEllipsize(android.text.TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams channelNameParams = new LinearLayout.LayoutParams(0, -2, 1);
         channelNameParams.leftMargin = dp(10);
         channelCell.addView(channel, channelNameParams);
 
-        TextView now = cell(14, false);
-        TextView next = cell(14, false);
+        HorizontalScrollView programmeScroll = new HorizontalScrollView(activity);
+        programmeScroll.setFocusable(false);
+        programmeScroll.setHorizontalScrollBarEnabled(false);
+        programmeScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        programmeScroll.setClipChildren(false);
+        programmeScroll.setClipToPadding(false);
+        LinearLayout programmeStrip = new LinearLayout(activity);
+        programmeStrip.setOrientation(LinearLayout.HORIZONTAL);
+        programmeStrip.setClipChildren(false);
+        programmeStrip.setClipToPadding(false);
+        programmeScroll.addView(programmeStrip, new HorizontalScrollView.LayoutParams(-2, -1));
         LinearLayout.LayoutParams channelParams = new LinearLayout.LayoutParams(dp(230), dp(84));
         channelParams.rightMargin = dp(10);
         row.addView(channelCell, channelParams);
-        LinearLayout.LayoutParams nowParams = new LinearLayout.LayoutParams(0, dp(84), 1);
-        nowParams.rightMargin = dp(10);
-        row.addView(now, nowParams);
-        row.addView(next, new LinearLayout.LayoutParams(0, dp(84), 1));
-        return new Holder(row, channelCell, fallback, logo, channel, now, next);
+        row.addView(programmeScroll, new LinearLayout.LayoutParams(0, dp(84), 1));
+        return new Holder(row, channelCell, fallback, logo, channel, programmeScroll, programmeStrip);
     }
 
     @Override public void onBindViewHolder(Holder holder, int position) {
         IptvRepository.Channel channel = channels.get(position);
         long time = System.currentTimeMillis();
-        IptvRepository.Programme current = current(channel, time);
-        IptvRepository.Programme following = next(channel, time);
         holder.channel.setText(channel.name);
         holder.fallback.setText(channel.name.isEmpty() ? "TV"
                 : channel.name.substring(0, 1).toUpperCase(Locale.getDefault()));
@@ -126,37 +140,41 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
         holder.channelCell.setContentDescription("Watch " + channel.name);
         holder.channelCell.setOnClickListener(view -> actions.watch(channel));
 
-        String currentTitle = current != null ? current.title : channel.now;
-        holder.now.setText(currentTitle.isEmpty() ? "NOW\nNo schedule available"
-                : "NOW  ·  " + (current == null ? "Time unavailable"
-                : range(current) + "  ·  " + timeLeft(current, time)) + "\n" + currentTitle);
-        holder.now.setAlpha(currentTitle.isEmpty() ? .65f : 1f);
-        holder.now.setOnClickListener(view -> actions.watch(channel));
-        holder.now.setContentDescription("Watch " + channel.name + ". " + currentTitle);
-
-        String followingTitle = following != null ? following.title : channel.next;
-        boolean reminded = following != null && reminders.has(new GuideReminders.Reminder(channel.stableKey(),
-                channel.streamUrl, channel.name, following.title, following.startMs, following.endMs));
-        holder.next.setText(followingTitle.isEmpty() ? "NEXT\nNo upcoming programme"
-                : "NEXT  ·  " + (following == null ? "Time unavailable" : range(following))
-                + (reminded ? "  ·  REMINDER SET" : "") + "\n" + followingTitle);
-        holder.next.setAlpha(following == null ? .65f : 1f);
-        holder.next.setFocusable(following != null);
-        holder.next.setClickable(following != null);
-        holder.next.setOnClickListener(following == null ? null : view -> actions.details(channel, following));
-        holder.next.setContentDescription(following == null ? "No timed upcoming programme for " + channel.name
-                : "Details and reminder for " + following.title + " on " + channel.name);
-
-        boolean lastRow = position == channels.size() - 1;
-        holder.channelCell.setOnKeyListener((view, keyCode, event) ->
-                (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && lastRow)
-                        || keyCode == KeyEvent.KEYCODE_DPAD_LEFT);
-        holder.now.setOnKeyListener((view, keyCode, event) ->
-                (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && lastRow)
-                        || (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && following == null));
-        holder.next.setOnKeyListener((view, keyCode, event) ->
-                (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && lastRow)
-                        || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT);
+        List<IptvRepository.Programme> schedule = upcomingProgrammes(channel, time);
+        if (holder.boundChannel != channel || !holder.boundProgrammes.equals(schedule)) {
+            holder.programmeStrip.removeAllViews();
+            holder.boundChannel = channel;
+            holder.boundProgrammes = schedule;
+            holder.programmeScroll.scrollTo(0, 0);
+            if (schedule.isEmpty()) {
+                TextView empty = cell(14, false);
+                empty.setText("No upcoming schedule");
+                empty.setAlpha(.65f);
+                empty.setContentDescription("No upcoming schedule for " + channel.name);
+                empty.setOnClickListener(view -> actions.watch(channel));
+                holder.programmeStrip.addView(empty, new LinearLayout.LayoutParams(dp(260), dp(84)));
+            } else for (IptvRepository.Programme programme : schedule) {
+                TextView tile = cell(14, false);
+                LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(dp(260), dp(84));
+                tileParams.rightMargin = dp(10);
+                holder.programmeStrip.addView(tile, tileParams);
+            }
+        }
+        for (int i = 0; i < schedule.size(); i++) {
+            IptvRepository.Programme programme = schedule.get(i);
+            TextView tile = (TextView) holder.programmeStrip.getChildAt(i);
+            String status = programme.startMs <= time && programme.endMs > time ? "ON NOW"
+                    : "UPCOMING";
+            boolean reminded = programme.startMs > time && reminders.has(new GuideReminders.Reminder(
+                    channel.stableKey(), channel.streamUrl, channel.name, programme.title,
+                    programme.startMs, programme.endMs));
+            String timeRange = range(programme);
+            tile.setText(status + "  ·  " + timeRange
+                    + (reminded ? "  ·  REMINDER SET" : "") + "\n" + programme.title);
+            tile.setContentDescription(status + ": " + programme.title + " on "
+                    + channel.name + ", " + timeRange);
+            tile.setOnClickListener(view -> actions.details(channel, programme));
+        }
     }
 
     @Override public int getItemCount() { return channels.size(); }
@@ -183,15 +201,9 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
         DateFormat format = preferences.getBoolean("24h", false)
                 ? new SimpleDateFormat("HH:mm", Locale.getDefault())
                 : new SimpleDateFormat("h:mm a", Locale.getDefault());
-        return format.format(new Date(programme.startMs)) + "–" + format.format(new Date(programme.endMs));
-    }
-
-    private String timeLeft(IptvRepository.Programme programme, long now) {
-        long minutes = Math.max(1L, (programme.endMs - now + 59_999L) / 60_000L);
-        if (minutes < 60) return minutes + " min left";
-        long hours = minutes / 60;
-        long remainder = minutes % 60;
-        return remainder == 0 ? hours + " hr left" : hours + " hr " + remainder + " min left";
+        DateFormat date = new SimpleDateFormat("EEE, d MMM", Locale.getDefault());
+        return date.format(new Date(programme.startMs)) + "  "
+                + format.format(new Date(programme.startMs)) + "–" + format.format(new Date(programme.endMs));
     }
 
     private TextView cell(int size, boolean bold) {
@@ -199,7 +211,7 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
         text.setGravity(Gravity.CENTER_VERTICAL);
         text.setTextSize(size);
         text.setTextColor(LiquidTheme.text(activity));
-        text.setTypeface(Typeface.create(bold ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
+        text.setTypeface(LiquidTheme.font(activity));
         text.setMaxLines(3);
         text.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.setPadding(dp(15), dp(6), dp(15), dp(6));
@@ -225,16 +237,20 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
         final LinearLayout channelCell;
         final TextView fallback;
         final ImageView logo;
-        final TextView channel, now, next;
+        final TextView channel;
+        final HorizontalScrollView programmeScroll;
+        final LinearLayout programmeStrip;
+        IptvRepository.Channel boundChannel;
+        List<IptvRepository.Programme> boundProgrammes = Collections.emptyList();
         Holder(View itemView, LinearLayout channelCell, TextView fallback, ImageView logo,
-                TextView channel, TextView now, TextView next) {
+                TextView channel, HorizontalScrollView programmeScroll, LinearLayout programmeStrip) {
             super(itemView);
             this.channelCell = channelCell;
             this.fallback = fallback;
             this.logo = logo;
             this.channel = channel;
-            this.now = now;
-            this.next = next;
+            this.programmeScroll = programmeScroll;
+            this.programmeStrip = programmeStrip;
         }
     }
 }
