@@ -83,11 +83,23 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
     @Override public void onBackPressed() { if (menuVisible) hidePause(); else showPause(game.title); }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
-        if (menuVisible) return super.dispatchKeyEvent(event);
+        if (menuVisible) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && isDpadDirection(event.getKeyCode())) {
+                View focused = getCurrentFocus();
+                View next = focused == null ? null : focused.focusSearch(focusDirection(event.getKeyCode()));
+                if (next != null && isWithinPauseLayer(next)
+                        && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
+                return true;
+            }
+            return super.dispatchKeyEvent(event);
+        }
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && event.getRepeatCount() > 0) return true;
         if (ports.get(event.getDeviceId()) == null && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
             // Back is the dedicated pause control. Never treat a held Back
             // press as an NES Start press.
-            if (event.getAction() == KeyEvent.ACTION_UP) showPause(game.title);
+            // Long presses can be synthesized by some remotes while holding OK;
+            // only a short Back press should open the pause menu.
+            if (event.getAction() == KeyEvent.ACTION_UP && event.getRepeatCount() == 0) showPause(game.title);
             return true;
         }
         if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) return super.dispatchKeyEvent(event);
@@ -110,10 +122,57 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
         if (port == null) return super.dispatchKeyEvent(event);
         ControllerProfile profile = profiles.get(event.getDeviceId());
         int bit = profile == null ? -1 : profile.bitFor(event.getKeyCode());
-        if (bit == -2) { showPause(game.title); return true; }
+        if (bit == -2) {
+            if (isConfirmKey(event.getKeyCode())) {
+                pushConfirmAsGameInput(port, event);
+                return true;
+            }
+            showPause(game.title);
+            return true;
+        }
         if (bit < 0) return super.dispatchKeyEvent(event);
         if (event.getAction() == KeyEvent.ACTION_DOWN) masks[port] |= 1 << bit; else if (event.getAction() == KeyEvent.ACTION_UP) masks[port] &= ~(1 << bit);
         pushInput(port); return true;
+    }
+
+    private boolean isDpadDirection(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN
+                || keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
+    }
+
+    private boolean isConfirmKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+                || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER;
+    }
+
+    private void pushConfirmAsGameInput(int port, KeyEvent event) {
+        int confirm = 1 << 8;
+        int start = 1 << 3;
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            masks[port] |= confirm;
+            if (event.getRepeatCount() > 0) masks[port] |= start;
+        } else if (event.getAction() == KeyEvent.ACTION_UP) {
+            masks[port] &= ~(confirm | start);
+        }
+        pushInput(port);
+    }
+
+    private int focusDirection(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_UP: return View.FOCUS_UP;
+            case KeyEvent.KEYCODE_DPAD_DOWN: return View.FOCUS_DOWN;
+            case KeyEvent.KEYCODE_DPAD_LEFT: return View.FOCUS_LEFT;
+            default: return View.FOCUS_RIGHT;
+        }
+    }
+
+    private boolean isWithinPauseLayer(View child) {
+        for (View current = child; current != null; ) {
+            if (current == pauseLayer) return true;
+            android.view.ViewParent parent = current.getParent();
+            current = parent instanceof View ? (View) parent : null;
+        }
+        return false;
     }
 
     @Override public boolean onGenericMotionEvent(MotionEvent event) {
@@ -162,7 +221,13 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         AudioAttributes attributes = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build();
         focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(attributes)
-                .setOnAudioFocusChangeListener(change -> { if (change <= 0 && started) runOnUiThread(() -> showPause(game.title)); }).build();
+                .setOnAudioFocusChangeListener(change -> {
+                    if (!started) return;
+                    runOnUiThread(() -> {
+                        if (change <= 0) session.pause(true);
+                        else if (!menuVisible) session.pause(false);
+                    });
+                }).build();
         audioManager.requestAudioFocus(focusRequest);
     }
 

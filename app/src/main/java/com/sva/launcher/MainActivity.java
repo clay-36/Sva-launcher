@@ -95,6 +95,8 @@ import org.json.JSONObject;
 public final class MainActivity extends Activity {
     private static final int TAB_HOME = 0, TAB_TV = 1, TAB_GAMES = 2, TAB_EVENTS = 3, TAB_SAVED = 4;
     private static final String[] TAB_TITLES = {"Home", "Live TV", "Games", "Events", "Saved"};
+    private static final String PREF_HIDE_LIVE_TV = "hideLiveTvNavigation";
+    private static final String PREF_LIVE_TV_POSITION = "liveTvNavigationPosition";
     static final String ACTION_WATCH_REMINDER = "com.sva.launcher.WATCH_REMINDER";
     static final String EXTRA_REMINDER_CHANNEL_KEY = "reminderChannelKey";
     static final String EXTRA_REMINDER_STREAM_URL = "reminderStreamUrl";
@@ -162,6 +164,8 @@ public final class MainActivity extends Activity {
     private int activeTab = TAB_HOME;
     private boolean tabsInitialized;
     private boolean compactNavigation;
+    private LinearLayout tabRow;
+    private LinearLayout systemShortcuts;
     private View browsingShade;
     private FrameLayout heroFrame;
     private final GlassBackdrop glassBackdrop = new GlassBackdrop();
@@ -590,7 +594,7 @@ public final class MainActivity extends Activity {
         tabScroller.setFillViewport(false);
         LinearLayout.LayoutParams tabGroupParams = new LinearLayout.LayoutParams(-2, dp(52));
         navbar.addView(tabScroller, tabGroupParams);
-        LinearLayout tabRow = new LinearLayout(this);
+        tabRow = new LinearLayout(this);
         tabRow.setGravity(Gravity.CENTER_VERTICAL);
         tabRow.setPadding(dp(4), dp(3), dp(4), dp(3));
         tabScroller.addView(tabRow, new HorizontalScrollView.LayoutParams(-2, -1));
@@ -609,8 +613,8 @@ public final class MainActivity extends Activity {
                 if (focused) selectTab(tab, false);
             });
             tabButtons[i] = button;
-            tabRow.addView(button, new LinearLayout.LayoutParams(-2, dp(44)));
         }
+        rebuildNavigationButtons();
         LinearLayout timeStack = new LinearLayout(this);
         timeStack.setOrientation(LinearLayout.VERTICAL);
         timeStack.setGravity(Gravity.CENTER_VERTICAL);
@@ -663,7 +667,7 @@ public final class MainActivity extends Activity {
         weatherDetails.setEllipsize(TextUtils.TruncateAt.END);
         weatherPanel.addView(weatherDetails);
 
-        LinearLayout systemShortcuts = new LinearLayout(this);
+        systemShortcuts = new LinearLayout(this);
         systemShortcuts.setGravity(Gravity.CENTER_VERTICAL);
         systemShortcuts.setPadding(dp(3), dp(3), dp(3), dp(3));
         navbar.addView(systemShortcuts, new LinearLayout.LayoutParams(-2, dp(52)));
@@ -781,9 +785,6 @@ public final class MainActivity extends Activity {
         gamesHeading.addView(gamesTitle, new LinearLayout.LayoutParams(0, -2, 1));
         Button seeAllGames = actionButton("Import games");
         seeAllGames.setOnClickListener(v -> startActivity(new Intent(this, GameLibraryActivity.class)));
-        // Keep horizontal navigation in the Games page rather than jumping to the bottom bar.
-        seeAllGames.setOnKeyListener((view, keyCode, event) ->
-                keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT);
         linkTabEntry(TAB_GAMES, seeAllGames);
         gamesHeading.addView(seeAllGames, new LinearLayout.LayoutParams(dp(172), dp(48)));
         LinearLayout.LayoutParams gamesHeadingParams = new LinearLayout.LayoutParams(-1, dp(56));
@@ -842,9 +843,6 @@ public final class MainActivity extends Activity {
         youtubeTitleRow.addView(youtubeHeading, new LinearLayout.LayoutParams(0, -2, 1));
         Button addYouTube = actionButton("Add shortcut");
         addYouTube.setOnClickListener(v -> openYouTubeSettings());
-        // Keep horizontal navigation in the Saved page rather than jumping to the bottom bar.
-        addYouTube.setOnKeyListener((view, keyCode, event) ->
-                keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT);
         linkTabEntry(TAB_SAVED, addYouTube);
         youtubeTitleRow.addView(addYouTube, new LinearLayout.LayoutParams(dp(175), dp(48)));
 
@@ -957,49 +955,129 @@ public final class MainActivity extends Activity {
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getAction() == KeyEvent.ACTION_DOWN
-                && (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_LEFT
-                || event.getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT)
+        if (event.getAction() == KeyEvent.ACTION_DOWN && isDpadDirection(event.getKeyCode())
                 && tabsInitialized && settingsScreen == null) {
             View focused = getCurrentFocus();
+            int direction = focusDirection(event.getKeyCode());
+            if (focused != null && tabRow != null && isWithinPage(focused, tabRow)) {
+                if (direction == View.FOCUS_UP) {
+                    View entry = tabEntryFocus[activeTab];
+                    if (entry != null && entry.isShown() && entry.isEnabled() && entry.requestFocus()) return true;
+                    return true;
+                }
+                if (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT) {
+                    View next = focused.focusSearch(direction);
+                    boolean tabSibling = next != null && isWithinPage(next, tabRow);
+                    boolean settingsEntry = direction == View.FOCUS_RIGHT && next != null
+                            && isWithinPage(next, systemShortcuts);
+                    if ((tabSibling || settingsEntry)
+                            && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
+                }
+                return true;
+            }
+            if (focused != null && systemShortcuts != null && isWithinPage(focused, systemShortcuts)) {
+                if (direction == View.FOCUS_UP) {
+                    View entry = tabEntryFocus[activeTab];
+                    if (entry != null && entry.isShown() && entry.isEnabled() && entry.requestFocus()) return true;
+                    return true;
+                }
+                if (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT) {
+                    View next = focused.focusSearch(direction);
+                    boolean shortcutSibling = next != null && next.getParent() == systemShortcuts;
+                    boolean tabReturn = direction == View.FOCUS_LEFT && next != null
+                            && isWithinPage(next, tabRow);
+                    if ((shortcutSibling || tabReturn)
+                            && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
+                }
+                return true;
+            }
             View page = tabPages[activeTab];
             if (focused != null && page != null && isWithinPage(focused, page)) {
-                int direction = event.getKeyCode() == KeyEvent.KEYCODE_DPAD_LEFT
-                        ? View.FOCUS_LEFT : View.FOCUS_RIGHT;
+                if (activeTab == TAB_TV && direction == View.FOCUS_DOWN && guideToggle != null
+                        && guideToggle.isShown() && guideToggle.isEnabled()) {
+                    ChannelRow channelRow = channelRowMap.get(selectedChannelCategory);
+                    if (channelRow != null && isWithinPage(focused, channelRow.container)
+                            && guideToggle.requestFocus()) return true;
+                }
                 View next = focused.focusSearch(direction);
-                // The tab bar changes sections as soon as it receives focus. Keep
-                // horizontal page navigation from escaping there at an edge. In
-                // nested TV-guide views Android can return a non-focusable
-                // container first, so request the valid destination explicitly.
-                if (next != null && isWithinPage(next, page)
+                if (next != null && next.isFocusable() && next.isEnabled()
+                        && isInFocusDirection(focused, next, direction)) {
+                    if (isWithinPage(next, page) && next.requestFocus()) return true;
+                    if (direction == View.FOCUS_DOWN && isWithinPage(next, tabRow)) {
+                        if (scrollPageWithinDirection(focused, page, direction)) return true;
+                        Button destination = tabButtons[activeTab];
+                        if (destination != null && destination.requestFocus()) return true;
+                    }
+                }
+                if (scrollPageWithinDirection(focused, page, direction)) return true;
+                if (direction == View.FOCUS_DOWN) {
+                    Button destination = tabButtons[activeTab];
+                    if (destination != null && destination.requestFocus()) return true;
+                }
+                return true;
+            }
+            if (focused != null && focused.getParent() instanceof ViewGroup) {
+                ViewGroup siblingGroup = (ViewGroup) focused.getParent();
+                View next = focused.focusSearch(direction);
+                if (next != null && next.getParent() == siblingGroup
                         && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
                 return true;
             }
         }
-        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN
-                && tabsInitialized && settingsScreen == null) {
-            View focused = getCurrentFocus();
-            View page = tabPages[activeTab];
-            if (activeTab == TAB_TV && focused != null && guideList != null
-                    && guideAdapter != null && isWithinPage(focused, guideList)) {
-                View guideRow = guideList.findContainingItemView(focused);
-                if (guideRow != null
-                        && guideList.getChildAdapterPosition(guideRow) == guideAdapter.getItemCount() - 1
-                        && !guideList.canScrollVertically(1)) {
-                    Button destination = tabButtons[TAB_TV];
-                    if (destination != null && destination.requestFocus()) return true;
-                }
-            }
-            if (focused != null && page != null && isWithinPage(focused, page)
-                    && !canScrollDownWithinPage(focused, page)) {
-                View next = focused.focusSearch(View.FOCUS_DOWN);
-                if (next == null || !isWithinPage(next, page)) {
-                    Button destination = tabButtons[activeTab];
-                    if (destination != null && destination.requestFocus()) return true;
-                }
-            }
-        }
         return super.dispatchKeyEvent(event);
+    }
+
+    private boolean isDpadDirection(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN
+                || keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
+    }
+
+    private int focusDirection(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_UP: return View.FOCUS_UP;
+            case KeyEvent.KEYCODE_DPAD_DOWN: return View.FOCUS_DOWN;
+            case KeyEvent.KEYCODE_DPAD_LEFT: return View.FOCUS_LEFT;
+            default: return View.FOCUS_RIGHT;
+        }
+    }
+
+    private boolean isInFocusDirection(View from, View to, int direction) {
+        int[] fromLocation = new int[2];
+        int[] toLocation = new int[2];
+        from.getLocationOnScreen(fromLocation);
+        to.getLocationOnScreen(toLocation);
+        float fromX = fromLocation[0] + from.getWidth() / 2f;
+        float fromY = fromLocation[1] + from.getHeight() / 2f;
+        float toX = toLocation[0] + to.getWidth() / 2f;
+        float toY = toLocation[1] + to.getHeight() / 2f;
+        switch (direction) {
+            case View.FOCUS_UP: return toY < fromY;
+            case View.FOCUS_DOWN: return toY > fromY;
+            case View.FOCUS_LEFT: return toX < fromX;
+            default: return toX > fromX;
+        }
+    }
+
+    private boolean scrollPageWithinDirection(View child, View page, int direction) {
+        for (View current = child; current != null; ) {
+            boolean canScroll = direction == View.FOCUS_UP ? current.canScrollVertically(-1)
+                    : direction == View.FOCUS_DOWN ? current.canScrollVertically(1)
+                    : direction == View.FOCUS_LEFT ? current.canScrollHorizontally(-1)
+                    : current.canScrollHorizontally(1);
+            if (canScroll) {
+                int distance = direction == View.FOCUS_UP || direction == View.FOCUS_DOWN
+                        ? Math.max(1, current.getHeight() / 2) : Math.max(1, current.getWidth() / 2);
+                current.scrollBy(direction == View.FOCUS_LEFT ? -distance
+                                : direction == View.FOCUS_RIGHT ? distance : 0,
+                        direction == View.FOCUS_UP ? -distance
+                                : direction == View.FOCUS_DOWN ? distance : 0);
+                return true;
+            }
+            if (current == page) break;
+            android.view.ViewParent parent = current.getParent();
+            current = parent instanceof View ? (View) parent : null;
+        }
+        return false;
     }
 
     private boolean isWithinPage(View child, View page) {
@@ -1011,9 +1089,13 @@ public final class MainActivity extends Activity {
         return false;
     }
 
-    private boolean canScrollDownWithinPage(View child, View page) {
+    private boolean canScrollWithinPage(View child, View page, int direction) {
         for (View current = child; current != null; ) {
-            if (current.canScrollVertically(1)) return true;
+            boolean canScroll = direction == View.FOCUS_UP ? current.canScrollVertically(-1)
+                    : direction == View.FOCUS_DOWN ? current.canScrollVertically(1)
+                    : direction == View.FOCUS_LEFT ? current.canScrollHorizontally(-1)
+                    : current.canScrollHorizontally(1);
+            if (canScroll) return true;
             if (current == page) break;
             android.view.ViewParent parent = current.getParent();
             current = parent instanceof View ? (View) parent : null;
@@ -1023,6 +1105,8 @@ public final class MainActivity extends Activity {
 
     private void selectTab(int tab, boolean focusTabButton) {
         if (tab < TAB_HOME || tab > TAB_SAVED || tabPages[TAB_HOME] == null) return;
+        final int selectedTab = tab == TAB_TV && preferences.getBoolean(PREF_HIDE_LIVE_TV, false)
+                ? TAB_HOME : tab;
         View currentFocus = getCurrentFocus();
         boolean navigatingTabs = false;
         for (Button button : tabButtons) {
@@ -1035,12 +1119,12 @@ public final class MainActivity extends Activity {
             View focused = oldPage.findFocus();
             if (focused != null) tabFocus[activeTab] = focused;
         }
-        activeTab = tab;
+        activeTab = selectedTab;
         tabsInitialized = true;
         for (int i = 0; i < tabPages.length; i++) {
-            if (tabPages[i] != null) tabPages[i].setVisibility(i == tab ? View.VISIBLE : View.GONE);
+            if (tabPages[i] != null) tabPages[i].setVisibility(i == selectedTab ? View.VISIBLE : View.GONE);
             if (tabButtons[i] != null) {
-                boolean selected = i == tab;
+                boolean selected = i == selectedTab;
                 GradientDrawable selectedPill = new GradientDrawable();
                 selectedPill.setColor(LiquidTheme.accent(this));
                 selectedPill.setCornerRadius(dp(24));
@@ -1058,16 +1142,32 @@ public final class MainActivity extends Activity {
                         : (LiquidTheme.isLight(this) ? 0xFF24403D : 0xD4FFFFFF));
             }
         }
-        browsingShade.setAlpha(tab == TAB_HOME ? 0f
+        browsingShade.setAlpha(selectedTab == TAB_HOME ? 0f
                 : (LiquidTheme.isLight(this) ? .88f : .65f));
-        View selectedPage = tabPages[tab];
+        View selectedPage = tabPages[selectedTab];
         selectedPage.post(() -> {
-            if (activeTab != tab) return;
-            if (tab != TAB_HOME) selectedPage.scrollTo(0, tabScroll[tab]);
-            View previous = tabFocus[tab];
-            if (focusTabButton) tabButtons[tab].requestFocus();
+            if (activeTab != selectedTab) return;
+            if (selectedTab != TAB_HOME) selectedPage.scrollTo(0, tabScroll[selectedTab]);
+            View previous = tabFocus[selectedTab];
+            if (focusTabButton) tabButtons[selectedTab].requestFocus();
             else if (!keepNavigationFocus && previous != null && previous.isAttachedToWindow() && previous.isShown()) previous.requestFocus();
         });
+    }
+
+    private void rebuildNavigationButtons() {
+        if (tabRow == null) return;
+        int livePosition = Math.max(0, Math.min(3, preferences.getInt(PREF_LIVE_TV_POSITION, 0)));
+        ArrayList<Integer> ordered = new ArrayList<>();
+        ordered.add(TAB_GAMES);
+        ordered.add(TAB_EVENTS);
+        ordered.add(TAB_SAVED);
+        ordered.add(livePosition, TAB_TV);
+        tabRow.removeAllViews();
+        tabRow.addView(tabButtons[TAB_HOME], new LinearLayout.LayoutParams(-2, dp(44)));
+        for (int tab : ordered) {
+            if (tab == TAB_TV && preferences.getBoolean(PREF_HIDE_LIVE_TV, false)) continue;
+            tabRow.addView(tabButtons[tab], new LinearLayout.LayoutParams(-2, dp(44)));
+        }
     }
 
     private void openYouTubeSettings() {
@@ -1178,7 +1278,6 @@ public final class MainActivity extends Activity {
         int rows = cells / 7;
         int fittedHeight = (Math.max(300, screenHeightDp - 245) - 24) / rows - 5;
         int cellHeight = Math.max(58, Math.min(92, Math.min(cellWidth, fittedHeight)));
-        Button firstMonthDay = null;
         for (int i = 0; i < cells; i++) {
             int dayNumber = i - offset + 1;
             View cell;
@@ -1207,8 +1306,6 @@ public final class MainActivity extends Activity {
                 for (PublicCalendarRepository.Event event : dayEvents)
                     dayDescription.append(". ").append(event.title);
                 dateButton.setContentDescription(dayDescription);
-                if (firstMonthDay == null) firstMonthDay = dateButton;
-                if (i < 7) dateButton.setNextFocusUpId(previousMonthButton.getId());
                 styleCalendarDateButton(dateButton, day.equals(selectedCalendarDay), day.equals(LocalDate.now()),
                         day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY);
                 dateButton.setOnFocusChangeListener((view, focused) -> {
@@ -1226,10 +1323,6 @@ public final class MainActivity extends Activity {
             params.height = dp(cellHeight);
             params.setMargins(0, 0, dp(5), dp(5));
             calendarMonthGrid.addView(cell, params);
-        }
-        if (firstMonthDay != null) {
-            previousMonthButton.setNextFocusDownId(firstMonthDay.getId());
-            nextMonthButton.setNextFocusDownId(firstMonthDay.getId());
         }
         updateCalendarDaySelection();
         updateCalendarDetails(events);
@@ -2251,7 +2344,6 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(tileWidth), dp(64));
             lp.setMargins(0, 0, dp(12), 0);
             appRow.addView(tile, lp);
-            tile.setNextFocusDownId(tabButtons[TAB_HOME].getId());
             if (displayed == 0) tabEntryFocus[TAB_HOME] = tile;
             displayed++;
             if (initialAppFocus && activeTab == TAB_HOME && settingsScreen == null
@@ -2839,8 +2931,6 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         renderedGuideCategory = selectedChannelCategory;
         List<IptvRepository.Channel> selected = selectedChannelCategory == null
                 ? Collections.emptyList() : channelsForCategory(selectedChannelCategory);
-        guideToggle.setNextFocusDownId(guideCollapsed || selected.isEmpty()
-                ? tabButtons[TAB_TV].getId() : View.NO_ID);
         if (selected.isEmpty()) {
             guideAdapter.setChannels(Collections.emptyList());
             guideList.setVisibility(View.GONE);
@@ -3403,9 +3493,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private final class SettingsScreen {
-        private static final int LIVE = 0, CHANNELS = 1, APPS = 2, APPEARANCE = 3, CLOCK = 4, DRM = 5, HOME = 6, BACKUP = 7, YOUTUBE = 8, CALENDAR = 9, SCHEDULES = 10, GAMES = 11, WEATHER = 12;
-        private final String[] sections = {"Live TV", "Channels", "Apps", "Appearance", "Clock", "Playback & DRM", "Home button", "Backup & restore", "YouTube", "Calendar", "Schedules", "Games", "Weather"};
-        private final String[] sectionGlyphs = {"✦", "◈", "▦", "▧", "◷", "◉", "⌂", "⇧", "▶", "◷", "↻", "◆", "☀"};
+        private static final int LIVE = 0, CHANNELS = 1, APPS = 2, APPEARANCE = 3, CLOCK = 4, DRM = 5, HOME = 6, BACKUP = 7, YOUTUBE = 8, CALENDAR = 9, SCHEDULES = 10, GAMES = 11, WEATHER = 12, NAVIGATION = 13;
+        private final String[] sections = {"Live TV", "Channels", "Apps", "Appearance", "Clock", "Playback & DRM", "Home button", "Backup & restore", "YouTube", "Calendar", "Schedules", "Games", "Weather", "Navigation"};
+        private final String[] sectionGlyphs = {"✦", "◈", "▦", "▧", "◷", "◉", "⌂", "⇧", "▶", "◷", "↻", "◆", "☀", "☷"};
         private final String[] descriptions = {
                 "Playlist and programme guide", "Choose which channels appear in Live TV",
                 "Choose and order your home shortcuts", "Photo backdrop and wallpaper",
@@ -3413,7 +3503,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 "Open Sva when the TV Home button opens its built-in launcher",
                 "Save or restore launcher settings and channels", "Save videos and playlists in Saved",
                 "Show events from a public Google Calendar", "Choose when content updates automatically",
-                "Import and manage your local NES library", "Current conditions and a three-day forecast"
+                "Import and manage your local NES library", "Current conditions and a three-day forecast",
+                "Choose which categories appear and their order"
         };
         private final Dialog dialog = new Dialog(MainActivity.this, R.style.SvaFullScreenDialogTheme);
         private final Button[] tabs = new Button[sections.length];
@@ -3540,16 +3631,31 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     return true;
                 }
                 if (event.getAction() != KeyEvent.ACTION_DOWN || focused == null) return false;
-                if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && rail != null && isWithinPage(focused, rail)) {
-                    if (firstControl != null) firstControl.requestFocus();
-                    return true;
-                }
-                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && isWithinPage(focused, detail)) {
-                    View next = focused.focusSearch(View.FOCUS_LEFT);
-                    if (next == null || !isWithinPage(next, detail)) {
-                        tabs[section].requestFocus();
+                if (!isDpadDirection(keyCode) || focused instanceof EditText) return false;
+                int direction = focusDirection(keyCode);
+                if (rail != null && isWithinPage(focused, rail)) {
+                    if (direction == View.FOCUS_RIGHT) {
+                        if (firstControl != null && firstControl.requestFocus()) return true;
                         return true;
                     }
+                    if (direction == View.FOCUS_LEFT) return true;
+                    View next = focused.focusSearch(direction);
+                    if (next != null && isWithinPage(next, rail)
+                            && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
+                    if (next != null) return true;
+                    if (canScrollWithinPage(focused, rail, direction)) return false;
+                    return true;
+                }
+                if (isWithinPage(focused, detail)) {
+                    View next = focused.focusSearch(direction);
+                    if (next != null && isWithinPage(next, detail)) {
+                        if (next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
+                        return true;
+                    }
+                    if (direction == View.FOCUS_LEFT && tabs[section].requestFocus()) return true;
+                    if (next != null) return true;
+                    if (canScrollWithinPage(focused, detail, direction)) return false;
+                    return true;
                 }
                 return false;
             });
@@ -3665,6 +3771,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 case SCHEDULES: renderSchedules(page); break;
                 case GAMES: renderGameSettings(page); break;
                 case WEATHER: renderWeatherSettings(page); break;
+                case NAVIGATION: renderNavigationSettings(page); break;
                 default: break;
             }
             if (firstControl != null) {
@@ -3681,6 +3788,33 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addFormButton(form, "Configure game controllers", v -> startActivity(new Intent(MainActivity.this, ControllerSettingsActivity.class)));
             addFormHint(form, "Nestopia UE is embedded in Sva. On a TV remote, use the arrow buttons to move, OK for A, and hold OK for Start. Gamepads are assigned to players one and two automatically. During play, Back opens Resume, Restart, and Exit.");
             addFormHint(form, "Nestopia UE · GPL-2.0-or-later · Sva combined application GPLv3. Source: github.com/libretro/nestopia");
+        }
+
+        private void renderNavigationSettings(LinearLayout page) {
+            LinearLayout form = scrollForm(page);
+            boolean hidden = preferences.getBoolean(PREF_HIDE_LIVE_TV, false);
+            addFormHint(form, "Customize the bottom navigation bar. Home stays first; move Live TV among the other categories or hide it from the bar.");
+            addFormButton(form, "Live TV in navigation · " + (hidden ? "Hidden" : "Shown"), v -> {
+                preferences.edit().putBoolean(PREF_HIDE_LIVE_TV, !preferences.getBoolean(PREF_HIDE_LIVE_TV, false)).apply();
+                rebuildNavigationButtons();
+                if (preferences.getBoolean(PREF_HIDE_LIVE_TV, false) && activeTab == TAB_TV) selectTab(TAB_HOME, true);
+                renderSection();
+            });
+            int position = Math.max(0, Math.min(3, preferences.getInt(PREF_LIVE_TV_POSITION, 0)));
+            String[] slots = {"first", "second", "third", "last"};
+            addFormHint(form, "Live TV is currently " + slots[position] + " after Home.");
+            addFormButton(form, "Move Live TV earlier", v -> {
+                int current = Math.max(0, Math.min(3, preferences.getInt(PREF_LIVE_TV_POSITION, 0)));
+                if (current > 0) preferences.edit().putInt(PREF_LIVE_TV_POSITION, current - 1).apply();
+                rebuildNavigationButtons();
+                renderSection();
+            });
+            addFormButton(form, "Move Live TV later", v -> {
+                int current = Math.max(0, Math.min(3, preferences.getInt(PREF_LIVE_TV_POSITION, 0)));
+                if (current < 3) preferences.edit().putInt(PREF_LIVE_TV_POSITION, current + 1).apply();
+                rebuildNavigationButtons();
+                renderSection();
+            });
         }
 
         private void renderWeatherSettings(LinearLayout page) {

@@ -7,6 +7,8 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -17,6 +19,7 @@ import android.widget.Toast;
 public final class GameDetailActivity extends Activity {
     private static final int PICK_ART = 7201;
     private GameRepository repository; private String id; private GameRecord game;
+    private LinearLayout actions;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); repository = new GameRepository(this); id = getIntent().getStringExtra("gameId");
@@ -42,11 +45,52 @@ public final class GameDetailActivity extends Activity {
         TextView title = GameUi.text(this, game.title, 38, true); LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2); titleParams.topMargin = GameUi.dp(this, 16); copy.addView(title, titleParams);
         Button play = GameUi.button(this, "Play"); play.setOnClickListener(v -> play());
         LinearLayout.LayoutParams playParams = new LinearLayout.LayoutParams(GameUi.dp(this, 240), GameUi.dp(this, 64)); playParams.topMargin = GameUi.dp(this, 38); copy.addView(play, playParams);
-        LinearLayout actions = new LinearLayout(this); LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, GameUi.dp(this, 56)); actionsParams.topMargin = GameUi.dp(this, 18); copy.addView(actions, actionsParams);
+        actions = new LinearLayout(this); LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, GameUi.dp(this, 56)); actionsParams.topMargin = GameUi.dp(this, 18); copy.addView(actions, actionsParams);
         Button rename = GameUi.button(this, "Rename"); rename.setOnClickListener(v -> rename()); actions.addView(rename, new LinearLayout.LayoutParams(GameUi.dp(this, 140), -1));
         Button artwork = GameUi.button(this, "Artwork"); artwork.setOnClickListener(v -> pickArtwork()); LinearLayout.LayoutParams small = new LinearLayout.LayoutParams(GameUi.dp(this, 140), -1); small.leftMargin = GameUi.dp(this, 10); actions.addView(artwork, small);
         Button remove = GameUi.button(this, "Remove"); remove.setOnClickListener(v -> remove()); LinearLayout.LayoutParams removeParams = new LinearLayout.LayoutParams(GameUi.dp(this, 140), -1); removeParams.leftMargin = GameUi.dp(this, 10); actions.addView(remove, removeParams);
         root.addView(copy, new LinearLayout.LayoutParams(0, -2, 1)); setContentView(root); play.requestFocus();
+    }
+
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN && isDpadDirection(event.getKeyCode())) {
+            View focused = getCurrentFocus();
+            if (focused != null && isWithin(focused, actions)) {
+                int direction = focusDirection(event.getKeyCode());
+                View next = focused.focusSearch(direction);
+                if ((direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT)
+                        && next != null && next.getParent() == actions
+                        && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
+                if (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN) {
+                    if (next != null && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
+                }
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    private boolean isWithin(View child, View ancestor) {
+        for (View current = child; current != null; ) {
+            if (current == ancestor) return true;
+            android.view.ViewParent parent = current.getParent();
+            current = parent instanceof View ? (View) parent : null;
+        }
+        return false;
+    }
+
+    private boolean isDpadDirection(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN
+                || keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
+    }
+
+    private int focusDirection(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_UP: return View.FOCUS_UP;
+            case KeyEvent.KEYCODE_DPAD_DOWN: return View.FOCUS_DOWN;
+            case KeyEvent.KEYCODE_DPAD_LEFT: return View.FOCUS_LEFT;
+            default: return View.FOCUS_RIGHT;
+        }
     }
 
     private void play() {
