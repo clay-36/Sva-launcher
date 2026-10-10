@@ -87,10 +87,26 @@ final class GameRepository {
     synchronized ImportResult importTree(Uri tree) {
         ImportResult result = new ImportResult();
         try {
+            if (tree == null) throw new IllegalArgumentException("Missing folder");
+            if ("file".equals(tree.getScheme())) {
+                walkFiles(new File(tree.getPath()), result, 0);
+                return result;
+            }
             String rootId = DocumentsContract.getTreeDocumentId(tree);
             walkTree(tree, rootId, result);
         } catch (Exception e) { result.skipped++; }
         return result;
+    }
+
+    private void walkFiles(File folder, ImportResult result, int depth) {
+        if (depth > 16) return;
+        File[] children = folder.listFiles();
+        if (children == null) { result.skipped++; return; }
+        for (File child : children) {
+            if (child.isDirectory()) walkFiles(child, result, depth + 1);
+            else if (child.getName().toLowerCase(Locale.ROOT).endsWith(".nes"))
+                importOne(Uri.fromFile(child), result);
+        }
     }
 
     private void walkTree(Uri tree, String parentId, ImportResult result) throws Exception {

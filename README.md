@@ -64,6 +64,7 @@
 - **Weather** — current conditions and a three-day forecast from Open-Meteo, using a chosen city or optional approximate device location.
 - **Configurable refresh schedules** — independently control updates for photos, playlists, programme data, calendars, and Google Photos.
 - **Backup and restore** — export launcher preferences, app and channel choices, and IPTV/DRM configuration to JSON.
+- **TV file browser** — browse internal storage and USB drives with the remote when adding games, choosing images or photo folders, and saving or restoring backups. **Other locations** opens an Android document provider for cloud files.
 - **Home-button helper** — an optional Accessibility service can reopen Sva on TVs that insist on returning to the manufacturer's launcher.
 
 Cached channels, guide data, calendar entries, weather, and artwork remain available where supported when the network is unavailable.
@@ -85,6 +86,8 @@ Cached channels, guide data, calendar entries, weather, and artwork remain avail
    | **Games** | Import `.nes` files and optionally remap connected gamepads. |
    | **Weather** | Search for a city or explicitly request approximate device location. |
    | **Schedules** | Set an independent refresh cadence for each network-backed source. |
+
+The first time you browse local files, allow Sva storage access in Android settings. This lets its TV file browser find NES files, photos, and backups across local storage and USB drives. You can use **Other locations** for files provided by another app.
 
 If the TV continues to open its built-in launcher, go to **Settings → Home button**, open Android's Accessibility settings, and enable Sva's service. This helper is optional and can be disabled at any time.
 

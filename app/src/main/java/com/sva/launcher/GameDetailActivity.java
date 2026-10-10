@@ -107,9 +107,7 @@ public final class GameDetailActivity extends Activity {
     }
 
     private void pickArtwork() {
-        Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*")
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try { startActivityForResult(picker, PICK_ART); } catch (Exception e) { Toast.makeText(this, "No image picker is available.", Toast.LENGTH_LONG).show(); }
+        startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_IMAGE), PICK_ART);
     }
 
     @Override protected void onActivityResult(int request, int result, Intent data) {

@@ -4,6 +4,9 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <!-- A home launcher must enumerate launchable apps so users can choose shortcuts. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
@@ -16,7 +19,12 @@
         android:roundIcon="@drawable/sva_image"
         android:label="@string/app_name"
         android:theme="@style/SvaTheme"
+        android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">        
+        <activity
+            android:name=".TvFilePickerActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".ControllerSettingsActivity"
             android:exported="false"

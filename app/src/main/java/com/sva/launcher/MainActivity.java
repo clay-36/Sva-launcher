@@ -360,30 +360,15 @@ public final class MainActivity extends Activity {
     }
 
     private void openWallpaperFolderPicker() {
-        Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        try {
-            startActivityForResult(picker, PICK_WALLPAPER_FOLDER);
-        } catch (android.content.ActivityNotFoundException e) {
-            Toast.makeText(this, "No folder picker is available on this device.", Toast.LENGTH_LONG).show();
-        }
+        startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_IMAGE_FOLDER), PICK_WALLPAPER_FOLDER);
     }
 
     private void openBackupExportPicker() {
-        Intent picker = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        picker.addCategory(Intent.CATEGORY_OPENABLE);
-        picker.setType("application/json");
-        picker.putExtra(Intent.EXTRA_TITLE, "sva-launcher-backup.json");
-        try { startActivityForResult(picker, PICK_BACKUP_EXPORT); }
-        catch (Exception e) { Toast.makeText(this, "Could not open the file picker.", Toast.LENGTH_LONG).show(); }
+        startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_SAVE_JSON), PICK_BACKUP_EXPORT);
     }
 
     private void openBackupImportPicker() {
-        Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        picker.addCategory(Intent.CATEGORY_OPENABLE);
-        picker.setType("application/json");
-        try { startActivityForResult(picker, PICK_BACKUP_IMPORT); }
-        catch (Exception e) { Toast.makeText(this, "Could not open the file picker.", Toast.LENGTH_LONG).show(); }
+        startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_JSON), PICK_BACKUP_IMPORT);
     }
 
     private void exportBackup(Uri destination) {
@@ -3402,10 +3387,30 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         ArrayList<BackgroundPhoto> photos = new ArrayList<>();
         Set<String> visited = new HashSet<>();
         try {
-            boolean success = collectPhotos(treeUri, DocumentsContract.getTreeDocumentId(treeUri), "", visited, photos, 0);
+            boolean success;
+            if ("file".equals(treeUri.getScheme())) {
+                success = collectLocalPhotos(new java.io.File(treeUri.getPath()), "", visited, photos, 0);
+            } else {
+                success = collectPhotos(treeUri, DocumentsContract.getTreeDocumentId(treeUri), "", visited, photos, 0);
+            }
             Collections.sort(photos, (left, right) -> left.name.compareToIgnoreCase(right.name));
             return new FolderScanResult(photos, success);
         } catch (Exception ignored) { return new FolderScanResult(photos, false); }
+    }
+
+    private boolean collectLocalPhotos(java.io.File folder, String parentPath, Set<String> visited,
+                                       List<BackgroundPhoto> photos, int depth) {
+        if (depth > 16 || !visited.add(folder.getAbsolutePath())) return true;
+        java.io.File[] children = folder.listFiles();
+        if (children == null) return false;
+        for (java.io.File child : children) {
+            if (child.isDirectory()) {
+                collectLocalPhotos(child, parentPath + child.getName() + "/", visited, photos, depth + 1);
+            } else if (isImageDocument(null, child.getName())) {
+                photos.add(new BackgroundPhoto(Uri.fromFile(child), parentPath + child.getName()));
+            }
+        }
+        return true;
     }
 
     private boolean collectPhotos(Uri treeUri, String documentId, String parentPath, Set<String> visited,
@@ -4685,11 +4690,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             boolean hasWallpaper = preferences.contains("wallpaper");
             form.addView(label(hasWallpaper ? "Single wallpaper selected" : "No single wallpaper selected", 16, Color.WHITE, true));
             addFormButton(form, "Choose single wallpaper", v -> {
-                Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                picker.addCategory(Intent.CATEGORY_OPENABLE);
-                picker.setType("image/*");
-                picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-                startActivityForResult(picker, PICK_WALLPAPER);
+                startActivityForResult(TvFilePickerActivity.intent(MainActivity.this, TvFilePickerActivity.MODE_IMAGE), PICK_WALLPAPER);
             });
             if (hasWallpaper) addFormButton(form, "Clear single wallpaper", v -> {
                 preferences.edit().remove("wallpaper").apply();

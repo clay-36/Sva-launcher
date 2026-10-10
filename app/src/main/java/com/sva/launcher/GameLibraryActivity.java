@@ -173,24 +173,19 @@ public final class GameLibraryActivity extends Activity {
     }
 
     private void pickFiles() {
-        Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
-                .setType("*/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try { startActivityForResult(picker, PICK_FILES); }
-        catch (Exception e) { Toast.makeText(this, "No file picker is available.", Toast.LENGTH_LONG).show(); }
+        startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_NES_FILES), PICK_FILES);
     }
 
     private void pickFolder() {
-        Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try { startActivityForResult(picker, PICK_FOLDER); }
-        catch (Exception e) { Toast.makeText(this, "No folder picker is available.", Toast.LENGTH_LONG).show(); }
+        startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_NES_FOLDER), PICK_FOLDER);
     }
 
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (result != RESULT_OK || data == null) return;
+        if ((request != PICK_FILES && request != PICK_FOLDER) || result != RESULT_OK || data == null) return;
         final List<Uri> files = request == PICK_FILES ? GameRepository.urisFromResult(data) : null;
         final Uri tree = request == PICK_FOLDER ? data.getData() : null;
+        if (files != null && files.isEmpty() || request == PICK_FOLDER && tree == null) return;
         Toast.makeText(this, "Importing games…", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
             GameRepository.ImportResult imported = files != null ? repository.importUris(files) : repository.importTree(tree);
