@@ -25,6 +25,7 @@
 
 > Sva is a launcher and media front end. It does not provide TV channels, programme data, ROMs, BIOS files, game artwork, or paid-media credentials. Bring content that you are legally allowed to use.
 
+[![Watch Demo](https://github.com/clay-36/Sva-launcher/blob/main/screenshots/home.png?raw=true)](https://youtu.be/_Er5MMBLI5M)
 
 ## Screenshots
 
