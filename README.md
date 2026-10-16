@@ -204,10 +204,11 @@ The app targets Android 16 (API 36), supports Android 8.0 (API 26) and newer, an
 A clean checkout builds an **unsigned**, optimized release APK without private keys:
 
 ```sh
-./gradlew assembleRelease
+./gradlew assembleRelease bundleRelease
 ```
 
-Output: `app/build/outputs/apk/release/app-release-unsigned.apk`. For a signed build,
+Outputs: `app/build/outputs/apk/release/app-release-unsigned.apk` and
+`app/build/outputs/bundle/release/app-release.aab`. For a signed build,
 provide all four environment variables through your shell or CI secret store:
 
 | Variable | Value |
@@ -217,11 +218,20 @@ provide all four environment variables through your shell or CI secret store:
 | `SVA_KEY_ALIAS` | Signing key alias |
 | `SVA_KEY_PASSWORD` | Signing key password |
 
-Run `./gradlew assembleRelease` again; a complete signing configuration produces
-`app-release.apk`. Gradle reads environment variables directly; it does not load a
+Run `./gradlew assembleRelease bundleRelease` again; a complete signing configuration produces
+`app-release.apk` and a signed `app-release.aab`. Gradle reads environment variables directly; it does not load a
 `.env` file automatically. Incomplete signing configuration produces an unsigned
 APK. Keep the same release key for updates. A debug APK cannot update a release
 installation signed with a different key.
+
+GitHub Actions builds debug and release APKs and a release AAB on each push and
+pull request. You can also start **Android build and checks** manually from the
+Actions tab and choose `apk`, `aab`, or `both`. Automatic runs build both formats.
+Download the selected artifacts from a successful run's summary;
+they are retained for 14 days. The debug APK is installable; release outputs
+are unsigned by default. Manual runs on `main` can enable **Sign release outputs**
+using GitHub secrets. See [workflow signing setup](docs/RELEASING.md#configure-workflow-signing)
+and [CI build downloads](docs/RELEASING.md#download-ci-builds).
 
 See [the release checklist](docs/RELEASING.md), [audit notes](docs/RELEASE_AUDIT.md),
 [third-party inventory](docs/THIRD_PARTY.md) and [asset provenance](docs/ASSET_PROVENANCE.md).
