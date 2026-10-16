@@ -1,6 +1,7 @@
 package com.sva.launcher;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -86,18 +87,34 @@ public final class ScreensaverSettingsActivity extends Activity {
         button(launch, "Preview screensaver", v -> {
             if (save()) startActivity(new Intent(this, ScreensaverPreviewActivity.class));
         });
-        button(launch, "Choose in Android TV settings", v -> {
-            try { startActivity(new Intent(Settings.ACTION_DREAM_SETTINGS)); }
-            catch (Exception e) {
-                try { startActivity(new Intent("com.google.android.tv.settings.ambient")); }
-                catch (Exception unavailable) {
-                    feedback.setText("This TV restricts system screensaver settings. Use Start while Sva is idle above, or open the TV's Screensaver / Ambient mode settings.");
-                }
-            }
-        });
+        button(launch, "Choose in Android TV settings", v -> openScreensaverSettings());
         button(launch, "Back", v -> finish());
         title("Select Sva Memories in your TV's screensaver settings and choose its idle timeout there. Offline, previously downloaded photos remain available; without an album, the preview uses Sva's landscape wallpaper.", 12);
         save.requestFocus();
+    }
+
+    private void openScreensaverSettings() {
+        Intent[] candidates = new Intent[] {
+            new Intent(Intent.ACTION_MAIN).setComponent(new ComponentName("com.android.tv.settings", "com.android.tv.settings.device.display.daydream.DaydreamActivity")),
+            new Intent(Settings.ACTION_DREAM_SETTINGS),
+            new Intent(Intent.ACTION_MAIN).setComponent(new ComponentName("com.amazon.tv.settings", "com.amazon.tv.settings.SettingsActivity")),
+            new Intent("com.google.android.tv.settings.ambient"),
+            new Intent(Intent.ACTION_MAIN).setComponent(new ComponentName("com.android.tv.settings", "com.android.tv.settings.MainSettings")),
+            new Intent(Settings.ACTION_SETTINGS)
+        };
+        for (Intent intent : candidates) {
+            try {
+                if (intent.resolveActivity(getPackageManager()) != null) {
+                    startActivity(intent);
+                    return;
+                }
+            } catch (Exception ignored) { }
+        }
+        try {
+            startActivity(new Intent(Settings.ACTION_SETTINGS));
+        } catch (Exception unavailable) {
+            feedback.setText("This TV restricts system screensaver settings. Use Start while Sva is idle above, or open the TV's Screensaver / Ambient mode settings.");
+        }
     }
     private boolean save() {
         String value = album.getText().toString().trim();
