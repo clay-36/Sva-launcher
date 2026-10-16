@@ -30,19 +30,19 @@
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Screenshot%202026-10-01%20at%2000.43.00.png" alt="Sva home screen with apps, weather, clock, and a city wallpaper" /><br /><sub><strong>Home</strong> — apps and useful information at a glance</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Screenshot%202026-10-01%20at%2000.43.26.png" alt="Live TV channels grouped by category" /><br /><sub><strong>Live TV</strong> — categories, channel logos, and now/next data</sub></td>
+    <td width="50%" align="center"><img src="screenshots/home.png" alt="Sva home screen with apps, weather, clock, and a city wallpaper" /><br /><sub><strong>Home</strong> — apps and useful information at a glance</sub></td>
+    <td width="50%" align="center"><img src="screenshots/live.png" alt="Live TV channels grouped by category" /><br /><sub><strong>Live TV</strong> — categories, channel logos, and now/next data</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Screenshot%202026-10-01%20at%2000.43.38.png" alt="TV programme guide showing current and upcoming programmes" /><br /><sub><strong>TV guide</strong> — current and upcoming programmes</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_004504.png" alt="Integrated IPTV playback with DRM support" /><br /><sub><strong>Live TV</strong> — DRM supported with previous/next navigation</sub></td>
+    <td width="50%" align="center"><img src="screenshots/guide.png" alt="TV programme guide showing current and upcoming programmes" /><br /><sub><strong>TV guide</strong> — current and upcoming programmes</sub></td>
+    <td width="50%" align="center"><img src="screenshots/iptv.png" alt="Integrated IPTV playback with DRM support" /><br /><sub><strong>Live TV</strong> — DRM supported with previous/next navigation</sub></td>
   </tr>
-  <tr><td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005834.png" alt="Monthly events calendar with selected-day details and lunar illumination" /><br /><sub><strong>Events</strong> — a remote-friendly monthly calendar</sub></td>
-   <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005635.png" alt="Imported NES games in the Games tab" /><br /><sub><strong>Games</strong> — a local NES library powered by Nestopia UE</sub></td>
+  <tr><td width="50%" align="center"><img src="screenshots/calendar.png" alt="Monthly events calendar with selected-day details and lunar illumination" /><br /><sub><strong>Events</strong> — a remote-friendly monthly calendar</sub></td>
+   <td width="50%" align="center"><img src="screenshots/games.png" alt="Imported NES games in the Games tab" /><br /><sub><strong>Games</strong> — a local NES library powered by Nestopia UE</sub></td>
 </tr>
 <tr>
-  <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005809.png" alt="Bring your own NES games" /><br /><sub><strong>Games</strong> — import your own NES ROMs</sub></td>
-<td width="50%" align="center"><img src="screenshots/Screenshot_20261001_010438.png" alt="Saved YouTube videos and playlists" /><br /><sub><strong>Saved</strong> — shortcuts to videos and playlists</sub></td>
+  <td width="50%" align="center"><img src="screenshots/games_play_2.png" alt="Bring your own NES games" /><br /><sub><strong>Games</strong> — import your own NES ROMs</sub></td>
+<td width="50%" align="center"><img src="screenshots/saved.png" alt="Saved YouTube videos and playlists" /><br /><sub><strong>Saved</strong> — shortcuts to videos and playlists</sub></td>
   </tr>
 </table>
 
@@ -184,6 +184,7 @@ Run local checks with:
 ./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease
 ./scripts/check-native.sh
 python3 scripts/audit-source.py --history
+python3 scripts/check-apk.py app/build/outputs/apk/release/app-release-unsigned.apk
 ```
 
 The native helper checks require a C++17 compiler (`c++`, or set `CXX`). On a

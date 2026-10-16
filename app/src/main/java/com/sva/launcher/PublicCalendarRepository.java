@@ -30,6 +30,7 @@ import java.util.Set;
 
 /** Fetches a public iCalendar feed and expands common Google Calendar recurrence rules. */
 final class PublicCalendarRepository {
+    static final int MAX_EVENTS = 10000;
     private static final int MAX_FEED_BYTES = 6 * 1024 * 1024;
     private static final long DISPLAY_LOOKAHEAD_MS = 400L * 24L * 60L * 60L * 1000L;
     private static final long DISPLAY_LOOKBACK_MS = 400L * 24L * 60L * 60L * 1000L;
@@ -74,7 +75,7 @@ final class PublicCalendarRepository {
                     output.write(buffer, 0, count);
                 }
                 String feed = new String(output.toByteArray(), StandardCharsets.UTF_8);
-                if (!feed.contains("BEGIN:VCALENDAR") || !feed.contains("BEGIN:VEVENT")) {
+                if (!feed.contains("BEGIN:VCALENDAR") || !feed.contains("END:VCALENDAR")) {
                     throw new IllegalArgumentException("This link did not return a public iCalendar feed.");
                 }
                 return feed;
@@ -93,6 +94,7 @@ final class PublicCalendarRepository {
             if ("BEGIN:VEVENT".equalsIgnoreCase(line.trim())) eventLines = new ArrayList<>();
             else if ("END:VEVENT".equalsIgnoreCase(line.trim())) {
                 if (eventLines != null) parseEvent(eventLines, nowMs, result);
+                if (result.size() >= MAX_EVENTS) break;
                 eventLines = null;
             } else if (eventLines != null) eventLines.add(line);
         }
@@ -135,7 +137,7 @@ final class PublicCalendarRepository {
             boolean allDay = "DATE".equalsIgnoreCase(startProperty.parameters.get("VALUE"))
                     || startProperty.value.length() == 8;
             Property endProperty = properties.get("DTEND");
-            ZonedDateTime end = endProperty == null ? start.plusHours(1) : parseDate(endProperty);
+            ZonedDateTime end = endProperty == null ? (allDay ? start.plusDays(1) : start.plusHours(1)) : parseDate(endProperty);
             if (!end.isAfter(start)) return;
             Duration duration = Duration.between(start.toInstant(), end.toInstant());
             Property recurrence = properties.get("RRULE");
@@ -163,9 +165,15 @@ final class PublicCalendarRepository {
         LocalDate firstDate = first.toLocalDate();
         LocalDate limit = Instant.ofEpochMilli(nowMs + DISPLAY_LOOKAHEAD_MS).atZone(first.getZone()).toLocalDate();
         long days = Math.max(0, ChronoUnit.DAYS.between(firstDate, limit));
-        if (days > 20000) days = 20000;
+        long firstOffset = 0;
+        if (count == Integer.MAX_VALUE) {
+            // Unbounded birthdays and anniversaries can start far before the display window.
+            LocalDate earliest = Instant.ofEpochMilli(nowMs - DISPLAY_LOOKBACK_MS).atZone(first.getZone())
+                    .toLocalDate().minusDays(duration.toDays() + 1);
+            firstOffset = Math.max(0, ChronoUnit.DAYS.between(firstDate, earliest));
+        } else if (days > 20000) days = 20000;
         int emitted = 0;
-        for (long offset = 0; offset <= days && emitted < count; offset++) {
+        for (long offset = firstOffset; offset <= days && emitted < count && output.size() < MAX_EVENTS; offset++) {
             LocalDate date = firstDate.plusDays(offset);
             if (!isOccurrenceDate(firstDate, date, frequency, interval, byDays)) continue;
             ZonedDateTime occurrence = ZonedDateTime.of(date, first.toLocalTime(), first.getZone());

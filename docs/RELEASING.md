@@ -31,9 +31,15 @@ apksigner verify --verbose --print-certs app/build/outputs/apk/release/app-relea
 zipalign -c -P 16 -v 4 app/build/outputs/apk/release/app-release.apk
 ```
 
+Automate the content and ELF checks with:
+
+```sh
+python3 scripts/check-apk.py app/build/outputs/apk/release/app-release-unsigned.apk --zipalign /path/to/sdk/build-tools/36.0.0/zipalign
+```
+
 Inspect all packaged ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`) and verify the JNI
-bridge can load its core after R8 shrinking. Native linkers are configured for
-16 KB page alignment. Keep `mapping.txt` and native symbols privately for debugging.
+bridge can load its core after R8 shrinking. The 64-bit library load/RELRO segments and APK packaging are checked for
+16 KB alignment. Keep `mapping.txt` and native symbols privately for debugging.
 An unsigned APK is a build artifact, not an installable public release.
 
 ## Publish

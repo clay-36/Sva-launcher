@@ -1,0 +1,4 @@
+/gradlew text eol=lf
+/gradlew.bat text eol=crlf
+# Preserve the upstream license's formatting, including its original trailing spaces.
+/app/src/main/assets/licenses/nes-ntsc-lgpl-2.1.txt whitespace=-blank-at-eol

@@ -22,9 +22,14 @@ Manrope typeface
 License: SIL Open Font License 1.1.
 See app/src/main/assets/licenses/manrope_ofl.txt for the original font notices.
 
-AndroidX (including Media3 and RecyclerView) and Google OSS libraries
+libretro-common supporting files
+Per-file licenses, including MIT notices, are preserved in the source and bundled
+in assets/licenses/vendored-native-notices.txt.
+
+AndroidX (including Media3 and RecyclerView), Guava, Kotlin and Kotlinx libraries
 License: Apache License 2.0, with original library notices retained in dependencies.
-See docs/THIRD_PARTY.md for the direct dependency inventory and source references.
+See docs/THIRD_PARTY.md and assets/licenses/runtime-dependencies.txt for the inventory.
+Pinned NDK runtime/toolchain notices are included in assets/licenses/ndk-r28-runtime-notices.txt.
 
 No commercial game ROMs, BIOS files, channel playlists, paid-media credentials,
 or personal photo albums are packaged in the application APK.

@@ -17,8 +17,12 @@ jobs:
       - name: Install pinned Android toolchain
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
       - name: Check source hygiene
-        run: python3 scripts/audit-source.py
+        run: |
+          python3 scripts/audit-source.py
+          python3 scripts/update-notices.py --check
       - name: Check native helpers
         run: ./scripts/check-native.sh
       - name: Test, lint, and build debug and unsigned release APKs
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleRelease
+      - name: Inspect release APK
+        run: python3 scripts/check-apk.py app/build/outputs/apk/release/app-release-unsigned.apk --zipalign "$ANDROID_HOME/build-tools/36.0.0/zipalign"

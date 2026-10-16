@@ -1,0 +1,167 @@
+{
+  "checkedDate": "2026-10-17",
+  "source": "https://api.osv.dev/v1/querybatch",
+  "scope": "Resolved release runtime Maven coordinates, JUnit, JSON-java and Android Gradle Plugin; excludes native/toolchain advisory coverage",
+  "queries": [
+    {
+      "coordinate": "androidx.annotation:annotation-experimental:1.4.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.annotation:annotation-jvm:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.arch.core:core-common:2.2.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.arch.core:core-runtime:2.2.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.collection:collection-jvm:1.4.2",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.concurrent:concurrent-futures:1.1.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.core:core-ktx:1.13.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.core:core:1.13.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.customview:customview-poolingcontainer:1.0.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.customview:customview:1.0.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.exifinterface:exifinterface:1.3.6",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.interpolator:interpolator:1.0.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-common:2.6.2",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-runtime:2.6.2",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-common:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-container:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-database:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-datasource:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-decoder:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-exoplayer-dash:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-exoplayer-hls:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-exoplayer:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-extractor:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.media3:media3-ui:1.8.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.profileinstaller:profileinstaller:1.3.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.recyclerview:recyclerview:1.4.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.startup:startup-runtime:1.1.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.tracing:tracing:1.0.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "androidx.versionedparcelable:versionedparcelable:1.1.1",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "com.android.tools.build:gradle:8.12.2",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "com.google.guava:failureaccess:1.0.2",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "com.google.guava:guava:33.3.1-android",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "junit:junit:4.13.2",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib-common:1.8.22",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:1.8.22",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "org.jetbrains:annotations:13.0",
+      "advisoryIds": []
+    },
+    {
+      "coordinate": "org.json:json:20240303",
+      "advisoryIds": []
+    }
+  ]
+}

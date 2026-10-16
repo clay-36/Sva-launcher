@@ -5,6 +5,7 @@ This is a publication hygiene check, not a replacement for a full secret scanner
 Use --history before first publication; it examines reachable local Git history.
 """
 import argparse
+import hashlib
 import pathlib
 import re
 import subprocess
@@ -53,6 +54,10 @@ def main():
     parser.add_argument('--history', action='store_true')
     args = parser.parse_args()
     problems = []
+    # Official Gradle 8.13 wrapper JAR checksum, verified against services.gradle.org.
+    wrapper = ROOT / 'gradle/wrapper/gradle-wrapper.jar'
+    if hashlib.sha256(wrapper.read_bytes()).hexdigest() != '81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f':
+        problems.append('gradle/wrapper/gradle-wrapper.jar: checksum differs from pinned Gradle 8.13')
     names = git('ls-files', '--cached', '--others', '--exclude-standard', '-z').decode().split('\0')
     for name in filter(None, names):
         path = ROOT / name
