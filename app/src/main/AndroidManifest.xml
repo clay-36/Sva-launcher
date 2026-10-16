@@ -64,6 +64,20 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".ScreensaverSettingsActivity"
+            android:exported="true" android:screenOrientation="landscape" />
+        <activity android:name=".ScreensaverPreviewActivity"
+            android:exported="false" android:screenOrientation="landscape"
+            android:enableOnBackInvokedCallback="false" />
+        <service android:name=".ScreensaverService"
+            android:exported="true" android:label="@string/screensaver_name"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="android.service.dream" android:resource="@xml/screensaver" />
+        </service>
         <service
             android:name=".LauncherOverrideService"
             android:description="@string/launcher_override_service_description"

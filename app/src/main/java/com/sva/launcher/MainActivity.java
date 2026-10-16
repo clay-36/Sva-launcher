@@ -148,6 +148,7 @@ public final class MainActivity extends Activity {
     private LinearLayout root, homeContent, liveContent, gamesContent, eventsContent, savedContent;
     private LinearLayout appRow, youtubeRow, youtubeSection;
     private GridLayout gameGrid, calendarMonthGrid;
+    private TextView calendarHeaderDate, calendarHeaderEvents;
     private Button previousMonthButton, nextMonthButton;
     private TextView gamesEmpty, youtubeEmpty, todayEmpty, monthTitle;
     private TextView calendarDetailDate, calendarDetailDay, calendarDetailMoon;
@@ -167,6 +168,7 @@ public final class MainActivity extends Activity {
     private final NavigationGlyph[] navigationGlyphs = new NavigationGlyph[TAB_TITLES.length];
     private int activeTab = TAB_HOME;
     private boolean tabsInitialized;
+    private boolean switchingTabs;
     private boolean compactNavigation;
     private LinearLayout tabRow;
     private LinearLayout systemShortcuts;
@@ -430,9 +432,32 @@ public final class MainActivity extends Activity {
         worker.start();
     }
 
+    private final Runnable screensaverIdle = this::startScreensaverIfIdle;
+
+    private void startScreensaverIfIdle() {
+        boolean playing = activeMediaController != null && activeMediaController.getPlaybackState() != null
+                && activeMediaController.getPlaybackState().getState() == PlaybackState.STATE_PLAYING;
+        if (screenActive && settingsScreen == null && hasWindowFocus() && !playing) {
+            startActivity(new Intent(this, ScreensaverPreviewActivity.class));
+        } else if (screenActive) scheduleScreensaverIdle();
+    }
+
+    private void scheduleScreensaverIdle() {
+        handler.removeCallbacks(screensaverIdle);
+        if (preferences == null || !screenActive) return;
+        int minutes = ScreensaverPreferences.idleMinutes(preferences.getInt(ScreensaverPreferences.IDLE, 0));
+        if (minutes > 0) handler.postDelayed(screensaverIdle, minutes * 60_000L);
+    }
+
+    @Override public void onUserInteraction() {
+        super.onUserInteraction();
+        scheduleScreensaverIdle();
+    }
+
     @Override protected void onResume() {
         super.onResume();
         screenActive = true;
+        scheduleScreensaverIdle();
         maybeRefreshLiveData();
         scheduleLiveRefreshCheck();
         maybeRefreshPublicCalendar(false);
@@ -465,6 +490,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onPause() {
         screenActive = false;
+        handler.removeCallbacks(screensaverIdle);
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
         if (calendarRefreshTick != null) handler.removeCallbacks(calendarRefreshTick);
@@ -865,8 +891,8 @@ public final class MainActivity extends Activity {
         liveContent.addView(channelRows, new LinearLayout.LayoutParams(-1, -2));
         channelCategoryScroll = new HorizontalScrollView(this);
         channelCategoryScroll.setHorizontalScrollBarEnabled(false);
-        channelCategoryScroll.setClipChildren(false);
-        channelCategoryScroll.setClipToPadding(false);
+        channelCategoryScroll.setClipChildren(true);
+        channelCategoryScroll.setClipToPadding(true);
         channelCategoryTabs = new LinearLayout(this);
         channelCategoryTabs.setOrientation(LinearLayout.HORIZONTAL);
         channelCategoryTabs.setGravity(Gravity.CENTER_VERTICAL);
@@ -998,6 +1024,8 @@ public final class MainActivity extends Activity {
                 && tabsInitialized && settingsScreen == null) {
             View focused = getCurrentFocus();
             int direction = focusDirection(event.getKeyCode());
+            if (activeTab == TAB_EVENTS && focused != null
+                    && handleCalendarDirection(focused, direction)) return true;
             if (focused != null && tabRow != null && isWithinPage(focused, tabRow)) {
                 if (direction == View.FOCUS_UP) {
                     View entry = tabEntryFocus[activeTab];
@@ -1064,6 +1092,56 @@ public final class MainActivity extends Activity {
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private View calendarDateView(LocalDate day) {
+        if (calendarMonthGrid == null) return null;
+        for (int i = 7; i < calendarMonthGrid.getChildCount(); i++) {
+            View child = calendarMonthGrid.getChildAt(i);
+            if (day.equals(child.getTag())) return child;
+        }
+        return null;
+    }
+
+    private boolean focusCalendarDate(LocalDate day) {
+        View destination = calendarDateView(day);
+        return destination != null && destination.requestFocus();
+    }
+
+    private boolean handleCalendarDirection(View focused, int direction) {
+        if (focused instanceof CalendarDayButton && focused.getTag() instanceof LocalDate) {
+            LocalDate day = (LocalDate) focused.getTag();
+            int delta = direction == View.FOCUS_LEFT ? -1 : direction == View.FOCUS_RIGHT ? 1
+                    : direction == View.FOCUS_UP ? -7 : 7;
+            LocalDate target = day.plusDays(delta);
+            if (YearMonth.from(target).equals(displayedMonth)) {
+                focusCalendarDate(target);
+            } else if (direction == View.FOCUS_UP) {
+                previousMonthButton.requestFocus();
+            } else if (direction == View.FOCUS_DOWN) {
+                tabButtons[TAB_EVENTS].requestFocus();
+            } else if (CalendarDates.inRange(YearMonth.from(target), YearMonth.now())) {
+                // Move naturally across month boundaries without relying on geometry.
+                // Keep focus off the old grid while its date views are rebuilt.
+                previousMonthButton.requestFocus();
+                displayedMonth = YearMonth.from(target);
+                selectedCalendarDay = target;
+                renderMonthCalendar(cachedCalendarEvents());
+                focusCalendarDate(target);
+            }
+            return true;
+        }
+        if (direction == View.FOCUS_UP
+                && (isWithinPage(focused, tabRow) || isWithinPage(focused, systemShortcuts))) {
+            focusCalendarDate(selectedCalendarDay);
+            return true;
+        }
+        if (direction == View.FOCUS_DOWN && isWithinPage(focused, eventsContent)
+                && !isWithinPage(focused, calendarMonthGrid)) {
+            focusCalendarDate(selectedCalendarDay);
+            return true;
+        }
+        return false;
     }
 
     private boolean isDpadDirection(int keyCode) {
@@ -1143,6 +1221,9 @@ public final class MainActivity extends Activity {
     }
 
     private void selectTab(int tab, boolean focusTabButton) {
+        // Hiding a focused page can synchronously focus a navigation button.
+        // Its listener must not start another switch partway through this one.
+        if (switchingTabs) return;
         if (tab < TAB_HOME || tab > TAB_SAVED || tabPages[TAB_HOME] == null) return;
         final int selectedTab = tab == TAB_TV && preferences.getBoolean(PREF_HIDE_LIVE_TV, false)
                 ? TAB_HOME : tab;
@@ -1160,28 +1241,39 @@ public final class MainActivity extends Activity {
         }
         activeTab = selectedTab;
         tabsInitialized = true;
-        for (int i = 0; i < tabPages.length; i++) {
-            if (tabPages[i] != null) tabPages[i].setVisibility(i == selectedTab ? View.VISIBLE : View.GONE);
-            if (tabButtons[i] != null) {
-                boolean selected = i == selectedTab;
-                GradientDrawable selectedPill = new GradientDrawable();
-                selectedPill.setColor(0xFF7BE7F4);
-                selectedPill.setCornerRadius(dp(24));
-                GradientDrawable focusedPill = new GradientDrawable();
-                focusedPill.setColor(0xFF7BE7F4);
-                focusedPill.setCornerRadius(dp(24));
-                focusedPill.setStroke(dp(2), 0x66FFFFFF);
-                StateListDrawable states = new StateListDrawable();
-                states.addState(new int[]{android.R.attr.state_focused}, focusedPill);
-                states.addState(new int[]{}, selected
-                        ? selectedPill : new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
-                tabButtons[i].setBackground(states);
-                tabButtons[i].setTypeface(LiquidTheme.font(this));
-                tabButtons[i].setTextColor(selected ? 0xFF071417
-                        : (LiquidTheme.isLight(this) ? 0xFF24403D : 0xD4FFFFFF));
-                navigationGlyphs[i].setGlyphColor(selected ? 0xFF071417
-                        : (LiquidTheme.isLight(this) ? 0xFF24403D : 0xD4FFFFFF));
+        switchingTabs = true;
+        try {
+            for (int i = 0; i < tabPages.length; i++) {
+                if (tabPages[i] != null) tabPages[i].setVisibility(i == selectedTab ? View.VISIBLE : View.GONE);
+                if (tabButtons[i] != null) {
+                    boolean selected = i == selectedTab;
+                    GradientDrawable selectedPill = new GradientDrawable();
+                    selectedPill.setColor(0xFF7BE7F4);
+                    selectedPill.setCornerRadius(dp(24));
+                    GradientDrawable focusedPill = new GradientDrawable();
+                    focusedPill.setColor(0xFF7BE7F4);
+                    focusedPill.setCornerRadius(dp(24));
+                    focusedPill.setStroke(dp(2), 0x66FFFFFF);
+                    StateListDrawable states = new StateListDrawable();
+                    states.addState(new int[]{android.R.attr.state_focused}, focusedPill);
+                    states.addState(new int[]{}, selected
+                            ? selectedPill : new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+                    tabButtons[i].setBackground(states);
+                    tabButtons[i].setTypeface(LiquidTheme.font(this));
+                    tabButtons[i].setTextColor(selected ? 0xFF071417
+                            : (LiquidTheme.isLight(this) ? 0xFF24403D : 0xD4FFFFFF));
+                    navigationGlyphs[i].setGlyphColor(selected ? 0xFF071417
+                            : (LiquidTheme.isLight(this) ? 0xFF24403D : 0xD4FFFFFF));
+                }
             }
+            if (!keepNavigationFocus && !focusTabButton) {
+                View destination = tabFocus[selectedTab];
+                if (destination == null || !destination.isAttachedToWindow() || !destination.isShown())
+                    destination = tabEntryFocus[selectedTab];
+                if (destination != null) destination.requestFocus();
+            }
+        } finally {
+            switchingTabs = false;
         }
         browsingShade.setAlpha(selectedTab == TAB_HOME ? 0f
                 : (LiquidTheme.isLight(this) ? .88f : .65f));
@@ -1229,7 +1321,7 @@ public final class MainActivity extends Activity {
         eventsContent.setPadding(dp(28), dp(20), dp(28), dp(12));
         LinearLayout monthHeading = new LinearLayout(this);
         monthHeading.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams monthParams = new LinearLayout.LayoutParams(-1, dp(62));
+        LinearLayout.LayoutParams monthParams = new LinearLayout.LayoutParams(-1, dp(80));
         eventsContent.addView(monthHeading, monthParams);
         Button backButton = actionButton("‹");
         backButton.setTextSize(30);
@@ -1243,7 +1335,20 @@ public final class MainActivity extends Activity {
         monthHeading.addView(backButton, backParams);
         monthTitle = label("Calendar", 32, Color.WHITE, true);
         monthTitle.setTextColor(LiquidTheme.text(this));
-        monthHeading.addView(monthTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        monthHeading.addView(monthTitle, new LinearLayout.LayoutParams(-2, -2));
+        LinearLayout eventSummary = new LinearLayout(this);
+        eventSummary.setOrientation(LinearLayout.VERTICAL);
+        eventSummary.setGravity(Gravity.CENTER_VERTICAL);
+        eventSummary.setPadding(dp(20), 0, dp(20), 0);
+        calendarHeaderDate = label("", 10, LiquidTheme.accent(this), true);
+        calendarHeaderDate.setLetterSpacing(.1f);
+        eventSummary.addView(calendarHeaderDate);
+        calendarHeaderEvents = label("", 14, LiquidTheme.text(this), true);
+        calendarHeaderEvents.setMaxLines(3);
+        calendarHeaderEvents.setEllipsize(TextUtils.TruncateAt.END);
+        calendarHeaderEvents.setPadding(0, dp(4), 0, 0);
+        eventSummary.addView(calendarHeaderEvents);
+        monthHeading.addView(eventSummary, new LinearLayout.LayoutParams(0, -1, 1));
         LinearLayout monthSwitcher = new LinearLayout(this);
         monthSwitcher.setGravity(Gravity.CENTER_VERTICAL);
         monthSwitcher.setBackground(calendarGlassShape(0xC91A1D26, 0xAAFFFFFF, 30));
@@ -1252,11 +1357,11 @@ public final class MainActivity extends Activity {
         previousMonthButton.setTextSize(28);
         alignCalendarArrow(previousMonthButton);
         previousMonthButton.setContentDescription("Previous month");
-        previousMonthButton.setBackgroundColor(Color.TRANSPARENT);
+        styleCalendarHeaderControl(previousMonthButton);
         monthSwitcher.addView(previousMonthButton, new LinearLayout.LayoutParams(dp(46), dp(48)));
         Button todayButton = actionButton("Today");
         todayButton.setTextSize(14);
-        todayButton.setBackground(calendarGlassShape(0x9914161E, Color.TRANSPARENT, 24));
+        styleCalendarHeaderControl(todayButton);
         todayButton.setOnClickListener(v -> {
             displayedMonth = YearMonth.now();
             selectedCalendarDay = LocalDate.now();
@@ -1267,7 +1372,7 @@ public final class MainActivity extends Activity {
         nextMonthButton.setTextSize(28);
         alignCalendarArrow(nextMonthButton);
         nextMonthButton.setContentDescription("Next month");
-        nextMonthButton.setBackgroundColor(Color.TRANSPARENT);
+        styleCalendarHeaderControl(nextMonthButton);
         nextMonthButton.setId(View.generateViewId());
         previousMonthButton.setOnClickListener(v -> {
             YearMonth candidate = displayedMonth.minusMonths(1);
@@ -1285,7 +1390,26 @@ public final class MainActivity extends Activity {
         });
         monthSwitcher.addView(nextMonthButton, new LinearLayout.LayoutParams(dp(46), dp(48)));
 
-        calendarMonthGrid = new GridLayout(this);
+        calendarMonthGrid = new GridLayout(this) {
+            private final Paint rulePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+            @Override protected void dispatchDraw(Canvas canvas) {
+                rulePaint.setColor(LiquidTheme.isLight(MainActivity.this) ? 0x55708B88 : 0x558FAEAC);
+                rulePaint.setStrokeWidth(dp(1));
+                if (getChildCount() > 7) {
+                    int top = getChildAt(7).getTop();
+                    for (int i = 7; i < getChildCount(); i += 7) {
+                        int y = getChildAt(i).getTop();
+                        canvas.drawLine(0, y, getWidth(), y, rulePaint);
+                    }
+                    for (int i = 8; i < Math.min(14, getChildCount()); i++) {
+                        int x = getChildAt(i).getLeft();
+                        canvas.drawLine(x, top, x, getHeight(), rulePaint);
+                    }
+                }
+                super.dispatchDraw(canvas);
+            }
+        };
         calendarMonthGrid.setColumnCount(7);
         calendarMonthGrid.setClipChildren(false);
         calendarMonthGrid.setClipToPadding(false);
@@ -1308,7 +1432,7 @@ public final class MainActivity extends Activity {
         calendarMonthGrid.removeAllViews();
         int widthDp = Math.round(getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
-        int cellWidth = Math.max(58, (widthDp - 56) / 7 - 6);
+        int cellWidth = Math.max(58, (widthDp - 56) / 7);
         for (int i = 0; i < 7; i++) {
             DayOfWeek weekday = DayOfWeek.SUNDAY.plus(i);
             TextView heading = label(weekday.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
@@ -1337,7 +1461,7 @@ public final class MainActivity extends Activity {
                         : dayNumber - displayedMonth.lengthOfMonth()), 20, 0xFF78818A, false);
                 overflow.setGravity(Gravity.TOP | Gravity.LEFT);
                 overflow.setPadding(dp(13), dp(8), 0, 0);
-                overflow.setBackground(calendarGlassShape(0xB51A1D27, 0x66C9D6DD, 18));
+                overflow.setBackgroundColor(Color.TRANSPARENT);
                 cell = overflow;
             } else {
                 LocalDate day = displayedMonth.atDay(dayNumber);
@@ -1359,8 +1483,14 @@ public final class MainActivity extends Activity {
                 styleCalendarDateButton(dateButton, day.equals(selectedCalendarDay), day.equals(LocalDate.now()),
                         day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY);
                 dateButton.setOnFocusChangeListener((view, focused) -> {
-                    LiquidTheme.animateFocus(view, focused);
                     if (focused) selectCalendarDay(day);
+                });
+                dateButton.setOnHoverListener((view, event) -> {
+                    if (event.getActionMasked() == android.view.MotionEvent.ACTION_HOVER_ENTER)
+                        updateCalendarHeader(day);
+                    else if (event.getActionMasked() == android.view.MotionEvent.ACTION_HOVER_EXIT)
+                        updateCalendarHeader(selectedCalendarDay);
+                    return false;
                 });
                 dateButton.setOnClickListener(v -> {
                     selectCalendarDay(day);
@@ -1371,11 +1501,24 @@ public final class MainActivity extends Activity {
             GridLayout.LayoutParams params = new GridLayout.LayoutParams();
             params.width = dp(cellWidth);
             params.height = dp(cellHeight);
-            params.setMargins(0, 0, dp(6), dp(7));
+            params.setMargins(0, 0, 0, 0);
             calendarMonthGrid.addView(cell, params);
         }
         updateCalendarDaySelection();
         updateCalendarDetails(events);
+        updateCalendarHeader(selectedCalendarDay);
+    }
+
+    private void updateCalendarHeader(LocalDate day) {
+        if (calendarHeaderDate == null) return;
+        calendarHeaderDate.setText(day.format(java.time.format.DateTimeFormatter.ofPattern(
+                "EEEE, d MMM", Locale.getDefault())).toUpperCase(Locale.getDefault()));
+        ArrayList<String> titles = new ArrayList<>();
+        ZoneId zone = ZoneId.systemDefault();
+        for (PublicCalendarRepository.Event event : cachedCalendarEvents()) {
+            if (CalendarDates.includes(event, day, zone)) titles.add(event.title);
+        }
+        calendarHeaderEvents.setText(titles.isEmpty() ? "No events planned" : TextUtils.join(" · ", titles));
     }
 
     private void selectCalendarDay(LocalDate day) {
@@ -1384,6 +1527,7 @@ public final class MainActivity extends Activity {
             updateCalendarDaySelection();
         }
         updateCalendarDetails(cachedCalendarEvents());
+        updateCalendarHeader(day);
     }
 
     private void updateCalendarDaySelection() {
@@ -1399,23 +1543,11 @@ public final class MainActivity extends Activity {
     }
 
     private void styleCalendarDateButton(Button button, boolean selected, boolean today, boolean weekend) {
-        final int idleSurface = weekend ? 0xB51B1924 : 0xB5151B25;
         StateListDrawable states = new StateListDrawable();
-        GradientDrawable highlighted = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0xDD138B95, 0xDD093B49, 0xBB436C3A});
-        highlighted.setCornerRadius(dp(19));
-        highlighted.setStroke(dp(2), 0xFF8FF5E5);
-        states.addState(new int[]{android.R.attr.state_focused}, selected ? highlighted :
-                calendarGlassShape(0xD124383D, 0xFF88E7F2, 19));
-        if (selected) {
-            GradientDrawable selectedShape = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[]{0xCC15818B, 0xBB07323C, 0xAA466234});
-            selectedShape.setCornerRadius(dp(19));
-            selectedShape.setStroke(dp(2), 0xFF8FEBD4);
-            states.addState(new int[]{}, selectedShape);
-        } else {
-            states.addState(new int[]{}, calendarGlassShape(idleSurface, 0x77C3CFD5, 19));
-        }
+        states.addState(new int[]{android.R.attr.state_focused}, calendarDayHighlight(true));
+        states.addState(new int[]{android.R.attr.state_pressed}, calendarDayHighlight(true));
+        states.addState(new int[]{}, selected ? calendarDayHighlight(false)
+                : new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
         button.setBackground(states);
         if (button instanceof CalendarDayButton) ((CalendarDayButton) button).setToday(today);
         button.animate().cancel();
@@ -1426,6 +1558,23 @@ public final class MainActivity extends Activity {
                 .setInterpolator(new android.view.animation.DecelerateInterpolator())
                 .setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 150 : 0)
                 .start();
+    }
+
+    private Drawable calendarDayHighlight(boolean focused) {
+        return new Drawable() {
+            private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            @Override public void draw(Canvas canvas) {
+                Rect bounds = getBounds();
+                paint.setColor(LiquidTheme.isLight(MainActivity.this) ? 0x22087D91 : 0x227BE7F4);
+                canvas.drawRect(bounds, paint);
+                paint.setColor(LiquidTheme.accent(MainActivity.this));
+                canvas.drawRect(bounds.left + dp(10), bounds.bottom - dp(focused ? 3 : 2),
+                        bounds.right - dp(10), bounds.bottom, paint);
+            }
+            @Override public void setAlpha(int alpha) { }
+            @Override public void setColorFilter(android.graphics.ColorFilter filter) { }
+            @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+        };
     }
 
     private Drawable calendarGlassShape(int fill, int border, int radius) {
@@ -1441,6 +1590,25 @@ public final class MainActivity extends Activity {
         arrow.setIncludeFontPadding(false);
         // The chevron glyph sits below its font's visual center on Android TV.
         arrow.setPadding(0, 0, 0, dp(5));
+    }
+
+    private void styleCalendarHeaderControl(Button button) {
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[]{-android.R.attr.state_enabled},
+                calendarGlassShape(Color.TRANSPARENT, Color.TRANSPARENT, 24));
+        states.addState(new int[]{android.R.attr.state_pressed},
+                calendarGlassShape(0xFFB6FFF0, 0xFFFFFFFF, 24));
+        states.addState(new int[]{android.R.attr.state_focused},
+                calendarGlassShape(0xFF7BE7F4, 0xCCFFFFFF, 24));
+        states.addState(new int[]{},
+                calendarGlassShape(Color.TRANSPARENT, Color.TRANSPARENT, 24));
+        button.setBackground(states);
+        button.setTextColor(new ColorStateList(new int[][]{
+                new int[]{-android.R.attr.state_enabled},
+                new int[]{android.R.attr.state_pressed},
+                new int[]{android.R.attr.state_focused}, new int[]{}
+        }, new int[]{0x55FFFFFF, 0xFF071417, 0xFF071417, Color.WHITE}));
+        button.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
     }
 
 private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) {
@@ -2493,10 +2661,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
             tile.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
             TextView name = label(entry.label, compactNavigation ? 12 : 13, whiteCard ? 0xFF101820 : Color.WHITE, true);
+            // These branded tiles retain their own background in both themes.
+            name.setTextColor(whiteCard ? 0xFF101820 : Color.WHITE);
             name.setGravity(Gravity.CENTER_VERTICAL);
             name.setMaxLines(1);
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            LinearLayout.LayoutParams appNameParams = new LinearLayout.LayoutParams(dp(tileWidth - 62), -1);
+            LinearLayout.LayoutParams appNameParams = new LinearLayout.LayoutParams(0, -1, 1);
             appNameParams.leftMargin = dp(8);
             tile.addView(name, appNameParams);
             tile.setOnClickListener(v -> launchApp(entry.packageName));
@@ -2963,11 +3133,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         gameGrid.removeAllViews();
         List<GameRecord> games = new GameRepository(this).games();
         gamesEmpty.setVisibility(games.isEmpty() ? View.VISIBLE : View.GONE);
-        int widthDp = Math.round(getResources().getDisplayMetrics().widthPixels /
-                getResources().getDisplayMetrics().density);
-        int columns = widthDp >= 1050 ? 5 : 4;
+        int availableWidth = getResources().getDisplayMetrics().widthPixels
+                - gamesContent.getPaddingLeft() - gamesContent.getPaddingRight();
+        int columns = Math.max(1, Math.min(5, availableWidth / dp(162)));
         gameGrid.setColumnCount(columns);
-        int cardWidth = dp(Math.max(150, (widthDp - 112) / columns - 12));
+        int cardWidth = Math.max(1, availableWidth / columns - dp(12));
         for (GameRecord game : games) {
             LinearLayout card = GameUi.card(this, game, v -> startActivity(new Intent(this, GameDetailActivity.class).putExtra("gameId", game.id)));
             GridLayout.LayoutParams params = new GridLayout.LayoutParams();
@@ -4637,6 +4807,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     v -> changeLiquidGlassMode(LiquidTheme.DARK));
             addFormHint(form, "Now Playing appears on Home only while media is playing. Allow notification access to show playback from other apps.");
             addFormButton(form, "Manage Now Playing access", v -> openMusicAccessSettings());
+            addFormButton(form, "Screensaver · Sva Memories", v ->
+                    startActivity(new Intent(MainActivity.this, ScreensaverSettingsActivity.class)));
             addFormHint(form, "A selected photo folder or Google Photos public album uses the slideshow cadence configured under Schedules and takes priority over a single wallpaper.");
             boolean hasFolder = !preferences.getString("wallpaperFolder", "").isEmpty();
             TextView folderState = label(hasFolder

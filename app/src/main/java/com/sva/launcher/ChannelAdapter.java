@@ -124,7 +124,7 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         logoBackground.setCornerRadius(dp(14, density));
         logoBackground.setStroke(dp(1, density), LiquidTheme.border(activity));
         logoBox.setBackground(logoBackground);
-        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(176, density), dp(92, density));
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(-1, dp(92, density));
         logoParams.setMargins(0, 0, 0, dp(9, density));
         tile.addView(logoBox, logoParams);
 
@@ -151,19 +151,22 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         name.setTypeface(LiquidTheme.font(activity));
         name.setGravity(Gravity.CENTER);
         name.setMaxLines(2);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.addView(name);
         TextView now = new TextView(activity);
         now.setTextColor(LiquidTheme.text(activity));
         now.setTextSize(12);
         now.setGravity(Gravity.CENTER);
-        now.setMaxLines(2);
+        now.setMaxLines(1);
+        now.setEllipsize(android.text.TextUtils.TruncateAt.END);
         now.setPadding(0, dp(3, density), 0, 0);
         text.addView(now);
         TextView next = new TextView(activity);
         next.setTextColor(LiquidTheme.secondaryText(activity));
         next.setTextSize(11);
         next.setGravity(Gravity.CENTER);
-        next.setMaxLines(2);
+        next.setMaxLines(1);
+        next.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.addView(next);
 
         return new Holder(tile, fallback, image, name, now, next);

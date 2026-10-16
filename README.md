@@ -91,6 +91,43 @@ The first time you browse local files, allow Sva storage access in Android setti
 
 If the TV continues to open its built-in launcher, go to **Settings → Home button**, open Android's Accessibility settings, and enable Sva's service. This helper is optional and can be disabled at any time.
 
+## Sva Memories screensaver
+
+Open **Settings → Appearance → Screensaver · Sva Memories**. The screensaver follows
+Home's public Google Photos album automatically; save a separate shared album link
+here to override it, or choose **Use Home album** to follow Home again. Changing the
+screensaver album never changes Home's wallpaper source.
+
+Choose one of nine atmospheres:
+
+| Theme | Presentation |
+| --- | --- |
+| Cinema | Full-screen photographs, slow camera movement, surrounding edge shadows and cinematic crossfades |
+| Vintage Reel | Sepia film, projector flicker, perforated film edges and frame numbers |
+| Memory Lane | Gentle monochrome photographs, floating lights and an optional dedication |
+| Postcards | Overlapping instant prints on a lined paper background |
+| Gallery | Complete photographs inside a gallery mat with an image-colored backdrop |
+| Aurora | A floating photograph surrounded by flowing emerald and violet light |
+| Noir | Monochrome photography, deep shadows and widescreen framing |
+| Storybook | An open journal with a photograph and a page for your words |
+| Mosaic | Three staggered photo panels with slow floating motion |
+
+Set an optional caption, choose 12, 20, 30 or 60 seconds per photo, and turn the clock
+on or off. **Preview screensaver** opens the same renderer used by the system;
+press any remote key to return. Previously downloaded photographs work offline.
+Without a usable album or cached photographs, a landscape wallpaper appears.
+Google Photos album refresh follows the Google Photos schedule in Sva's settings.
+
+For automatic playback while the launcher is open, set **Start while Sva is idle**
+to 1, 3, 5 or 10 minutes. It defaults to Off and skips active playback and settings.
+This also works on TVs that restrict third-party system screensavers.
+
+For a system-wide screensaver, use **Choose in Android TV settings**, select
+**Sva Memories**, and choose the TV's
+idle timeout. Availability and activation controls depend on the TV manufacturer;
+Sva does not replace a manufacturer's Ambient mode automatically. Its registered
+Android DreamService runs independently of the launcher and exits on user input.
+
 ## Live TV notes
 
 Guide entries are matched to channels by `tvg-id`. Selecting a current programme starts playback; selecting an upcoming programme creates an in-app reminder five minutes before it begins. Reminders are shown only while Sva is open and do not create background notifications.
