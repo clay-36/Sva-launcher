@@ -12,18 +12,20 @@ final class ScreensaverPreferences {
     static final String IDLE = "screensaverIdleMinutes";
     static final int[] IDLE_MINUTES = {0, 1, 3, 5, 10};
     static final String CLOCK = "screensaverClock";
-    static final String[] THEMES = {"cinema", "vintage", "memory", "postcards", "gallery", "aurora", "noir", "storybook", "mosaic"};
-    static final String[] NAMES = {"Cinema", "Vintage Reel", "Memory Lane", "Postcards", "Gallery", "Aurora", "Noir", "Storybook", "Mosaic"};
+    static final String WEATHER = "screensaverWeather";
+    static final String EVENTS = "screensaverEvents";
+    static final String[] THEMES = {"cinema", "darkroom", "editorial", "floating_prints", "monolith", "prism", "silhouette", "travel_journal", "photo_weave"};
+    static final String[] NAMES = {"Cinema", "Darkroom", "Editorial", "Floating Prints", "Monolith", "Prism", "Silhouette", "Travel Journal", "Photo Weave"};
     static final String[] DESCRIPTIONS = {
-            "Slow camera movement, soft surrounding shadows and a quiet cinematic fade.",
-            "Warm film tones, a flickering projector, film perforations and numbered frames.",
-            "A gentle tribute: monochrome portraits, soft floating lights and your own dedication.",
-            "Layered instant prints, a paper backdrop and a handwritten travel-journal mood.",
-            "A full photograph in a floating gallery frame, with colors drawn from the image.",
-            "A luminous floating photograph against gently flowing emerald and violet light.",
-            "Dramatic black-and-white photography, deep edge shadows and a widescreen composition.",
-            "An open journal: a photograph on one page, your words in elegant type on the other.",
-            "A staggered three-panel photo wall with generous spacing and slow floating motion."
+            "Slow camera movement, soft black edge shading and a quiet cinematic fade.",
+            "An amber-lit contact sheet, warm photographs and a passing trace of light.",
+            "An oversized photograph, ivory margins and beautifully set personal captions.",
+            "Album photographs drift as layered paper prints against colors drawn from your images.",
+            "A sculptural floating photograph, deep image-inspired color and quiet movement.",
+            "Translucent planes, emerald light ribbons and a luminous photographic centrepiece.",
+            "Monochrome photography revealed through broad, moving vertical panels.",
+            "Warm textured paper, photographic keepsakes and delicate route lines.",
+            "Different album photographs woven into a slowly changing asymmetric grid."
     };
     static final int[] INTERVALS = {12, 20, 30, 60};
     private ScreensaverPreferences() { }
@@ -43,6 +45,8 @@ final class ScreensaverPreferences {
         } catch (Exception e) { return false; }
     }
     static int themeIndex(String theme) {
+        String[] legacy = {"cinema", "vintage", "memory", "postcards", "gallery", "aurora", "noir", "storybook", "mosaic"};
+        for (int i = 0; i < legacy.length; i++) if (legacy[i].equals(theme)) return i;
         for (int i = 0; i < THEMES.length; i++) if (THEMES[i].equals(theme)) return i;
         return 0;
     }

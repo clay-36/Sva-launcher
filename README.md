@@ -26,11 +26,6 @@
 > Sva is a launcher and media front end. It does not provide TV channels, programme data, ROMs, BIOS files, game artwork, or paid-media credentials. Bring content that you are legally allowed to use.
 
 
-<p align="center">
-  <strong>Launcher that does all and still ultra fast and opensource!</strong><br/>
-  Home screen with your google photos memories, IPTV directly integrated in launcher with old cabel TV vibe! Reminders of your fav events, Gaming and many more things. 
-</p>
-
 ## Screenshots
 
 <table>
@@ -40,13 +35,13 @@
   </tr>
   <tr>
     <td width="50%" align="center"><img src="screenshots/Screenshot%202026-10-01%20at%2000.43.38.png" alt="TV programme guide showing current and upcoming programmes" /><br /><sub><strong>TV guide</strong> — current and upcoming programmes</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_004504.png" alt="DRM Supported inbult IPTV" /><br /><sub><strong>Live TV</strong> — DRM supported with prev/next nevigation</sub></td>
+    <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_004504.png" alt="Integrated IPTV playback with DRM support" /><br /><sub><strong>Live TV</strong> — DRM supported with previous/next navigation</sub></td>
   </tr>
   <tr><td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005834.png" alt="Monthly events calendar with selected-day details and lunar illumination" /><br /><sub><strong>Events</strong> — a remote-friendly monthly calendar</sub></td>
    <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005635.png" alt="Imported NES games in the Games tab" /><br /><sub><strong>Games</strong> — a local NES library powered by Nestopia UE</sub></td>
 </tr>
 <tr>
-  <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005809.png" alt="Bring your own NES games" /><br /><sub><strong>Games</strong> — install your own NES roms</sub></td>
+  <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_005809.png" alt="Bring your own NES games" /><br /><sub><strong>Games</strong> — import your own NES ROMs</sub></td>
 <td width="50%" align="center"><img src="screenshots/Screenshot_20261001_010438.png" alt="Saved YouTube videos and playlists" /><br /><sub><strong>Saved</strong> — shortcuts to videos and playlists</sub></td>
   </tr>
 </table>
@@ -103,17 +98,22 @@ Choose one of nine atmospheres:
 | Theme | Presentation |
 | --- | --- |
 | Cinema | Full-screen photographs, slow camera movement, surrounding edge shadows and cinematic crossfades |
-| Vintage Reel | Sepia film, projector flicker, perforated film edges and frame numbers |
-| Memory Lane | Gentle monochrome photographs, floating lights and an optional dedication |
-| Postcards | Overlapping instant prints on a lined paper background |
-| Gallery | Complete photographs inside a gallery mat with an image-colored backdrop |
-| Aurora | A floating photograph surrounded by flowing emerald and violet light |
-| Noir | Monochrome photography, deep shadows and widescreen framing |
-| Storybook | An open journal with a photograph and a page for your words |
-| Mosaic | Three staggered photo panels with slow floating motion |
+| Darkroom | Amber contact sheet with a large photograph, supporting album photos and a moving light leak |
+| Editorial | Oversized photography, an ivory caption column and elegant serif typography |
+| Floating Prints | Different album photographs on layered, gently drifting paper prints |
+| Monolith | A sculptural photo panel against architectural planes colored from the image |
+| Prism | A luminous photograph, translucent geometric planes and flowing light ribbons |
+| Silhouette | A continuous monochrome photograph revealed through broad vertical panels |
+| Travel Journal | Warm textured paper, photographic keepsakes, abstract routes and your caption |
+| Photo Weave | Different album photos arranged in a slowly changing asymmetric grid |
 
-Set an optional caption, choose 12, 20, 30 or 60 seconds per photo, and turn the clock
-on or off. **Preview screensaver** opens the same renderer used by the system;
+Existing saved themes automatically resolve to their replacements. Collage themes use
+up to three distinct album photos and adapt to one or two available photos. Captions
+are optional; Sva does not add stock quotes, dates or locations to your photographs.
+
+Set an optional caption, choose 12, 20, 30 or 60 seconds per photo, and enable
+**Clock**, **Weather** and **Events** separately under **Show on screensaver**.
+Weather and events use the saved Home weather and calendar data. **Preview screensaver** opens the same renderer used by the system;
 press any remote key to return. Previously downloaded photographs work offline.
 Without a usable album or cached photographs, a landscape wallpaper appears.
 Google Photos album refresh follows the Google Photos schedule in Sva's settings.
@@ -161,14 +161,14 @@ Standard Android gamepads are assigned automatically for up to two players and c
 
 - Android Studio or a command-line Android SDK installation
 - JDK 17
-- Android SDK Platform 35
+- Android SDK Platform 36 and Build Tools `36.0.0`
 - Android NDK `28.2.13676358`
 
 Clone and build the project:
 
 ```sh
-git clone https://github.com/clay-36/Sva-launcher-iptv.git
-cd Sva-launcher-iptv
+git clone https://github.com/clay-36/Duo-launcher-iptv.git
+cd Duo-launcher-iptv
 ./gradlew assembleDebug
 ```
 
@@ -178,20 +178,62 @@ The debug APK is created at `app/build/outputs/apk/debug/app-debug.apk`. Install
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Run the JVM test suite with:
+Run local checks with:
 
 ```sh
-./gradlew testDebugUnitTest
+./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease
+./scripts/check-native.sh
+python3 scripts/audit-source.py --history
 ```
 
-The app targets Android 15 (API 35), supports Android 8.0 (API 26) and newer, and builds native libraries for `arm64-v8a`, `armeabi-v7a`, and `x86_64`. The pinned Nestopia source is included under `third_party/nestopia` so native builds do not download emulator source at build time.
+The native helper checks require a C++17 compiler (`c++`, or set `CXX`). On a
+connected Android TV emulator, run `./gradlew connectedDebugAndroidTest` for the
+screensaver and native runtime regression checks. The instrumentation test APK
+includes upstream diagnostic fixtures; the application APK includes no games.
+
+The project pins Gradle 8.13, Android Gradle Plugin 8.12.2 and the NDK version
+above. The wrapper verifies the downloaded distribution's SHA-256 checksum.
+First builds download the toolchain and Maven dependencies; `--offline` works
+once they are cached.
+
+The app targets Android 16 (API 36), supports Android 8.0 (API 26) and newer, and builds native libraries for `arm64-v8a`, `armeabi-v7a`, and `x86_64`. The pinned Nestopia source is included under `third_party/nestopia` so native builds do not download emulator source at build time.
+
+### Release builds and signing
+
+A clean checkout builds an **unsigned**, optimized release APK without private keys:
+
+```sh
+./gradlew assembleRelease
+```
+
+Output: `app/build/outputs/apk/release/app-release-unsigned.apk`. For a signed build,
+provide all four environment variables through your shell or CI secret store:
+
+| Variable | Value |
+| --- | --- |
+| `SVA_KEYSTORE_PATH` | Absolute path to your release keystore, kept outside the repository |
+| `SVA_STORE_PASSWORD` | Keystore password |
+| `SVA_KEY_ALIAS` | Signing key alias |
+| `SVA_KEY_PASSWORD` | Signing key password |
+
+Run `./gradlew assembleRelease` again; a complete signing configuration produces
+`app-release.apk`. Gradle reads environment variables directly; it does not load a
+`.env` file automatically. Incomplete signing configuration produces an unsigned
+APK. Keep the same release key for updates. A debug APK cannot update a release
+installation signed with a different key.
+
+See [the release checklist](docs/RELEASING.md), [audit notes](docs/RELEASE_AUDIT.md),
+[third-party inventory](docs/THIRD_PARTY.md) and [asset provenance](docs/ASSET_PROVENANCE.md).
 
 ## Privacy and security
 
 - Location permission is optional and is requested only when you choose device-based weather setup or refresh. City search works without device location.
-- Wallpapers, imported games, and cached data stay on the device.
+- Wallpapers, imported games, and cached data are stored locally. Public sources are contacted to fetch their content; the app contains no analytics or account-login service.
 - Public album, calendar, playlist, guide, weather, and YouTube metadata requests are made directly from the TV.
-- Backup files can contain playlist URLs, DRM endpoints, and credentials. Store them privately.
+- Exported JSON backups are **unencrypted** and can contain playlist URLs, DRM endpoints, credentials, public album links and weather coordinates. Store them privately; never attach them to public issues.
+- HTTP is supported for user-provided IPTV and local-network sources; these connections are unencrypted. Prefer HTTPS when your provider supports it.
+- The TV file-picker fallback may request all-files access on TVs without a usable system document picker. Deny it if you use only system-picked documents.
+- Installed-app visibility supports launcher shortcuts. Optional notification access supports Now Playing; the Home override accessibility service only watches window changes and cannot retrieve window content.
 - Only connect sources and open links that you trust. Stream, DRM, and codec compatibility depends on the TV.
 
 ## Contributing
@@ -200,9 +242,11 @@ Bug reports, feature proposals, documentation fixes, and pull requests are welco
 
 1. Search the existing issues before opening a new one.
 2. Keep each pull request focused on one change.
-3. Run `./gradlew testDebugUnitTest` and `./gradlew assembleDebug` before submitting.
-4. For UI changes, include before/after screenshots and verify remote/D-pad focus behavior on a 1280×720 screen.
-5. Do not commit ROMs, credentials, private playlist URLs, or copyrighted artwork.
+3. Run `./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease` and `./scripts/check-native.sh` before submitting.
+4. For UI changes, include sanitized before/after screenshots and verify remote/D-pad focus at normal and compact layouts.
+5. Do not commit commercial ROMs, credentials, private playlist URLs, or artwork without redistribution rights. Run `python3 scripts/audit-source.py` before submitting.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and report security issues using [SECURITY.md](SECURITY.md).
 
 When reporting a bug, include the TV/device model, Android version, reproduction steps, and a sanitized sample playlist or feed when relevant.
 

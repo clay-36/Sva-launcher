@@ -4,6 +4,7 @@
 #include <aaudio/AAudio.h>
 #include <dlfcn.h>
 #include <libretro.h>
+#include "nes_runtime.h"
 
 #include <algorithm>
 #include <atomic>
@@ -32,6 +33,7 @@ struct Core {
 
 struct Session;
 Session* active = nullptr;
+std::mutex lifecycle_mutex;
 
 struct Session {
     Core core;
@@ -40,7 +42,7 @@ struct Session {
     std::thread worker;
     std::mutex mutex;
     std::condition_variable wake;
-    std::atomic<bool> stopping{false}, paused{true}, reset_requested{false};
+    std::atomic<bool> stopping{false}, paused{true}, reset_requested{false}, save_requested{false};
     std::atomic<uint32_t> input[2]{};
     ANativeWindow* window{};
     unsigned buffer_width{}, buffer_height{};
@@ -72,7 +74,12 @@ struct Session {
     bool start() {
         std::ifstream file(rom_path, std::ios::binary);
         if (!file) return false;
-        rom.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+        file.seekg(0, std::ios::end);
+        auto bytes = file.tellg();
+        if (bytes < 16 || bytes > 32 * 1024 * 1024) return false;
+        file.seekg(0, std::ios::beg);
+        rom.resize(static_cast<size_t>(bytes));
+        if (!file.read(reinterpret_cast<char*>(rom.data()), bytes)) return false;
         if (rom.size() < 16 || std::memcmp(rom.data(), "NES\x1a", 4) != 0 || !openCore()) return false;
         active = this;
         core.set_environment(environment); core.set_video(video); core.set_audio(audioSample);
@@ -87,14 +94,27 @@ struct Session {
     }
 
     void loop() {
-        auto next_save = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        using Clock = std::chrono::steady_clock;
+        auto next_save = Clock::now() + std::chrono::seconds(30);
+        auto next_frame = Clock::now();
+        const auto period = sva::frameDuration(fps);
         while (!stopping) {
+            if (save_requested.exchange(false)) save();
             if (paused) {
-                std::unique_lock<std::mutex> lock(mutex); wake.wait_for(lock, std::chrono::milliseconds(100), [this]{ return stopping || !paused; }); continue;
+                std::unique_lock<std::mutex> lock(mutex);
+                wake.wait(lock, [this]{ return stopping || !paused || save_requested; });
+                next_frame = Clock::now();
+                continue;
             }
             if (reset_requested.exchange(false)) core.reset();
             core.run();
-            if (std::chrono::steady_clock::now() >= next_save) { save(); next_save = std::chrono::steady_clock::now() + std::chrono::seconds(30); }
+            auto now = Clock::now();
+            if (now >= next_save) { save(); next_save = now + std::chrono::seconds(30); }
+            next_frame += period;
+            // Never run a burst of catch-up frames after a pause or slow device frame.
+            if (next_frame < now - period) next_frame = now;
+            std::unique_lock<std::mutex> lock(mutex);
+            wake.wait_until(lock, next_frame, [this]{ return stopping || paused || save_requested; });
         }
         save();
     }
@@ -125,7 +145,9 @@ struct Session {
         buffer_width = buffer_height = 0;
     }
     void stop() {
-        if (!core.library) return; stopping = true; paused = false; wake.notify_all(); if (worker.joinable()) worker.join();
+        if (!core.library) return;
+        { std::lock_guard<std::mutex> lock(mutex); stopping = true; paused = false; }
+        wake.notify_all(); if (worker.joinable()) worker.join();
         if (audio) { AAudioStream_requestStop(audio); AAudioStream_close(audio); audio = nullptr; }
         { std::lock_guard<std::mutex> lock(mutex); if (window) { ANativeWindow_release(window); window = nullptr; } }
         if (loaded) { core.unload_game(); loaded = false; }
@@ -171,14 +193,12 @@ struct Session {
             const uint8_t* source_row = static_cast<const uint8_t*>(data) + y * pitch;
             uint32_t* target_row = out + y * target.stride;
             if (active->pixel_format == RETRO_PIXEL_FORMAT_XRGB8888) {
-                std::memcpy(target_row, source_row, copy_width * sizeof(uint32_t));
+                const auto* source = reinterpret_cast<const uint32_t*>(source_row);
+                for (unsigned x = 0; x < copy_width; ++x) target_row[x] = sva::rgbaFromXrgb(source[x]);
             } else {
                 const uint16_t* source = reinterpret_cast<const uint16_t*>(source_row);
                 for (unsigned x = 0; x < copy_width; ++x) {
-                    uint16_t p = source[x]; uint32_t color;
-                    if (active->pixel_format == RETRO_PIXEL_FORMAT_RGB565) color = 0xff000000u | ((p & 0xf800u) << 8) | ((p & 0x07e0u) << 5) | ((p & 0x001fu) << 3);
-                    else color = 0xff000000u | ((p & 0x7c00u) << 9) | ((p & 0x03e0u) << 6) | ((p & 0x001fu) << 3);
-                    target_row[x] = color;
+                    target_row[x] = sva::rgbaFrom16(source[x], active->pixel_format == RETRO_PIXEL_FORMAT_RGB565);
                 }
             }
         }
@@ -207,15 +227,17 @@ struct Session {
     }
 };
 
-std::string stringFrom(JNIEnv* env, jstring value) { const char* chars = env->GetStringUTFChars(value, nullptr); std::string result(chars ? chars : ""); if (chars) env->ReleaseStringUTFChars(value, chars); return result; }
+std::string stringFrom(JNIEnv* env, jstring value) { if (!value) return ""; const char* chars = env->GetStringUTFChars(value, nullptr); std::string result(chars ? chars : ""); if (chars) env->ReleaseStringUTFChars(value, chars); return result; }
 }
 
 extern "C" JNIEXPORT jlong JNICALL Java_com_sva_launcher_NestopiaSession_nativeStart(JNIEnv* env, jclass, jstring rom, jstring save, jstring system) {
+    std::lock_guard<std::mutex> lock(lifecycle_mutex);
+    if (active) return 0;
     auto* session = new Session(); session->rom_path = stringFrom(env, rom); session->save_path = stringFrom(env, save); session->system_path = stringFrom(env, system);
     if (!session->start()) { delete session; return 0; } return reinterpret_cast<jlong>(session);
 }
 extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativeSurface(JNIEnv* env, jclass, jlong handle, jobject surface) { reinterpret_cast<Session*>(handle)->setWindow(env, surface); }
 extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativeInput(JNIEnv*, jclass, jlong handle, jint port, jint mask) { if (port >= 0 && port < 2) reinterpret_cast<Session*>(handle)->input[port] = static_cast<uint32_t>(mask); }
-extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativePause(JNIEnv*, jclass, jlong handle, jboolean paused) { auto* s = reinterpret_cast<Session*>(handle); s->paused = paused; if (!paused) s->wake.notify_all(); else s->save(); }
+extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativePause(JNIEnv*, jclass, jlong handle, jboolean paused) { auto* s = reinterpret_cast<Session*>(handle); { std::lock_guard<std::mutex> lock(s->mutex); if (paused) s->save_requested = true; s->paused = paused; } s->wake.notify_all(); }
 extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativeReset(JNIEnv*, jclass, jlong handle) { reinterpret_cast<Session*>(handle)->reset_requested = true; }
-extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativeStop(JNIEnv*, jclass, jlong handle) { auto* session = reinterpret_cast<Session*>(handle); session->stop(); delete session; }
+extern "C" JNIEXPORT void JNICALL Java_com_sva_launcher_NestopiaSession_nativeStop(JNIEnv*, jclass, jlong handle) { std::lock_guard<std::mutex> lock(lifecycle_mutex); auto* session = reinterpret_cast<Session*>(handle); session->stop(); delete session; }

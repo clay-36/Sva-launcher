@@ -15,6 +15,30 @@ import java.util.LinkedHashMap;
 /** Export/import for launcher configuration and the offline IPTV cache. */
 final class LauncherBackup {
     private static final int VERSION = 1;
+    private static final Map<String, String> EXPECTED_TYPES = expectedTypes();
+
+    private static Map<String, String> expectedTypes() {
+        Map<String, String> types = new LinkedHashMap<>();
+        register(types, "string", "playlist guide drmHeaders drmLicenseUrl channelsCacheSource guideCacheSource "
+                + "selectedApps wallpaper wallpaperAlbum wallpaperFolder photoFolderCacheUri photoFolderCacheImages "
+                + "googlePhotosCacheImages googlePhotosCacheUrl publicCalendarEvents publicCalendarUrl programmeReminders "
+                + "screensaverCacheImages screensaverCacheUrl screensaverAlbum screensaverCaption screensaverTheme "
+                + "weatherCache weatherLocationLabel weatherLocationMode youtubeCards liquidGlassMode");
+        register(types, "boolean", "24h customApps guideCollapsed showDate weatherFahrenheit weatherMph "
+                + "youtubeArtworkFeedFallbackTried hideLiveTvNavigation screensaverClock screensaverWeather screensaverEvents");
+        register(types, "integer", "publicCalendarAttemptedVersion publicCalendarCacheVersion liveTvNavigationPosition "
+                + "screensaverIdleMinutes screensaverIntervalSeconds");
+        register(types, "long", "channelsAttempted channelsUpdated guideAttempted guideUpdated "
+                + "googlePhotosAttemptedAt googlePhotosUpdatedAt publicCalendarAttemptedAt publicCalendarUpdatedAt "
+                + "screensaverCacheUpdatedAt weatherAttemptedAt weatherUpdatedAt weatherLatitude weatherLongitude "
+                + "scheduleSlideshowMs schedulePlaylistMs scheduleGuideMs scheduleCalendarMs scheduleGooglePhotosMs scheduleWeatherMs");
+        register(types, "string-set", "hiddenChannels");
+        return types;
+    }
+
+    private static void register(Map<String, String> types, String type, String keys) {
+        for (String key : keys.split(" ")) types.put(key, type);
+    }
 
     private LauncherBackup() { }
 
@@ -32,7 +56,7 @@ final class LauncherBackup {
 
     static void restore(JSONObject backup, SharedPreferences launcher,
                         SharedPreferences iptv, IptvRepository repository) throws Exception {
-        if (backup == null
+        if (backup == null || !"sva-launcher-backup".equals(backup.optString("format"))
                 || backup.optInt("version", -1) != VERSION) {
             throw new IllegalArgumentException("This backup file is not supported.");
         }
@@ -82,7 +106,7 @@ final class LauncherBackup {
         return result;
     }
 
-    private static Map<String, Object> decodePreferences(JSONObject encoded) throws Exception {
+    static Map<String, Object> decodePreferences(JSONObject encoded) throws Exception {
         LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         Iterator<String> keys = encoded.keys();
         while (keys.hasNext()) {
@@ -92,13 +116,20 @@ final class LauncherBackup {
                 throw new IllegalArgumentException("The backup contains an invalid preference.");
             }
             String type = typed.optString("type");
+            String expected = EXPECTED_TYPES.get(key);
+            if (expected != null && !expected.equals(type))
+                throw new IllegalArgumentException("The backup contains an incompatible preference type.");
             Object value;
             switch (type) {
                 case "string": value = typed.getString("value"); break;
                 case "boolean": value = typed.getBoolean("value"); break;
                 case "integer": value = typed.getInt("value"); break;
                 case "long": value = typed.getLong("value"); break;
-                case "float": value = (float) typed.getDouble("value"); break;
+                case "float":
+                    float number = (float) typed.getDouble("value");
+                    if (Float.isNaN(number) || Float.isInfinite(number))
+                        throw new IllegalArgumentException("The backup contains an invalid number.");
+                    value = number; break;
                 case "string-set":
                     JSONArray array = typed.getJSONArray("value");
                     HashSet<String> strings = new HashSet<>();

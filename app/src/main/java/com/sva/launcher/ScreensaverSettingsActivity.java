@@ -24,6 +24,8 @@ public final class ScreensaverSettingsActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.setBackground(LiquidTheme.scenicBackground(this));
         scroll.setFillViewport(true);
+        scroll.setClipToPadding(false);
+        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(dp(48), dp(28), dp(48), dp(32));
         scroll.addView(page); setContentView(scroll);
@@ -66,11 +68,12 @@ public final class ScreensaverSettingsActivity extends Activity {
             prefs.edit().putInt(ScreensaverPreferences.INTERVAL, next).apply();
             ((Button)v).setText("Change photo · " + next + " seconds");
         });
-        button(options, "Clock · " + (prefs.getBoolean(ScreensaverPreferences.CLOCK, true) ? "On" : "Off"), v -> {
-            boolean enabled = !prefs.getBoolean(ScreensaverPreferences.CLOCK, true);
-            prefs.edit().putBoolean(ScreensaverPreferences.CLOCK, enabled).apply();
-            ((Button)v).setText("Clock · " + (enabled ? "On" : "Off"));
-        });
+        title("Show on screensaver", 22);
+        LinearLayout overlays = row();
+        overlayToggle(overlays, "Clock", ScreensaverPreferences.CLOCK, true);
+        overlayToggle(overlays, "Weather", ScreensaverPreferences.WEATHER, false);
+        overlayToggle(overlays, "Events", ScreensaverPreferences.EVENTS, false);
+        title("Weather and events use your Home weather location and calendar. Configure them in Launcher Settings.", 12);
         LinearLayout idle = row();
         int idleMinutes = ScreensaverPreferences.idleMinutes(prefs.getInt(ScreensaverPreferences.IDLE, 0));
         button(idle, "Start while Sva is idle · " + (idleMinutes == 0 ? "Off" : idleMinutes + " min"), v -> {
@@ -91,6 +94,14 @@ public final class ScreensaverSettingsActivity extends Activity {
         button(launch, "Back", v -> finish());
         title("Select Sva Memories in your TV's screensaver settings and choose its idle timeout there. Offline, previously downloaded photos remain available; without an album, the preview uses Sva's landscape wallpaper.", 12);
         save.requestFocus();
+    }
+
+    private void overlayToggle(LinearLayout parent, String label, String key, boolean defaultValue) {
+        button(parent, label + " · " + (prefs.getBoolean(key, defaultValue) ? "On" : "Off"), v -> {
+            boolean enabled = !prefs.getBoolean(key, defaultValue);
+            prefs.edit().putBoolean(key, enabled).apply();
+            ((Button)v).setText(label + " · " + (enabled ? "On" : "Off"));
+        });
     }
 
     private void openScreensaverSettings() {
@@ -149,19 +160,38 @@ public final class ScreensaverSettingsActivity extends Activity {
     private EditText input(String hint, String value) {
         EditText edit = new EditText(this); edit.setText(value); edit.setHint(hint);
         edit.setTextColor(LiquidTheme.text(this)); edit.setHintTextColor(LiquidTheme.secondaryText(this));
+        edit.setTypeface(LiquidTheme.font(this));
         edit.setTextSize(14); edit.setSingleLine(true); edit.setSelectAllOnFocus(true);
         edit.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        edit.setPadding(dp(12), dp(6), dp(12), dp(6));
-        page.addView(edit, new LinearLayout.LayoutParams(-1, dp(46))); return edit;
+        edit.setPadding(dp(14), dp(10), dp(14), dp(10));
+        android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_focused}, GameUi.shape(LiquidTheme.raisedSurface(this),
+                LiquidTheme.accent(this), dp(2), dp(13)));
+        states.addState(new int[]{}, GameUi.shape(LiquidTheme.surface(this), LiquidTheme.border(this), dp(1), dp(13)));
+        edit.setBackground(states);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(50));
+        params.setMargins(0, dp(4), 0, dp(6));
+        page.addView(edit, params); return edit;
     }
     private LinearLayout row() {
         LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, dp(6), 0, dp(6)); page.addView(row); return row;
     }
     private Button button(LinearLayout parent, String value, View.OnClickListener listener) {
-        Button b = GameUi.button(this, value); b.setTextSize(13); b.setPadding(dp(12), 0, dp(12), 0);
+        Button b = GameUi.button(this, value);
+        b.setTextSize(13); b.setPadding(dp(12), dp(10), dp(12), dp(10));
+        b.setMinWidth(0); b.setMinimumWidth(0);
+        b.setMinHeight(dp(50)); b.setMinimumHeight(dp(50));
+        b.setMaxLines(2); b.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        b.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
         b.setOnClickListener(listener);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(48), 1); params.rightMargin = dp(8);
+        if (parent.getChildCount() > 0) {
+            View previous = parent.getChildAt(parent.getChildCount() - 1);
+            LinearLayout.LayoutParams previousParams = (LinearLayout.LayoutParams) previous.getLayoutParams();
+            previousParams.rightMargin = dp(8);
+            previous.setLayoutParams(previousParams);
+        }
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
         parent.addView(b, params); return b;
     }
     @Override protected void onDestroy() { worker.shutdownNow(); super.onDestroy(); }

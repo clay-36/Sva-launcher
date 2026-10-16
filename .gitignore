@@ -11,3 +11,13 @@ captures/
 sva-launcher
 secrets
 .env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pem
+*.apk
+*.aab
+*.apks
+*.log

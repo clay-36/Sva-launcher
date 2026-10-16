@@ -1,16 +1,33 @@
 Sva Launcher
 Copyright (c) 2026 Sva Launcher contributors
 
-This combined application is distributed under the GNU General Public License,
-version 3. See LICENSE and the complete corresponding source in this repository.
+The combined application is distributed under GNU GPL version 3.
+See LICENSE and the matching complete source revision for each release.
 
-Embedded NES emulation is provided by the libretro Nestopia port, pinned at:
-https://github.com/libretro/nestopia/commit/8f00f500912a847062de432e38765c7285483e62
-
-Nestopia JG is GPL-2.0-or-later.
+Nestopia libretro (based on Nestopia JG / Nestopia UE)
+Source: https://github.com/libretro/nestopia
+Pinned upstream commit: 8f00f500912a847062de432e38765c7285483e62
+License: GPL-2.0-or-later; original notices retained in third_party/nestopia.
 Copyright (c) 2003-2008 Martin Freij
 Copyright (c) 2008-2018 Nestopia UE Contributors
 Copyright (c) 2020-2026 Rupert Carmichael
 
-The unmodified upstream license and notices are retained in third_party/nestopia.
-No game ROMs, BIOS files, or copyrighted game artwork are included.
+nes_ntsc video filter
+Copyright (c) 2006-2007 Shay Green
+License: LGPL-2.1-or-later; see third_party/nestopia/source/nes_ntsc/license.txt.
+The vendored source includes three upstream NTSC diagnostic .nes fixtures.
+These are not commercial game ROMs and are not packaged in the application APK.
+
+Manrope typeface
+License: SIL Open Font License 1.1.
+See app/src/main/assets/licenses/manrope_ofl.txt for the original font notices.
+
+AndroidX (including Media3 and RecyclerView) and Google OSS libraries
+License: Apache License 2.0, with original library notices retained in dependencies.
+See docs/THIRD_PARTY.md for the direct dependency inventory and source references.
+
+No commercial game ROMs, BIOS files, channel playlists, paid-media credentials,
+or personal photo albums are packaged in the application APK.
+Bundled visual assets and documentation screenshots are covered by the maintainer's
+redistribution confirmation recorded in docs/ASSET_PROVENANCE.md. Third-party
+marks and content visible in screenshots retain their respective owners' rights.

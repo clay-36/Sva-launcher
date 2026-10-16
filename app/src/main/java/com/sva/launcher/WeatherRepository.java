@@ -38,6 +38,7 @@ final class WeatherRepository {
         final long fetchedAt;
         final double temperature, apparentTemperature, windSpeed;
         final int code;
+        int humidity = -1;
         final boolean day;
         final List<Day> days;
         Forecast(String location, long fetchedAt, double temperature, double apparentTemperature,
@@ -53,7 +54,7 @@ final class WeatherRepository {
                     .put("low", item.low).put("high", item.high).put("precipitation", item.precipitation));
             return new JSONObject().put("location", location).put("fetchedAt", fetchedAt)
                     .put("temperature", temperature).put("apparentTemperature", apparentTemperature)
-                    .put("windSpeed", windSpeed).put("code", code).put("day", day).put("days", daily);
+                    .put("humidity", humidity).put("windSpeed", windSpeed).put("code", code).put("day", day).put("days", daily);
         }
 
         static Forecast fromJson(JSONObject value) throws Exception {
@@ -65,9 +66,11 @@ final class WeatherRepository {
                 days.add(new Day(item.getString("date"), item.getInt("code"), item.getDouble("low"),
                         item.getDouble("high"), item.optInt("precipitation", 0)));
             }
-            return new Forecast(value.optString("location", "Weather"), value.getLong("fetchedAt"),
+            Forecast forecast = new Forecast(value.optString("location", "Weather"), value.getLong("fetchedAt"),
                     value.getDouble("temperature"), value.getDouble("apparentTemperature"),
                     value.getDouble("windSpeed"), value.getInt("code"), value.optBoolean("day", true), days);
+            forecast.humidity = value.optInt("humidity", -1);
+            return forecast;
         }
     }
 
@@ -97,7 +100,7 @@ final class WeatherRepository {
     static Forecast fetch(Location location, long now) throws Exception {
         String url = String.format(Locale.US,
                 "https://api.open-meteo.com/v1/forecast?latitude=%.5f&longitude=%.5f"
-                        + "&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m"
+                        + "&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,relative_humidity_2m"
                         + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
                         + "&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto&forecast_days=4",
                 location.latitude, location.longitude);
@@ -114,10 +117,12 @@ final class WeatherRepository {
         ArrayList<Day> days = new ArrayList<>();
         for (int i = 1; i < count; i++) days.add(new Day(dates.getString(i), codes.getInt(i),
                 lows.getDouble(i), highs.getDouble(i), rain == null ? 0 : rain.optInt(i, 0)));
-        return new Forecast(label, now, current.getDouble("temperature_2m"),
+        Forecast forecast = new Forecast(label, now, current.getDouble("temperature_2m"),
                 current.optDouble("apparent_temperature", current.getDouble("temperature_2m")),
                 current.optDouble("wind_speed_10m", 0), current.getInt("weather_code"),
                 current.optInt("is_day", 1) == 1, days);
+        forecast.humidity = current.optInt("relative_humidity_2m", -1);
+        return forecast;
     }
 
     static boolean validCoordinates(double latitude, double longitude) {

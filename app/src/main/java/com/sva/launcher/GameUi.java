@@ -98,7 +98,7 @@ final class GameUi {
             BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return;
             int sample = 1;
-            while (bounds.outWidth / (sample * 2) >= targetPx && bounds.outHeight / (sample * 2) >= targetPx) sample *= 2;
+            while (bounds.outWidth / sample > targetPx || bounds.outHeight / sample > targetPx) sample *= 2;
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inSampleSize = sample;
             options.inPreferredConfig = Bitmap.Config.RGB_565;

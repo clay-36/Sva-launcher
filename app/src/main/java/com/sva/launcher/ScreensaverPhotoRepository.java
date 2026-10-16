@@ -12,7 +12,7 @@ import java.security.MessageDigest;
 import java.util.*;
 
 /** Uses the Home photo disk cache, with separate album metadata for screensavers. */
-final class ScreensaverPhotoRepository {
+class ScreensaverPhotoRepository {
     private final Context context;
     private final SharedPreferences prefs;
     ScreensaverPhotoRepository(Context context) {

@@ -156,7 +156,7 @@ final class ChannelLogoLoader {
 
     private static int sampleSize(int width, int height, int target) {
         int sample = 1;
-        while (width / (sample * 2) >= target && height / (sample * 2) >= target) sample *= 2;
+        while (width / sample > target || height / sample > target) sample *= 2;
         return sample;
     }
 

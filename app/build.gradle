@@ -22,6 +22,7 @@ android {
 
         versionCode 3
         versionName "3.0"
+        testInstrumentationRunner "android.test.InstrumentationTestRunner"
 
         ndk {
             abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
@@ -34,23 +35,32 @@ android {
         }
     }
 
+    sourceSets {
+        androidTest.assets.srcDirs += ["../third_party/nestopia/source/nes_ntsc/tests"]
+    }
+
     externalNativeBuild {
         ndkBuild {
             path "src/main/jni/Android.mk"
         }
     }
-    signingConfigs {
-        release {
-            storeFile file("../secrets/@flash777__everyside.jks")
-            storePassword System.getenv("SVA_STORE_PASSWORD")
-            keyAlias System.getenv("SVA_KEY_ALIAS")
-            keyPassword System.getenv("SVA_KEY_PASSWORD")
+    // A source checkout builds unsigned releases without access to a maintainer's key.
+    def signingEnvironment = ["SVA_KEYSTORE_PATH", "SVA_STORE_PASSWORD", "SVA_KEY_ALIAS", "SVA_KEY_PASSWORD"]
+    def hasReleaseSigning = signingEnvironment.every { System.getenv(it)?.trim() }
+    if (hasReleaseSigning) {
+        signingConfigs {
+            release {
+                storeFile rootProject.file(System.getenv("SVA_KEYSTORE_PATH"))
+                storePassword System.getenv("SVA_STORE_PASSWORD")
+                keyAlias System.getenv("SVA_KEY_ALIAS")
+                keyPassword System.getenv("SVA_KEY_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            if (hasReleaseSigning) signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile(
@@ -62,6 +72,8 @@ android {
 }
 
 dependencies {
+    androidTestCompileOnly files("${android.sdkDirectory}/platforms/android-${android.compileSdk}/optional/android.test.runner.jar",
+            "${android.sdkDirectory}/platforms/android-${android.compileSdk}/optional/android.test.base.jar")
     def media3Version = "1.8.1"
     implementation "androidx.media3:media3-exoplayer:$media3Version"
     implementation "androidx.media3:media3-exoplayer-hls:$media3Version"

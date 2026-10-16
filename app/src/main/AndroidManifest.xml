@@ -14,6 +14,8 @@
     <application
         android:name=".SvaApplication"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:banner="@drawable/sva_image"
         android:icon="@drawable/sva_image"
         android:roundIcon="@drawable/sva_image"
@@ -32,7 +34,6 @@
         <activity
             android:name=".GamePlayerActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
-            android:enableOnBackInvokedCallback="false"
             android:exported="false"
             android:screenOrientation="landscape" />
         <activity

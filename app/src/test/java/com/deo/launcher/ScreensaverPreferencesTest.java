@@ -34,4 +34,11 @@ public final class ScreensaverPreferencesTest {
         for (int i = 0; i < ScreensaverPreferences.THEMES.length; i++)
             assertEquals(i, ScreensaverPreferences.themeIndex(ScreensaverPreferences.THEMES[i]));
     }
+    @Test public void legacyThemesResolveToTheirReplacements() {
+        String[] old = {"cinema", "vintage", "memory", "postcards", "gallery", "aurora", "noir", "storybook", "mosaic"};
+        for (int i = 0; i < old.length; i++) assertEquals(i, ScreensaverPreferences.themeIndex(old[i]));
+        assertEquals(0, ScreensaverPreferences.themeIndex(null));
+        assertEquals("Editorial", ScreensaverPreferences.NAMES[ScreensaverPreferences.themeIndex("memory")]);
+        assertEquals("Photo Weave", ScreensaverPreferences.NAMES[ScreensaverPreferences.themeIndex("mosaic")]);
+    }
 }

@@ -18,7 +18,7 @@ public final class ControllerSettingsActivity extends Activity {
     private final List<InputDevice> controllers = new ArrayList<>();
     private InputDevice mappingDevice; private ControllerProfile mapping; private int step; private TextView prompt;
 
-    @Override public void onCreate(Bundle state) { super.onCreate(state); renderList(); }
+    @Override public void onCreate(Bundle state) { super.onCreate(state); BackNavigation.install(this, this::handleBack); renderList(); }
 
     private void renderList() {
         controllers.clear(); for (int id : InputDevice.getDeviceIds()) {
@@ -48,9 +48,19 @@ public final class ControllerSettingsActivity extends Activity {
 
     private void updatePrompt() { prompt.setText("Press the button for\n" + ControllerProfile.NAMES[step]); }
 
+    private void handleBack() {
+        if (mappingDevice != null) { mappingDevice = null; renderList(); } else finish();
+    }
+
+    // Physical Back must cancel mapping before it can be recorded as a controller input.
+    @android.annotation.SuppressLint("GestureBackNavigation")
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
-        if (mappingDevice == null || event.getAction() != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event);
-        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) { mappingDevice = null; renderList(); return true; }
+        if (mappingDevice != null && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            if (event.getAction() == KeyEvent.ACTION_UP) handleBack();
+            return true;
+        }
+        if (mappingDevice == null || event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() > 0)
+            return super.dispatchKeyEvent(event);
         if (event.getDeviceId() != mappingDevice.getId()) return true;
         mapping.keys[step++] = event.getKeyCode();
         if (step < mapping.keys.length) updatePrompt();

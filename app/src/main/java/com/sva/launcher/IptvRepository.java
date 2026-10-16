@@ -43,6 +43,7 @@ final class IptvRepository {
     private static final long PROGRAMME_CACHE_HORIZON_MS = 48L * 60L * 60L * 1000L;
     private static final int MAX_CACHED_PROGRAMMES_PER_CHANNEL = 128;
     private static final int MAX_PLAYLIST_BYTES = 24 * 1024 * 1024;
+    private static final int MAX_XML_GUIDE_BYTES = 128 * 1024 * 1024;
     private static final int MAX_JSON_GUIDE_BYTES = 16 * 1024 * 1024;
     private static final String GUIDE_TIME_ZONE = "Asia/Kolkata";
     private static final Object CACHE_REFRESH_LOCK = new Object();
@@ -553,7 +554,7 @@ final class IptvRepository {
         }
 
         private IllegalStateException tooLarge() {
-            return new IllegalStateException("Playlist is larger than 24 MB.");
+            return new IllegalStateException("Source exceeds the " + (limit / (1024 * 1024)) + " MB size limit.");
         }
     }
 
@@ -908,7 +909,8 @@ final class IptvRepository {
         int first = buffered.read();
         int second = buffered.read();
         buffered.reset();
-        return first == 0x1f && second == 0x8b ? new GZIPInputStream(buffered) : buffered;
+        InputStream decoded = first == 0x1f && second == 0x8b ? new GZIPInputStream(buffered) : buffered;
+        return new ByteLimitInputStream(decoded, MAX_XML_GUIDE_BYTES);
     }
 
     private static long xmlTime(String value, SimpleDateFormat format) {

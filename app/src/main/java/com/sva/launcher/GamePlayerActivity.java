@@ -37,6 +37,7 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        BackNavigation.install(this, this::handleBack);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         repository = new GameRepository(this); game = repository.find(getIntent().getStringExtra("gameId"));
@@ -80,8 +81,13 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
     private void showPause(String title) { menuVisible = true; pauseTitle.setText(title); pauseLayer.setVisibility(View.VISIBLE); session.pause(true); pauseLayer.post(() -> ((View)((android.view.ViewGroup)((android.view.ViewGroup)pauseLayer.getChildAt(0))).getChildAt(1)).requestFocus()); }
     private void hidePause() { menuVisible = false; pauseLayer.setVisibility(View.GONE); session.pause(false); }
 
-    @Override public void onBackPressed() { if (menuVisible) hidePause(); else showPause(game.title); }
+    // Kept for Android <33; modern system Back uses BackNavigation.
+    @android.annotation.SuppressLint("GestureBackNavigation")
+    @Override public void onBackPressed() { handleBack(); }
+    private void handleBack() { if (game == null) { finish(); return; } if (menuVisible) hidePause(); else showPause(game.title); }
 
+    // Controller/TV Back events also carry press and repeat information used by the pause control.
+    @android.annotation.SuppressLint("GestureBackNavigation")
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         if (menuVisible) {
             if (event.getAction() == KeyEvent.ACTION_DOWN && isDpadDirection(event.getKeyCode())) {

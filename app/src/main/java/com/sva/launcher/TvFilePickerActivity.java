@@ -60,6 +60,7 @@ public final class TvFilePickerActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        BackNavigation.install(this, this::up);
         mode = getIntent().getStringExtra(EXTRA_MODE);
         if (!isSupportedMode()) { finish(); return; }
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
@@ -363,5 +364,7 @@ public final class TvFilePickerActivity extends Activity {
         showDirectory();
     }
 
+    // Legacy TV/Android <33 fallback; API 33+ uses BackNavigation.
+    @android.annotation.SuppressLint("GestureBackNavigation")
     @Override public void onBackPressed() { up(); }
 }

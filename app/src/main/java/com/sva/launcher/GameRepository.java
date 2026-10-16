@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Locale;
 
 final class GameRepository {
+    static final int MAX_ROM_BYTES = 32 * 1024 * 1024;
+    static final int MAX_ARTWORK_BYTES = 12 * 1024 * 1024;
+    private static final int MAX_TREE_DEPTH = 16;
     static final class ImportResult {
         int added, duplicates, skipped;
         String message() {
@@ -93,7 +96,7 @@ final class GameRepository {
                 return result;
             }
             String rootId = DocumentsContract.getTreeDocumentId(tree);
-            walkTree(tree, rootId, result);
+            walkTree(tree, rootId, result, 0);
         } catch (Exception e) { result.skipped++; }
         return result;
     }
@@ -109,7 +112,8 @@ final class GameRepository {
         }
     }
 
-    private void walkTree(Uri tree, String parentId, ImportResult result) throws Exception {
+    private void walkTree(Uri tree, String parentId, ImportResult result, int depth) throws Exception {
+        if (depth > MAX_TREE_DEPTH) { result.skipped++; return; }
         Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId);
         String[] projection = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                 DocumentsContract.Document.COLUMN_DISPLAY_NAME,
@@ -118,7 +122,7 @@ final class GameRepository {
             if (cursor == null) return;
             while (cursor.moveToNext()) {
                 String id = cursor.getString(0), name = cursor.getString(1), mime = cursor.getString(2);
-                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) walkTree(tree, id, result);
+                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) walkTree(tree, id, result, depth + 1);
                 else if (name != null && name.toLowerCase(Locale.ROOT).endsWith(".nes"))
                     importOne(DocumentsContract.buildDocumentUriUsingTree(tree, id), result);
             }
@@ -138,8 +142,10 @@ final class GameRepository {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] buffer = new byte[64 * 1024];
             byte[] header = new byte[4];
-            int headerCount = 0, read;
+            int headerCount = 0, read, total = 0;
             while ((read = input.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_ROM_BYTES) throw new IllegalArgumentException("NES file is larger than 32 MB.");
                 if (headerCount < 4) {
                     int take = Math.min(4 - headerCount, read);
                     System.arraycopy(buffer, 0, header, headerCount, take);
@@ -184,12 +190,20 @@ final class GameRepository {
         for (GameRecord game : current) if (game.id.equals(id)) target = game;
         if (target == null) return;
         File destination = new File(artwork, id + ".img");
-        try (InputStream input = context.getContentResolver().openInputStream(uri);
-             OutputStream output = new FileOutputStream(destination)) {
-            if (input == null) throw new IllegalStateException("Could not read artwork");
-            byte[] buffer = new byte[32 * 1024]; int read;
-            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-        }
+        File temporary = File.createTempFile("art-", ".tmp", artwork);
+        try {
+            try (InputStream input = context.getContentResolver().openInputStream(uri);
+                 OutputStream output = new FileOutputStream(temporary)) {
+                if (input == null) throw new IllegalStateException("Could not read artwork");
+                copyBounded(input, output, MAX_ARTWORK_BYTES);
+            }
+            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(temporary.getAbsolutePath(), bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new IllegalArgumentException("Choose an image file.");
+            java.nio.file.Files.move(temporary.toPath(), destination.toPath(),
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } finally { temporary.delete(); }
         target.artworkFile = destination.getName();
         save(current);
     }
@@ -259,10 +273,19 @@ final class GameRepository {
         return values;
     }
 
+    static void copyBounded(InputStream input, OutputStream output, int maxBytes) throws Exception {
+        byte[] buffer = new byte[8192];
+        int total = 0, count;
+        while ((count = input.read(buffer)) != -1) {
+            if (count > maxBytes - total) throw new IllegalArgumentException("File exceeds the import size limit.");
+            total += count;
+            output.write(buffer, 0, count);
+        }
+    }
+
     private static byte[] readFully(InputStream input) throws Exception {
         try (InputStream source = input; java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192]; int read;
-            while ((read = source.read(buffer)) != -1) output.write(buffer, 0, read);
+            copyBounded(source, output, 8 * 1024 * 1024);
             return output.toByteArray();
         }
     }

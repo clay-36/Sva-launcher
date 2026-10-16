@@ -31,9 +31,12 @@ final class GameRecord {
         String id = value.optString("id", "");
         String title = value.optString("title", "");
         String rom = value.optString("romFile", "");
-        if (id.isEmpty() || title.isEmpty() || rom.isEmpty()) return null;
+        // Catalogue names are private-storage basenames, never arbitrary paths.
+        if (!id.matches("[a-fA-F0-9]{64}") || title.trim().isEmpty() || !rom.equals(id + ".nes")) return null;
+        String art = value.isNull("artworkFile") ? null : value.optString("artworkFile", null);
+        if (art != null && !art.equals(id + ".img")) return null;
         return new GameRecord(id, title, rom,
-                value.isNull("artworkFile") ? null : value.optString("artworkFile", null),
+                art,
                 value.optLong("importedAt", 0L), value.optLong("lastPlayedAt", 0L));
     }
 }
