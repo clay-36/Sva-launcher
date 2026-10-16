@@ -16,6 +16,61 @@
 The checked-in workflow performs build, JVM, lint, native-helper and source-hygiene
 checks. Device tests and hardware checks still need to be run separately.
 
+## Download CI builds
+
+The **Android build and checks** workflow runs on pushes and pull requests, and
+can also be started from **Actions → Android build and checks → Run workflow**.
+For manual runs, choose **Build output**: `apk`, `aab`, or `both` (the default).
+Push and pull-request runs build both formats. Tests and lint run for every choice.
+After a successful run, download the selected artifacts from the run's summary page:
+
+| Artifact | Contents |
+| --- | --- |
+| `sva-debug-apk` | Debug-signed `app-debug.apk`, installable for testing |
+| `sva-release-apk-unsigned` | Optimized `app-release-unsigned.apk` |
+| `sva-release-aab-unsigned` | Optimized `app-release.aab` for signing and store upload |
+
+Artifacts are retained for 14 days. By default, release outputs are unsigned.
+Enable **Sign release outputs** on a manual run from `main` to produce
+`sva-release-apk-signed` (containing `app-release.apk`) and/or
+`sva-release-aab-signed`. The debug APK remains debug-signed.
+The workflow does not publish a GitHub release or submit anything to a store.
+
+## Configure workflow signing
+
+In **Settings → Secrets and variables → Actions → New repository secret**, add:
+
+| Secret | Value |
+| --- | --- |
+| `SVA_KEYSTORE_BASE64` | Base64-encoded contents of your existing release/upload keystore |
+| `SVA_STORE_PASSWORD` | Keystore password |
+| `SVA_KEY_ALIAS` | Key alias |
+| `SVA_KEY_PASSWORD` | Key password |
+
+On macOS, copy the encoded keystore directly to the clipboard without displaying it:
+
+```sh
+base64 -i /absolute/path/to/release.jks | pbcopy
+```
+
+Paste that value into `SVA_KEYSTORE_BASE64`. Base64 is an encoding, not encryption;
+keep the value in GitHub secrets and retain a secure backup of the original key.
+GitHub secrets have a 48 KB size limit; the encoded keystore must fit that limit.
+
+Start the workflow on `main`, choose `apk`, `aab`, or `both`, and enable
+**Sign release outputs**. Missing secrets fail the run rather than silently
+producing an unsigned release. The workflow restores the keystore into the
+runner's temporary directory, exposes passwords only to the signing steps,
+verifies signatures, and deletes the temporary keystore even if the build fails.
+Push and pull-request builds never receive the signing secrets, and signing
+requests from other branches are rejected.
+
+For direct APK distribution, use your app signing key. For Google Play with
+Play App Signing, use your registered upload key for AABs. If these are different
+keys, configure the appropriate one before running the workflow for that format.
+See [Android app signing](https://developer.android.com/studio/publish/app-signing)
+and [GitHub Actions secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
+
 ## Sign and inspect the APK
 
 A clean checkout builds `app-release-unsigned.apk`. To produce `app-release.apk`,
