@@ -18,6 +18,7 @@
 <p align="center">
   <a href="#screenshots">Screenshots</a> ·
   <a href="#features">Features</a> ·
+  <a href="#installation">Installation</a> ·
   <a href="#getting-started">Getting started</a> ·
   <a href="#build-from-source">Build from source</a> ·
   <a href="#contributing">Contributing</a>
@@ -64,9 +65,22 @@
 
 Cached channels, guide data, calendar entries, weather, and artwork remain available where supported when the network is unavailable.
 
+## Installation
+
+Install Sva Launcher on your Android TV through the Google Play testing programme:
+
+1. Join the [Sva Launcher Google Group](https://groups.google.com/g/sva-launcher).
+2. Open the [Google Play testing page](https://play.google.com/apps/testing/com.sva.launcher) and join the testing programme.
+3. Follow the Google Play link on that page to install **Sva Launcher** on your Android TV.
+
+Use the same Google account to join the group, join the testing programme, and
+install the app on your TV. Join the group before opening the testing page.
+
+You can also [build and install the APK from source](#build-from-source).
+
 ## Getting started
 
-1. Build and install the APK, then open **Sva Launcher**.
+1. Follow the [installation guide](#installation), then open **Sva Launcher**.
 2. When Android asks for a Home app, select Sva. You can change this later in Android settings.
 3. Open the gear icon and configure only the sections you need:
 
