@@ -74,7 +74,7 @@ android {
 dependencies {
     androidTestCompileOnly files("${android.sdkDirectory}/platforms/android-${android.compileSdk}/optional/android.test.runner.jar",
             "${android.sdkDirectory}/platforms/android-${android.compileSdk}/optional/android.test.base.jar")
-    def media3Version = "1.8.1"
+    def media3Version = "1.11.1"
     implementation "androidx.media3:media3-exoplayer:$media3Version"
     implementation "androidx.media3:media3-exoplayer-hls:$media3Version"
     implementation "androidx.media3:media3-exoplayer-dash:$media3Version"
