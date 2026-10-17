@@ -69,6 +69,9 @@ final class IptvRepository {
         final String drmType;
         final String drmLicenseUrl;
         final Map<String, String> drmHeaders;
+        final Map<String, String> streamHeaders;
+        final String mimeType;
+        final String clearKeyData;
         String now = "";
         String next = "";
         long nowStartMs;
@@ -77,6 +80,13 @@ final class IptvRepository {
 
         Channel(String name, String streamUrl, String epgId, String group, String logoUrl,
                 String drmType, String drmLicenseUrl, Map<String, String> drmHeaders) {
+            this(name, streamUrl, epgId, group, logoUrl, drmType, drmLicenseUrl, drmHeaders,
+                    "", new LinkedHashMap<>(), "");
+        }
+
+        Channel(String name, String streamUrl, String epgId, String group, String logoUrl,
+                String drmType, String drmLicenseUrl, Map<String, String> drmHeaders,
+                String mimeType, Map<String, String> streamHeaders, String clearKeyData) {
             this.name = name;
             this.streamUrl = streamUrl;
             this.epgId = epgId;
@@ -85,6 +95,10 @@ final class IptvRepository {
             this.drmType = drmType;
             this.drmLicenseUrl = drmLicenseUrl;
             this.drmHeaders = new LinkedHashMap<>(drmHeaders);
+            this.mimeType = StreamOptions.mimeType(mimeType);
+            this.streamHeaders = StreamOptions.headers();
+            this.streamHeaders.putAll(streamHeaders);
+            this.clearKeyData = clearKeyData;
         }
 
         String stableKey() { return epgId.isEmpty() ? "url:" + streamUrl : "id:" + epgId; }
@@ -92,7 +106,8 @@ final class IptvRepository {
             return stableKey().equals(other.stableKey()) && streamUrl.equals(other.streamUrl)
                     && name.equals(other.name) && group.equals(other.group) && logoUrl.equals(other.logoUrl)
                     && drmType.equals(other.drmType) && drmLicenseUrl.equals(other.drmLicenseUrl)
-                    && drmHeaders.equals(other.drmHeaders);
+                    && drmHeaders.equals(other.drmHeaders) && streamHeaders.equals(other.streamHeaders)
+                    && mimeType.equals(other.mimeType) && clearKeyData.equals(other.clearKeyData);
         }
     }
 
@@ -269,7 +284,8 @@ final class IptvRepository {
                 }
                 Channel c = new Channel(o.optString("name"), o.optString("url"), o.optString("id"),
                         o.optString("group"), o.optString("logo"), o.optString("drmType"),
-                        o.optString("drmLicenseUrl"), headers);
+                        o.optString("drmLicenseUrl"), headers, o.optString("mimeType"),
+                        StreamOptions.jsonHeaders(o.optJSONObject("streamHeaders")), o.optString("clearKeyData"));
                 c.now = o.optString("now");
                 c.next = o.optString("next");
                 c.nowStartMs = o.optLong("nowStartMs");
@@ -313,7 +329,9 @@ final class IptvRepository {
             }
             Channel channel = new Channel(name, url, value.optString("id", ""),
                     value.optString("group", ""), value.optString("logo", ""),
-                    value.optString("drmType", ""), value.optString("drmLicenseUrl", ""), headers);
+                    value.optString("drmType", ""), value.optString("drmLicenseUrl", ""), headers,
+                    value.optString("mimeType"), StreamOptions.jsonHeaders(value.optJSONObject("streamHeaders")),
+                    value.optString("clearKeyData"));
             channel.now = value.optString("now", "");
             channel.next = value.optString("next", "");
             channel.nowStartMs = value.optLong("nowStartMs", 0);
@@ -454,7 +472,8 @@ final class IptvRepository {
         ArrayList<Channel> copy = new ArrayList<>(channels.size());
         for (Channel channel : channels) {
             Channel clone = new Channel(channel.name, channel.streamUrl, channel.epgId, channel.group,
-                    channel.logoUrl, channel.drmType, channel.drmLicenseUrl, channel.drmHeaders);
+                    channel.logoUrl, channel.drmType, channel.drmLicenseUrl, channel.drmHeaders,
+                    channel.mimeType, channel.streamHeaders, channel.clearKeyData);
             clone.now = channel.now;
             clone.next = channel.next;
             clone.nowStartMs = channel.nowStartMs;
@@ -497,32 +516,57 @@ final class IptvRepository {
 
     private static List<Channel> parseLines(BufferedReader reader) throws Exception {
         ArrayList<Channel> channels = new ArrayList<>();
-        String name = null, id = "", group = "", logo = "", drmType = "", drmKey = "", line;
+        String name = null, id = "", group = "", logo = "", drmType = "", drmKey = "", mime = "", line;
+        Map<String, String> vlcHeaders = StreamOptions.headers(), kodiHeaders = StreamOptions.headers();
         while ((line = reader.readLine()) != null) {
             line = line.trim();
             if (line.startsWith("#EXTINF")) {
                 if (name != null) throw new IllegalArgumentException("Playlist ended a channel entry before its stream URL.");
                 int comma = extinfTitleSeparator(line);
                 name = comma >= 0 ? line.substring(comma + 1).trim() : attribute(line, "tvg-name");
-                id = attribute(line, "tvg-id");
-                group = attribute(line, "group-title");
-                logo = attribute(line, "tvg-logo");
-                drmType = "";
-                drmKey = "";
+                id = attribute(line, "tvg-id"); group = attribute(line, "group-title"); logo = attribute(line, "tvg-logo");
+                drmType = ""; drmKey = ""; mime = ""; vlcHeaders.clear(); kodiHeaders.clear();
                 if (name == null || name.isEmpty()) name = "Channel";
-            } else if (line.startsWith("#KODIPROP:")) {
+            } else if (line.startsWith("#KODIPROP:") && name != null) {
                 int split = line.indexOf('=', 10);
                 if (split > 0) {
-                    String property = line.substring(10, split).trim();
+                    String property = line.substring(10, split).trim().toLowerCase(Locale.US);
                     String value = line.substring(split + 1).trim();
                     if (property.endsWith("license_type")) drmType = value;
                     else if (property.endsWith("license_key")) drmKey = value;
+                    else if (property.endsWith("stream_headers")) kodiHeaders.putAll(StreamOptions.encodedHeaders(value));
+                    else if (property.endsWith("manifest_type") || property.endsWith("mime_type") || property.equals("mimetype"))
+                        mime = StreamOptions.mimeType(value);
+                }
+            } else if (line.startsWith("#EXTVLCOPT:") && name != null) {
+                int split = line.indexOf('=');
+                if (split > 0) {
+                    String option = line.substring(11, split).trim().toLowerCase(Locale.US);
+                    String value = line.substring(split + 1).trim();
+                    String header = option.equals("http-user-agent") ? "User-Agent"
+                            : option.equals("http-referrer") || option.equals("http-referer") ? "Referer"
+                            : option.equals("http-origin") ? "Origin" : option.equals("http-cookie") ? "Cookie" : "";
+                    if (!header.isEmpty()) StreamOptions.putHeader(vlcHeaders, header, value);
                 }
             } else if (!line.isEmpty() && !line.startsWith("#") && name != null) {
-                LicenseData license = parseKodiLicenseKey(drmKey);
-                String type = drmType.toLowerCase(Locale.US).contains("widevine") || !drmKey.isEmpty() ? "widevine" : "";
-                channels.add(new Channel(name, line, id, group, logo, type, license.url, license.headers));
-                name = null; id = ""; group = ""; logo = ""; drmType = ""; drmKey = "";
+                boolean clearKey = StreamOptions.isClearKey(drmType.trim());
+                LicenseData license;
+                String inlineKeys = "";
+                if (clearKey && !StreamOptions.isHttp(drmKey)) {
+                    inlineKeys = drmKey; license = new LicenseData("", new LinkedHashMap<>());
+                } else if (clearKey) {
+                    String[] parts = drmKey.split("\\|", -1);
+                    license = new LicenseData(parts[0].trim(), parts.length > 1
+                            ? StreamOptions.encodedHeaders(parts[1]) : StreamOptions.headers());
+                } else license = parseKodiLicenseKey(drmKey);
+                String type = clearKey ? "clearkey"
+                        : drmType.toLowerCase(Locale.US).contains("widevine") || !drmKey.isEmpty() ? "widevine" : "";
+                Map<String, String> streamHeaders = StreamOptions.headers();
+                streamHeaders.putAll(vlcHeaders); streamHeaders.putAll(kodiHeaders);
+                channels.add(new Channel(name, line, id, group, logo, type, license.url, license.headers,
+                        mime, streamHeaders, inlineKeys));
+                name = null; id = ""; group = ""; logo = ""; drmType = ""; drmKey = ""; mime = "";
+                vlcHeaders.clear(); kodiHeaders.clear();
             }
         }
         if (name != null) throw new IllegalArgumentException("Playlist ended before the final channel stream URL.");
@@ -954,6 +998,8 @@ final class IptvRepository {
             o.put("name", c.name); o.put("url", c.streamUrl); o.put("id", c.epgId);
             o.put("group", c.group); o.put("logo", c.logoUrl); o.put("drmType", c.drmType);
             o.put("drmLicenseUrl", c.drmLicenseUrl); o.put("drmHeaders", new JSONObject(c.drmHeaders));
+            o.put("mimeType", c.mimeType); o.put("streamHeaders", new JSONObject(c.streamHeaders));
+            o.put("clearKeyData", c.clearKeyData);
             o.put("now", c.now); o.put("next", c.next);
             o.put("nowStartMs", c.nowStartMs); o.put("nowEndMs", c.nowEndMs);
             o.put("programmes", serializeProgrammes(c.programmes));

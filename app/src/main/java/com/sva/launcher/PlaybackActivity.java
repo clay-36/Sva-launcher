@@ -1,9 +1,9 @@
 package com.sva.launcher;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,8 +16,6 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import androidx.media3.common.C;
-import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
@@ -43,7 +41,7 @@ public final class PlaybackActivity extends Activity {
     private String currentProgramme = "";
     private String followingProgramme = "";
     private long programmeStartMs, programmeEndMs;
-    private boolean widevine;
+    private String activeDrmType = "";
     private JSONArray zapChannels;
     private JSONArray programmeSchedule;
     private int zapIndex;
@@ -61,17 +59,21 @@ public final class PlaybackActivity extends Activity {
         super.onCreate(state);
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        String name = getIntent().getStringExtra("name");
+        Intent playback;
+        boolean missingSession = false;
+        try { playback = PlaybackSession.restore(this, getIntent()); }
+        catch (Exception ignored) { playback = new Intent(); missingSession = true; }
+        String name = playback.getStringExtra("name");
         currentChannelName = name == null ? "Channel" : name;
-        String streamUrl = getIntent().getStringExtra("url");
-        String licenseUrl = getIntent().getStringExtra("licenseUrl");
-        widevine = getIntent().getBooleanExtra("widevine", false);
-        try { zapChannels = new JSONArray(getIntent().getStringExtra("zapChannels")); } catch (Exception ignored) { zapChannels = new JSONArray(); }
-        zapIndex = getIntent().getIntExtra("zapIndex", 0);
+        String streamUrl = playback.getStringExtra("url");
+        String licenseUrl = playback.getStringExtra("licenseUrl");
+
+        try { zapChannels = new JSONArray(playback.getStringExtra("zapChannels")); } catch (Exception ignored) { zapChannels = new JSONArray(); }
+        zapIndex = playback.getIntExtra("zapIndex", 0);
         JSONObject activeChannel = zapChannels.optJSONObject(zapIndex);
         programmeSchedule = activeChannel == null ? null : activeChannel.optJSONArray("programmes");
         if (programmeSchedule == null) {
-            try { programmeSchedule = new JSONArray(getIntent().getStringExtra("programmes")); }
+            try { programmeSchedule = new JSONArray(playback.getStringExtra("programmes")); }
             catch (Exception ignored) { programmeSchedule = null; }
         }
 
@@ -125,34 +127,38 @@ public final class PlaybackActivity extends Activity {
         frame.addView(infoPanel, messageParams);
         setContentView(frame);
         if (!updateProgrammeFromCache()) {
-            updateProgramInfo(getIntent().getStringExtra("now"), getIntent().getLongExtra("nowStartMs", 0),
-                    getIntent().getLongExtra("nowEndMs", 0), getIntent().getStringExtra("next"));
+            updateProgramInfo(playback.getStringExtra("now"), playback.getLongExtra("nowStartMs", 0),
+                    playback.getLongExtra("nowEndMs", 0), playback.getStringExtra("next"));
         }
 
+        if (missingSession) {
+            showError("Playback session is unavailable. Go back and select the channel again.");
+            return;
+        }
+        String encodedRequest = playback.getStringExtra("playbackRequest");
+        if (encodedRequest != null) {
+            try { startPlayback(PlaybackRequest.fromJson(new JSONObject(encodedRequest))); }
+            catch (Exception ignored) { showError("Invalid channel playback configuration."); }
+            return;
+        }
         if (streamUrl == null || streamUrl.trim().isEmpty()) {
             showError("Missing channel stream URL.");
             return;
         }
-        startPlayback(streamUrl, licenseUrl, getIntent().getStringArrayListExtra("licenseHeaders"));
+        Map<String, String> oldHeaders = new LinkedHashMap<>();
+        ArrayList<String> pairs = playback.getStringArrayListExtra("licenseHeaders");
+        if (pairs != null) for (int i = 0; i + 1 < pairs.size(); i += 2) oldHeaders.put(pairs.get(i), pairs.get(i + 1));
+        startPlayback(new PlaybackRequest(streamUrl, "", playback.getBooleanExtra("widevine", false) ? "widevine" : "",
+                licenseUrl == null ? "" : licenseUrl, "", new LinkedHashMap<>(), oldHeaders));
     }
 
-    private void startPlayback(String streamUrl, String licenseUrl, ArrayList<String> headerPairs) {
+    private void startPlayback(PlaybackRequest request) {
+        activeDrmType = request.drmType;
         try {
             infoPanel.setVisibility(View.VISIBLE);
             message.setVisibility(View.VISIBLE);
             releasePlayer();
-            MediaItem.Builder mediaItem = new MediaItem.Builder().setUri(Uri.parse(streamUrl));
-            if (widevine) {
-                MediaItem.DrmConfiguration.Builder drm = new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID);
-                if (licenseUrl != null && !licenseUrl.trim().isEmpty()) drm.setLicenseUri(Uri.parse(licenseUrl));
-                Map<String, String> headers = new LinkedHashMap<>();
-                if (headerPairs != null) {
-                    for (int i = 0; i + 1 < headerPairs.size(); i += 2) headers.put(headerPairs.get(i), headerPairs.get(i + 1));
-                }
-                if (!headers.isEmpty()) drm.setLicenseRequestHeaders(headers);
-                mediaItem.setDrmConfiguration(drm.build());
-            }
-            player = new ExoPlayer.Builder(this).build();
+            player = IptvPlayback.create(this, request);
             player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
                     .setPreferredAudioLanguages("hi", "hin")
                     .build());
@@ -167,20 +173,22 @@ public final class PlaybackActivity extends Activity {
                 }
 
                 @Override public void onPlayerError(PlaybackException error) {
-                    if (widevine || containsDrmFailure(error)) {
-                        showError("Widevine playback failed. Check the license URL and headers, account access, and TV support.");
+                    if (!activeDrmType.isEmpty() || containsDrmFailure(error)) {
+                        showError(("clearkey".equals(activeDrmType) ? "ClearKey" : "Widevine")
+                                + " playback failed. Check the channel license settings and TV support.");
                     } else {
                         showError("Could not play this channel. The stream or codec may not be supported by the TV.");
                     }
                 }
             });
-            player.setMediaItem(mediaItem.build());
             player.prepare();
             player.play();
         } catch (Exception e) {
-            showError(widevine
+            showError("clearkey".equals(activeDrmType)
+                    ? "Could not start ClearKey playback. Check the DASH format, keys or license URL."
+                    : "widevine".equals(activeDrmType)
                     ? "Could not start Widevine playback. Check the channel DRM settings."
-                    : "Could not start this stream: " + e.getMessage());
+                    : "Could not start this stream. Check the stream URL and playlist options.");
         }
     }
 
@@ -215,16 +223,13 @@ public final class PlaybackActivity extends Activity {
                     item.optLong("nowEndMs", 0), item.optString("next", ""));
         }
         hideMessageAfter(2000);
-        ArrayList<String> headers = new ArrayList<>();
-        JSONObject headerObject = item.optJSONObject("headers");
-        if (headerObject != null) {
-            java.util.Iterator<String> keys = headerObject.keys();
-            while (keys.hasNext()) {
-                String key = keys.next(); headers.add(key); headers.add(headerObject.optString(key));
-            }
+        JSONObject request = item.optJSONObject("playbackRequest");
+        if (request != null) startPlayback(PlaybackRequest.fromJson(request));
+        else {
+            startPlayback(new PlaybackRequest(item.optString("url"), "", item.optBoolean("widevine") ? "widevine" : "",
+                    item.optString("licenseUrl"), "", new LinkedHashMap<>(),
+                    StreamOptions.jsonHeaders(item.optJSONObject("headers"))));
         }
-        widevine = item.optBoolean("widevine", false);
-        startPlayback(item.optString("url", ""), item.optString("licenseUrl", ""), headers);
     }
 
     private void showError(String text) {

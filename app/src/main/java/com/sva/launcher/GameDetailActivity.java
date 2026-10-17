@@ -31,25 +31,39 @@ public final class GameDetailActivity extends Activity {
 
     private void render() {
         LinearLayout root = new LinearLayout(this); root.setGravity(Gravity.CENTER_VERTICAL);
-        root.setPadding(GameUi.dp(this, 80), GameUi.dp(this, 50), GameUi.dp(this, 80), GameUi.dp(this, 50)); root.setBackground(LiquidTheme.scenicBackground(this));
+        root.setPadding(GameUi.dp(this, 48), GameUi.dp(this, 32), GameUi.dp(this, 48), GameUi.dp(this, 32)); root.setBackground(LiquidTheme.scenicBackground(this));
         ImageView cover = new ImageView(this); cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         java.io.File art = repository.artworkFile(game);
         if (art.isFile()) GameUi.loadArtwork(cover, art, GameUi.dp(this, 480));
         else { cover.setImageResource(R.drawable.sva_image); cover.setPadding(60,60,60,60); }
-        root.addView(cover, new LinearLayout.LayoutParams(GameUi.dp(this, 330), GameUi.dp(this, 430)));
-        LinearLayout copy = new LinearLayout(this); copy.setOrientation(LinearLayout.VERTICAL); copy.setPadding(GameUi.dp(this, 54), 0, 0, 0);
+        int coverHeight = Math.min(GameUi.dp(this, 430),
+                getResources().getDisplayMetrics().heightPixels - GameUi.dp(this, 64));
+        root.addView(cover, new LinearLayout.LayoutParams(0, coverHeight, .38f));
+        LinearLayout copy = new LinearLayout(this); copy.setOrientation(LinearLayout.VERTICAL); copy.setPadding(GameUi.dp(this, 32), 0, 0, 0);
         TextView eyebrow = GameUi.text(this, "NINTENDO ENTERTAINMENT SYSTEM", 12, true);
         eyebrow.setTextColor(LiquidTheme.accent(this));
         eyebrow.setLetterSpacing(.18f);
         copy.addView(eyebrow);
-        TextView title = GameUi.text(this, game.title, 38, true); LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2); titleParams.topMargin = GameUi.dp(this, 16); copy.addView(title, titleParams);
+        TextView title = GameUi.text(this, game.title, 38, true); title.setMaxLines(2); title.setEllipsize(android.text.TextUtils.TruncateAt.END); LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2); titleParams.topMargin = GameUi.dp(this, 16); copy.addView(title, titleParams);
         Button play = GameUi.button(this, "Play"); play.setOnClickListener(v -> play());
         LinearLayout.LayoutParams playParams = new LinearLayout.LayoutParams(GameUi.dp(this, 240), GameUi.dp(this, 64)); playParams.topMargin = GameUi.dp(this, 38); copy.addView(play, playParams);
         actions = new LinearLayout(this); LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, GameUi.dp(this, 56)); actionsParams.topMargin = GameUi.dp(this, 18); copy.addView(actions, actionsParams);
-        Button rename = GameUi.button(this, "Rename"); rename.setOnClickListener(v -> rename()); actions.addView(rename, new LinearLayout.LayoutParams(GameUi.dp(this, 140), -1));
-        Button artwork = GameUi.button(this, "Artwork"); artwork.setOnClickListener(v -> pickArtwork()); LinearLayout.LayoutParams small = new LinearLayout.LayoutParams(GameUi.dp(this, 140), -1); small.leftMargin = GameUi.dp(this, 10); actions.addView(artwork, small);
-        Button remove = GameUi.button(this, "Remove"); remove.setOnClickListener(v -> remove()); LinearLayout.LayoutParams removeParams = new LinearLayout.LayoutParams(GameUi.dp(this, 140), -1); removeParams.leftMargin = GameUi.dp(this, 10); actions.addView(remove, removeParams);
-        root.addView(copy, new LinearLayout.LayoutParams(0, -2, 1)); setContentView(root); play.requestFocus();
+        addAction("Rename", this::rename);
+        addAction("Artwork", this::pickArtwork);
+        addAction("Remove", this::remove);
+        root.addView(copy, new LinearLayout.LayoutParams(0, -2, .62f)); setContentView(root); play.requestFocus();
+    }
+
+    private void addAction(String label, Runnable click) {
+        Button button = GameUi.button(this, label);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setSingleLine(true);
+        button.setPadding(GameUi.dp(this, 12), 0, GameUi.dp(this, 12), 0);
+        button.setOnClickListener(v -> click.run());
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -1, 1f);
+        if (actions.getChildCount() > 0) params.leftMargin = GameUi.dp(this, 10);
+        actions.addView(button, params);
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {

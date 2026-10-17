@@ -40,6 +40,19 @@ public final class ReleaseValidationTest {
                 .put("scheduleWeatherMs",new JSONObject().put("type","long").put("value",3600000L));
         assertEquals(Boolean.TRUE,LauncherBackup.decodePreferences(preferences).get("screensaverClock"));
         assertEquals(3600000L,LauncherBackup.decodePreferences(preferences).get("scheduleWeatherMs"));
+        preferences = new JSONObject().put("hideGamesNavigation",new JSONObject().put("type","boolean").put("value",true))
+                .put("hideEventsNavigation",new JSONObject().put("type","boolean").put("value",false));
+        assertEquals(Boolean.TRUE,LauncherBackup.decodePreferences(preferences).get("hideGamesNavigation"));
+        assertEquals(Boolean.FALSE,LauncherBackup.decodePreferences(preferences).get("hideEventsNavigation"));
+        preferences.put("hideEventsNavigation",new JSONObject().put("type","string").put("value","false"));
+        try { LauncherBackup.decodePreferences(preferences); fail("Wrong navigation preference type accepted"); }
+        catch(IllegalArgumentException expected) { }
+        preferences = new JSONObject().put("navigationOrder",new JSONObject()
+                .put("type","string").put("value","saved,events,live_tv,games"));
+        assertEquals("saved,events,live_tv,games",LauncherBackup.decodePreferences(preferences).get("navigationOrder"));
+        preferences.put("navigationOrder",new JSONObject().put("type","boolean").put("value",true));
+        try { LauncherBackup.decodePreferences(preferences); fail("Wrong order preference type accepted"); }
+        catch(IllegalArgumentException expected) { }
     }
     @Test public void compressedXmlGuidesHaveADecompressedSizeLimit() throws Exception {
         ByteArrayOutputStream compressed = new ByteArrayOutputStream();
