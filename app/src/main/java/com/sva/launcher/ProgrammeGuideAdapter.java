@@ -84,8 +84,10 @@ final class ProgrammeGuideAdapter extends RecyclerView.Adapter<ProgrammeGuideAda
 
         FrameLayout logoBox = new FrameLayout(activity);
         GradientDrawable logoBackground = new GradientDrawable();
-        logoBackground.setColor(0x24FFFFFF);
+        boolean light = LiquidTheme.isLight(activity);
+        logoBackground.setColor(light ? 0x22087D91 : 0x24FFFFFF);
         logoBackground.setCornerRadius(dp(12));
+        if (light) logoBackground.setStroke(dp(1), LiquidTheme.border(activity));
         logoBox.setBackground(logoBackground);
         channelCell.addView(logoBox, new LinearLayout.LayoutParams(dp(58), dp(58)));
 
