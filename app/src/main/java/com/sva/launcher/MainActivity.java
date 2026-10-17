@@ -585,7 +585,7 @@ public final class MainActivity extends Activity {
         setContentView(scene);
 
         heroFrame = new FrameLayout(this);
-        heroFrame.setBackgroundColor(0xFF071417);
+        heroFrame.setBackgroundColor(light ? LiquidTheme.background(this) : 0xFF071417);
         wallpaperImage = backgroundImage();
         wallpaperImage.setImageResource(R.drawable.mountain_wallpaper);
         wallpaperImage.setVisibility(View.VISIBLE);
@@ -596,22 +596,25 @@ public final class MainActivity extends Activity {
         heroFrame.addView(slideB, new FrameLayout.LayoutParams(-1, -1));
         showCachedBackgroundImmediately();
         GradientDrawable shadow = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x33000000, 0x09000000, 0x23000000, 0x9B031013});
+                light ? new int[]{0x22FFFFFF, 0x05FFFFFF, 0x18FFFFFF, 0x55E9F1EE}
+                      : new int[]{0x33000000, 0x09000000, 0x23000000, 0x9B031013});
         View shade = new View(this);
         shade.setBackground(shadow);
         heroFrame.addView(shade, new FrameLayout.LayoutParams(-1, -1));
         View sideShade = new View(this);
         sideShade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0xB5000D10, 0x44000D10, 0x00000000}));
+                light ? new int[]{0x55E9F1EE, 0x22E9F1EE, 0x00000000}
+                      : new int[]{0xB5000D10, 0x44000D10, 0x00000000}));
         heroFrame.addView(sideShade, new FrameLayout.LayoutParams(-1, -1));
         View bottomFade = new View(this);
         bottomFade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x00030C0E, 0x18030C0E, 0xE5030C0E}));
+                light ? new int[]{0x00E9F1EE, 0x18E9F1EE, 0xCCE9F1EE}
+                      : new int[]{0x00030C0E, 0x18030C0E, 0xE5030C0E}));
         heroFrame.addView(bottomFade, new FrameLayout.LayoutParams(-1, -1));
         scene.addView(heroFrame, new FrameLayout.LayoutParams(-1, -1));
         browsingShade = new View(this);
         browsingShade.setBackgroundColor(light ? 0xFFE9F1EE : 0xFF071417);
-        browsingShade.setAlpha(0f);
+        browsingShade.setAlpha(light ? 0.50f : 0f);
         scene.addView(browsingShade, new FrameLayout.LayoutParams(-1, -1));
         LinearLayout tabShell = new LinearLayout(this);
         tabShell.setOrientation(LinearLayout.VERTICAL);
@@ -672,7 +675,7 @@ public final class MainActivity extends Activity {
         timeStack.setGravity(Gravity.CENTER_VERTICAL);
         timeStack.setPadding(0, 0, 0, 0);
         clock = new TextView(this);
-        clock.setTextColor(Color.WHITE);
+        clock.setTextColor(light ? LiquidTheme.text(this) : Color.WHITE);
         // Keep the clock deliberately distinct from the compact Manrope UI copy.
         // The wider medium face remains easy to read from across the room.
         clock.setTextSize(compactNavigation ? 40 : 46);
@@ -684,15 +687,15 @@ public final class MainActivity extends Activity {
         timeLine.setGravity(Gravity.CENTER_VERTICAL);
         timeLine.addView(clock, new LinearLayout.LayoutParams(-2, -2));
         clockDivider = new View(this);
-        clockDivider.setBackgroundColor(0x667E8588);
+        clockDivider.setBackgroundColor(light ? LiquidTheme.border(this) : 0x667E8588);
         LinearLayout.LayoutParams clockDividerParams = new LinearLayout.LayoutParams(dp(1), dp(32));
         clockDividerParams.setMargins(dp(10), 0, dp(10), 0);
         clockDivider.setVisibility(View.GONE);
-        clockPeriod = label("", compactNavigation ? 16 : 20, 0xFFBEC4CD, false);
+        clockPeriod = label("", compactNavigation ? 16 : 20, light ? LiquidTheme.secondaryText(this) : 0xFFBEC4CD, false);
         clockPeriod.setPadding(dp(10), dp(18), 0, 0);
         timeLine.addView(clockPeriod, new LinearLayout.LayoutParams(-2, -2));
         timeStack.addView(timeLine, new LinearLayout.LayoutParams(-2, -2));
-        date = label("", compactNavigation ? 11 : 13, 0xFFF5F7F7, false);
+        date = label("", compactNavigation ? 11 : 13, light ? LiquidTheme.secondaryText(this) : 0xFFF5F7F7, false);
         date.setTypeface(LiquidTheme.font(this));
         date.setLetterSpacing(.16f);
         date.setSingleLine(true);
@@ -719,14 +722,14 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams weatherCopyParams = new LinearLayout.LayoutParams(0, -2, 1);
         weatherCopyParams.leftMargin = dp(6);
         weatherPanel.addView(weatherCopy, weatherCopyParams);
-        weatherTemperature = label("Add weather", 16, Color.WHITE, true);
+        weatherTemperature = label("Add weather", 16, light ? LiquidTheme.text(this) : Color.WHITE, true);
         weatherTemperature.setTypeface(Typeface.create(LiquidTheme.font(this), Typeface.BOLD));
-        weatherTemperature.setTextColor(Color.WHITE);
+        weatherTemperature.setTextColor(light ? LiquidTheme.text(this) : Color.WHITE);
         weatherTemperature.setIncludeFontPadding(false);
         weatherTemperature.setSingleLine(true);
         weatherTemperature.setMaxWidth(dp(weatherMaxWidth));
         weatherCopy.addView(weatherTemperature);
-        weatherCondition = label("Local conditions", 13, 0xFFCCD0D6, false);
+        weatherCondition = label("Local conditions", 13, light ? LiquidTheme.secondaryText(this) : 0xFFCCD0D6, false);
         weatherCondition.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         weatherCondition.setIncludeFontPadding(false);
         weatherCondition.setSingleLine(true);
@@ -737,11 +740,11 @@ public final class MainActivity extends Activity {
         weatherFacts.setOrientation(LinearLayout.VERTICAL);
         weatherFacts.setGravity(Gravity.CENTER_VERTICAL);
         weatherFacts.setPadding(dp(16), 0, 0, 0);
-        weatherDetails = label("", 11, 0xFFCCD0D6, false);
-        weatherLocation = label("", 11, 0xFFCCD0D6, false);
+        weatherDetails = label("", 11, light ? LiquidTheme.secondaryText(this) : 0xFFCCD0D6, false);
+        weatherLocation = label("", 11, light ? LiquidTheme.secondaryText(this) : 0xFFCCD0D6, false);
         weatherLocation.setSingleLine(true);
         weatherLocation.setEllipsize(TextUtils.TruncateAt.END);
-        weatherMetrics = label("", 11, 0xFFF0F1F3, false);
+        weatherMetrics = label("", 11, light ? LiquidTheme.secondaryText(this) : 0xFFF0F1F3, false);
         weatherFacts.addView(weatherDetails);
         weatherFacts.addView(weatherLocation);
         weatherFacts.addView(weatherMetrics);
@@ -752,7 +755,7 @@ public final class MainActivity extends Activity {
         systemShortcuts.setPadding(dp(3), dp(3), dp(3), dp(3));
         navbar.addView(systemShortcuts, new LinearLayout.LayoutParams(-2, dp(52)));
         addTopIcon(systemShortcuts, "Network", R.drawable.ic_network, this::openNetworkSettings);
-        addTopIcon(systemShortcuts, "Android Settings", android.R.drawable.ic_menu_manage, this::openAndroidSettings);
+        addTopIcon(systemShortcuts, "Android Settings", R.drawable.ic_android_settings, this::openAndroidSettings);
         addTopIcon(systemShortcuts, "Launcher Settings", R.drawable.ic_launcher_settings, this::showSettings);
         FrameLayout viewport = new FrameLayout(this);
         tabShell.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -793,15 +796,15 @@ public final class MainActivity extends Activity {
         homeCalendarCard.setPadding(dp(12), dp(6), dp(12), dp(6));
         homeCalendarCard.setBackground(headerSectionBackground());
         homeCalendarCard.setElevation(0);
-        TextView calendarIcon = label("", 26, 0xFF81B8F2, true);
+        TextView calendarIcon = label("", 26, light ? LiquidTheme.accent(this) : 0xFF81B8F2, true);
         NavigationGlyph eventGlyph = new NavigationGlyph(TAB_EVENTS);
         eventGlyph.setBounds(0, 0, dp(27), dp(27));
-        eventGlyph.setGlyphColor(0xFF81B8F2);
+        eventGlyph.setGlyphColor(light ? LiquidTheme.accent(this) : 0xFF81B8F2);
         calendarIcon.setCompoundDrawables(null, eventGlyph, null, null);
         calendarIcon.setGravity(Gravity.CENTER);
         homeCalendarCard.addView(calendarIcon, new LinearLayout.LayoutParams(dp(44), dp(46)));
         View calendarDivider = new View(this);
-        calendarDivider.setBackgroundColor(0x558FADB2);
+        calendarDivider.setBackgroundColor(light ? LiquidTheme.border(this) : 0x558FADB2);
         LinearLayout.LayoutParams calendarDividerParams = new LinearLayout.LayoutParams(dp(1), dp(36));
         calendarDividerParams.setMargins(dp(6), 0, dp(10), 0);
 
@@ -809,18 +812,18 @@ public final class MainActivity extends Activity {
         calendarCopy.setOrientation(LinearLayout.VERTICAL);
         calendarCopy.setGravity(Gravity.CENTER_VERTICAL);
         homeCalendarCard.addView(calendarCopy, new LinearLayout.LayoutParams(0, -2, 1));
-        homeCalendarEyebrow = label("UP NEXT", 10, 0xFFBEC4CD, false);
+        homeCalendarEyebrow = label("UP NEXT", 10, light ? LiquidTheme.secondaryText(this) : 0xFFBEC4CD, false);
         calendarCopy.addView(homeCalendarEyebrow);
-        homeCalendarTitle = label("No events today", 16, Color.WHITE, true);
+        homeCalendarTitle = label("No events today", 16, light ? LiquidTheme.text(this) : Color.WHITE, true);
         homeCalendarTitle.setSingleLine(true);
         homeCalendarTitle.setMaxLines(1);
         homeCalendarTitle.setEllipsize(TextUtils.TruncateAt.END);
         calendarCopy.addView(homeCalendarTitle);
-        homeCalendarSubtitle = label("Open your calendar", 11, 0xFFBCCBD0, false);
+        homeCalendarSubtitle = label("Open your calendar", 11, light ? LiquidTheme.secondaryText(this) : 0xFFBCCBD0, false);
         homeCalendarSubtitle.setSingleLine(true);
         homeCalendarSubtitle.setEllipsize(TextUtils.TruncateAt.END);
         calendarCopy.addView(homeCalendarSubtitle);
-        TextView calendarArrow = label("›", 24, Color.WHITE, false);
+        TextView calendarArrow = label("›", 24, light ? LiquidTheme.secondaryText(this) : Color.WHITE, false);
         calendarArrow.setGravity(Gravity.CENTER);
         homeCalendarCard.addView(calendarArrow, new LinearLayout.LayoutParams(dp(22), dp(40)));
         homeCalendarCard.setFocusable(true);
@@ -853,7 +856,7 @@ public final class MainActivity extends Activity {
         nowPlayingSection = new LinearLayout(this);
         nowPlayingSection.setOrientation(LinearLayout.VERTICAL);
         nowPlayingSection.setVisibility(View.GONE);
-        TextView musicLabel = label("NOW PLAYING", 11, 0xFF8BE4F5, true);
+        TextView musicLabel = label("NOW PLAYING", 11, light ? LiquidTheme.accent(this) : 0xFF8BE4F5, true);
         musicLabel.setLetterSpacing(.18f);
         LinearLayout.LayoutParams musicLabelParams = new LinearLayout.LayoutParams(-1, -2);
         musicLabelParams.topMargin = dp(10);
@@ -861,7 +864,9 @@ public final class MainActivity extends Activity {
         nowPlayingCard = new LinearLayout(this);
         nowPlayingCard.setGravity(Gravity.CENTER_VERTICAL);
         nowPlayingCard.setPadding(dp(8), dp(6), dp(8), dp(6));
-        nowPlayingCard.setBackground(roundedShape(0x7A091F21, 0x33FFFFFF, 1, 13));
+        nowPlayingCard.setBackground(roundedShape(
+                light ? LiquidTheme.surface(this) : 0x7A091F21,
+                light ? LiquidTheme.border(this) : 0x33FFFFFF, 1, 13));
         musicArtwork = new ImageView(this);
         musicArtwork.setImageResource(android.R.drawable.ic_media_play);
         musicArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -869,23 +874,23 @@ public final class MainActivity extends Activity {
         LinearLayout musicCopy = new LinearLayout(this);
         musicCopy.setOrientation(LinearLayout.VERTICAL);
         musicCopy.setPadding(dp(8), 0, dp(4), 0);
-        musicTitle = label("", 13, Color.WHITE, true);
+        musicTitle = label("", 13, light ? LiquidTheme.text(this) : Color.WHITE, true);
         musicTitle.setSingleLine(true);
         musicTitle.setEllipsize(TextUtils.TruncateAt.END);
         musicCopy.addView(musicTitle);
-        musicArtist = label("", 10, 0xFFB8CFCC, false);
+        musicArtist = label("", 10, light ? LiquidTheme.secondaryText(this) : 0xFFB8CFCC, false);
         musicArtist.setSingleLine(true);
         musicArtist.setEllipsize(TextUtils.TruncateAt.END);
         musicCopy.addView(musicArtist);
         musicProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         musicProgress.setMax(1000);
-        musicProgress.setProgressTintList(android.content.res.ColorStateList.valueOf(ACCENT));
+        musicProgress.setProgressTintList(android.content.res.ColorStateList.valueOf(LiquidTheme.accent(this)));
         LinearLayout.LayoutParams musicProgressParams = new LinearLayout.LayoutParams(-1, dp(3));
         musicProgressParams.topMargin = dp(6);
         musicCopy.addView(musicProgress, musicProgressParams);
         nowPlayingCard.addView(musicCopy, new LinearLayout.LayoutParams(0, -2, 1));
         musicToggle = actionButton("Ⅱ");
-        musicToggle.setTextColor(ACCENT);
+        musicToggle.setTextColor(LiquidTheme.accent(this));
         musicToggle.setContentDescription("Pause playback");
         musicToggle.setOnClickListener(v -> toggleMediaPlayback());
         nowPlayingCard.addView(musicToggle, new LinearLayout.LayoutParams(dp(36), dp(40)));
@@ -903,11 +908,11 @@ public final class MainActivity extends Activity {
         header.setBackgroundColor(Color.TRANSPARENT);
         header.addView(timeCard, new LinearLayout.LayoutParams(0, -1, 28));
         View timeRule = new View(this);
-        timeRule.setBackgroundColor(0x55CDD0D4);
+        timeRule.setBackgroundColor(light ? LiquidTheme.border(this) : 0x55CDD0D4);
         header.addView(timeRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
         header.addView(weatherCard, new LinearLayout.LayoutParams(0, -1, 40));
         View eventRule = new View(this);
-        eventRule.setBackgroundColor(0x55CDD0D4);
+        eventRule.setBackgroundColor(light ? LiquidTheme.border(this) : 0x55CDD0D4);
         header.addView(eventRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
         header.addView(homeCalendarCard, new LinearLayout.LayoutParams(0, -1, 32));
         FrameLayout topBar = new FrameLayout(this);
@@ -1326,24 +1331,26 @@ public final class MainActivity extends Activity {
             for (int i = 0; i < tabPages.length; i++) {
                 if (tabPages[i] != null) tabPages[i].setVisibility(i == selectedTab ? View.VISIBLE : View.GONE);
                 if (tabButtons[i] != null) {
+                    boolean light = LiquidTheme.isLight(this);
                     boolean selected = i == selectedTab;
+                    int accentColor = LiquidTheme.accent(this);
                     GradientDrawable selectedPill = new GradientDrawable();
-                    selectedPill.setColor(0xFF7BE7F4);
+                    selectedPill.setColor(accentColor);
                     selectedPill.setCornerRadius(dp(24));
                     GradientDrawable focusedPill = new GradientDrawable();
-                    focusedPill.setColor(0xFF7BE7F4);
+                    focusedPill.setColor(accentColor);
                     focusedPill.setCornerRadius(dp(24));
-                    focusedPill.setStroke(dp(2), 0x66FFFFFF);
+                    focusedPill.setStroke(dp(2), light ? 0x66000000 : 0x66FFFFFF);
                     StateListDrawable states = new StateListDrawable();
                     states.addState(new int[]{android.R.attr.state_focused}, focusedPill);
                     states.addState(new int[]{}, selected
                             ? selectedPill : new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
                     tabButtons[i].setBackground(states);
                     tabButtons[i].setTypeface(LiquidTheme.font(this));
-                    tabButtons[i].setTextColor(selected ? 0xFF071417
-                            : (LiquidTheme.isLight(this) ? 0xFF24403D : 0xD4FFFFFF));
-                    navigationGlyphs[i].setGlyphColor(selected ? 0xFF071417
-                            : (LiquidTheme.isLight(this) ? 0xFF24403D : 0xD4FFFFFF));
+                    int selectedTextColor = light ? Color.WHITE : 0xFF071417;
+                    int unselectedTextColor = light ? 0xFF24403D : 0xD4FFFFFF;
+                    tabButtons[i].setTextColor(selected ? selectedTextColor : unselectedTextColor);
+                    navigationGlyphs[i].setGlyphColor(selected ? selectedTextColor : unselectedTextColor);
                 }
             }
             if (!keepNavigationFocus && !focusTabButton) {
@@ -1355,7 +1362,7 @@ public final class MainActivity extends Activity {
         } finally {
             switchingTabs = false;
         }
-        browsingShade.setAlpha(selectedTab == TAB_HOME ? 0f
+        browsingShade.setAlpha(selectedTab == TAB_HOME ? (LiquidTheme.isLight(this) ? .50f : 0f)
                 : (LiquidTheme.isLight(this) ? .88f : .65f));
         View selectedPage = tabPages[selectedTab];
         selectedPage.post(() -> {
@@ -1412,11 +1419,14 @@ public final class MainActivity extends Activity {
         monthHeading.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams monthParams = new LinearLayout.LayoutParams(-1, dp(80));
         eventsContent.addView(monthHeading, monthParams);
+        boolean light = LiquidTheme.isLight(this);
         Button backButton = actionButton("‹");
         backButton.setTextSize(30);
         alignCalendarArrow(backButton);
         backButton.setContentDescription("Back to Home");
-        backButton.setBackground(calendarGlassShape(0xC91A1D26, 0xAAFFFFFF, 28));
+        backButton.setBackground(calendarGlassShape(
+                light ? LiquidTheme.surface(this) : 0xC91A1D26,
+                light ? LiquidTheme.border(this) : 0xAAFFFFFF, 28));
         backButton.setOnClickListener(v -> selectTab(TAB_HOME, true));
         linkTabEntry(TAB_EVENTS, backButton);
         LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(dp(52), dp(52));
@@ -1440,7 +1450,9 @@ public final class MainActivity extends Activity {
         monthHeading.addView(eventSummary, new LinearLayout.LayoutParams(0, -1, 1));
         LinearLayout monthSwitcher = new LinearLayout(this);
         monthSwitcher.setGravity(Gravity.CENTER_VERTICAL);
-        monthSwitcher.setBackground(calendarGlassShape(0xC91A1D26, 0xAAFFFFFF, 30));
+        monthSwitcher.setBackground(calendarGlassShape(
+                light ? LiquidTheme.surface(this) : 0xC91A1D26,
+                light ? LiquidTheme.border(this) : 0xAAFFFFFF, 30));
         monthHeading.addView(monthSwitcher, new LinearLayout.LayoutParams(dp(200), dp(52)));
         previousMonthButton = actionButton("‹");
         previousMonthButton.setTextSize(28);
@@ -1508,12 +1520,13 @@ public final class MainActivity extends Activity {
 
     private void renderMonthCalendar(List<PublicCalendarRepository.Event> events) {
         if (calendarMonthGrid == null) return;
+        boolean light = LiquidTheme.isLight(this);
         renderedMonth = displayedMonth;
         renderedToday = LocalDate.now();
         renderedCalendarStamp = preferences.getLong("publicCalendarUpdatedAt", 0L);
         String monthName = displayedMonth.format(java.time.format.DateTimeFormatter.ofPattern("MMMM", Locale.getDefault()));
         SpannableString headingText = new SpannableString(monthName + " " + displayedMonth.getYear());
-        headingText.setSpan(new ForegroundColorSpan(0xFFAFC6D2), monthName.length() + 1,
+        headingText.setSpan(new ForegroundColorSpan(light ? LiquidTheme.secondaryText(this) : 0xFFAFC6D2), monthName.length() + 1,
                 headingText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         monthTitle.setText(headingText);
         previousMonthButton.setEnabled(CalendarDates.inRange(displayedMonth.minusMonths(1), YearMonth.now()));
@@ -1525,7 +1538,7 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < 7; i++) {
             DayOfWeek weekday = DayOfWeek.SUNDAY.plus(i);
             TextView heading = label(weekday.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-                    13, 0xFFC6D6DB, false);
+                    13, light ? LiquidTheme.secondaryText(this) : 0xFFC6D6DB, false);
             heading.setGravity(Gravity.CENTER);
             heading.setLetterSpacing(.1f);
             GridLayout.LayoutParams params = new GridLayout.LayoutParams();
@@ -1547,7 +1560,8 @@ public final class MainActivity extends Activity {
             if (dayNumber < 1 || dayNumber > displayedMonth.lengthOfMonth()) {
                 TextView overflow = label(String.valueOf(dayNumber < 1
                         ? displayedMonth.minusMonths(1).lengthOfMonth() + dayNumber
-                        : dayNumber - displayedMonth.lengthOfMonth()), 20, 0xFF78818A, false);
+                        : dayNumber - displayedMonth.lengthOfMonth()), 20,
+                        light ? 0x554D6968 : 0xFF78818A, false);
                 overflow.setGravity(Gravity.TOP | Gravity.LEFT);
                 overflow.setPadding(dp(13), dp(8), 0, 0);
                 overflow.setBackgroundColor(Color.TRANSPARENT);
@@ -1682,13 +1696,14 @@ public final class MainActivity extends Activity {
     }
 
     private void styleCalendarHeaderControl(Button button) {
+        boolean light = LiquidTheme.isLight(this);
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[]{-android.R.attr.state_enabled},
                 calendarGlassShape(Color.TRANSPARENT, Color.TRANSPARENT, 24));
         states.addState(new int[]{android.R.attr.state_pressed},
-                calendarGlassShape(0xFFB6FFF0, 0xFFFFFFFF, 24));
+                calendarGlassShape(light ? 0xFF087D91 : 0xFFB6FFF0, light ? 0x887C9E9A : 0xFFFFFFFF, 24));
         states.addState(new int[]{android.R.attr.state_focused},
-                calendarGlassShape(0xFF7BE7F4, 0xCCFFFFFF, 24));
+                calendarGlassShape(light ? 0xFF087D91 : 0xFF7BE7F4, light ? 0x887C9E9A : 0xCCFFFFFF, 24));
         states.addState(new int[]{},
                 calendarGlassShape(Color.TRANSPARENT, Color.TRANSPARENT, 24));
         button.setBackground(states);
@@ -1696,7 +1711,8 @@ public final class MainActivity extends Activity {
                 new int[]{-android.R.attr.state_enabled},
                 new int[]{android.R.attr.state_pressed},
                 new int[]{android.R.attr.state_focused}, new int[]{}
-        }, new int[]{0x55FFFFFF, 0xFF071417, 0xFF071417, Color.WHITE}));
+        }, light ? new int[]{0x55132B2B, Color.WHITE, Color.WHITE, LiquidTheme.text(this)}
+                 : new int[]{0x55FFFFFF, 0xFF071417, 0xFF071417, Color.WHITE}));
         button.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
     }
 
@@ -2262,11 +2278,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void renderWeather() {
         if (weatherPanel == null) return;
+        boolean light = LiquidTheme.isLight(this);
         if (weatherForecast == null) {
             weatherSymbol.setText("☀");
             weatherTemperature.setText(hasWeatherLocation() ? "Weather unavailable" : "Weather not set");
             weatherTemperature.setTextSize(compactNavigation ? 14 : 16);
-            weatherTemperature.setTextColor(0xFFF5FAF8);
+            weatherTemperature.setTextColor(light ? LiquidTheme.text(this) : 0xFFF5FAF8);
             weatherCondition.setText(hasWeatherLocation() ? "Refresh in Settings" : "Configure in Settings");
             weatherCondition.setVisibility(View.VISIBLE);
             weatherLocation.setText("");
@@ -2280,7 +2297,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         weatherSymbol.setText(WeatherRepository.symbol(weatherForecast.code, weatherForecast.day));
         double temperature = fahrenheit ? WeatherRepository.fahrenheit(weatherForecast.temperature) : weatherForecast.temperature;
         weatherTemperature.setTextSize(compactNavigation ? 28 : 32);
-        weatherTemperature.setTextColor(Color.WHITE);
+        weatherTemperature.setTextColor(light ? LiquidTheme.text(this) : Color.WHITE);
         String temperatureText = Math.round(temperature) + (fahrenheit ? "°F" : "°C");
         SpannableString styledTemperature = new SpannableString(temperatureText);
         int degree = temperatureText.indexOf('°');
@@ -2685,6 +2702,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         View previous = appRow.findFocus();
         if (previous != null && previous.getTag() instanceof String) focusedPackage = (String) previous.getTag();
         appRow.removeAllViews();
+        boolean light = LiquidTheme.isLight(this);
         int tileWidth = compactNavigation ? 148 : 167;
         List<String> selected = selectedPackages(all);
         if (selected.isEmpty() && !preferences.getBoolean("customApps", false)) {
@@ -2702,19 +2720,25 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             tile.setClickable(true);
             StateListDrawable appTileStates = new StateListDrawable();
             String brand = (entry.packageName + " " + entry.label).toLowerCase(Locale.ROOT);
+            boolean isBranded = brand.contains("netflix") || brand.contains("prime") || brand.contains("disney")
+                    || brand.contains("youtube") || brand.contains("apple");
             int cardColor = brand.contains("netflix") ? 0xED071316
                     : brand.contains("prime") ? 0xF00678B9
                     : brand.contains("disney") ? 0xF00D1A55
                     : brand.contains("youtube") ? 0xF4FAFAFA
-                    : brand.contains("apple") ? 0xF4FAFAFA : 0xCE102328;
+                    : brand.contains("apple") ? 0xF4FAFAFA
+                    : (light ? LiquidTheme.surface(this) : 0xCE102328);
             boolean whiteCard = brand.contains("youtube") || brand.contains("apple");
+            int focusColor = isBranded ? cardColor : (light ? LiquidTheme.raisedSurface(this) : cardColor);
+            int unfocusedBg = isBranded ? cardColor : (light ? LiquidTheme.surface(this) : 0xB5101C20);
+            int unfocusedBorder = light ? LiquidTheme.border(this) : 0x66FFFFFF;
+            int focusedBorder = LiquidTheme.accent(this);
             appTileStates.addState(new int[]{android.R.attr.state_focused},
-                    roundedShape(cardColor, 0xFF71E8FF, 3, 16));
+                    roundedShape(focusColor, focusedBorder, 2, 16));
             appTileStates.addState(new int[]{android.R.attr.state_pressed},
-                    roundedShape(cardColor, 0xFF71E8FF, 3, 16));
+                    roundedShape(focusColor, focusedBorder, 2, 16));
             appTileStates.addState(new int[]{},
-                    roundedShape(whiteCard || brand.contains("netflix") || brand.contains("prime") || brand.contains("disney")
-                            ? cardColor : 0xB5101C20, 0x66FFFFFF, 1, 16));
+                    roundedShape(unfocusedBg, unfocusedBorder, 1, 16));
             tile.setBackground(appTileStates);
             tile.setFocusableInTouchMode(false);
             tile.setElevation(dp(2));
@@ -2725,9 +2749,14 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             icon.setImageDrawable(entry.icon);
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
             tile.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
-            TextView name = label(entry.label, compactNavigation ? 12 : 13, whiteCard ? 0xFF101820 : Color.WHITE, true);
-            // These branded tiles retain their own background in both themes.
-            name.setTextColor(whiteCard ? 0xFF101820 : Color.WHITE);
+            int nameColor;
+            if (isBranded) {
+                nameColor = whiteCard ? 0xFF101820 : Color.WHITE;
+            } else {
+                nameColor = light ? LiquidTheme.text(this) : Color.WHITE;
+            }
+            TextView name = label(entry.label, compactNavigation ? 12 : 13, nameColor, true);
+            name.setTextColor(nameColor);
             name.setGravity(Gravity.CENTER_VERTICAL);
             name.setMaxLines(1);
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -2841,7 +2870,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             GradientDrawable posterBackground = new GradientDrawable(
                     GradientDrawable.Orientation.TL_BR,
                     light
-                            ? new int[]{0xFF47677A, 0xFF243B50, 0xFF182534}
+                            ? new int[]{0xFFE0EBF0, 0xFFC5D9E2, 0xFFB2CAD6}
                             : new int[]{0xFF46647A, 0xFF1B3044, 0xFF101B2A});
             posterBackground.setCornerRadius(dp(16));
             posterBackground.setStroke(dp(1), LiquidTheme.border(this));
@@ -2852,21 +2881,21 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             thumbnail.setTag(card.url);
             poster.addView(thumbnail, new FrameLayout.LayoutParams(-1, -1));
             // The title becomes the artwork when YouTube has no usable thumbnail.
-            TextView fallback = label(card.title, 20, Color.WHITE, true);
-            fallback.setTextColor(Color.WHITE);
+            TextView fallback = label(card.title, 20, light ? 0xFF1A353D : Color.WHITE, true);
+            fallback.setTextColor(light ? 0xFF1A353D : Color.WHITE);
             fallback.setGravity(Gravity.BOTTOM | Gravity.LEFT);
             fallback.setMaxLines(3);
             fallback.setEllipsize(android.text.TextUtils.TruncateAt.END);
             fallback.setPadding(dp(15), dp(34), dp(15), dp(14));
-            fallback.setShadowLayer(dp(8), 0, dp(2), Color.BLACK);
+            if (!light) fallback.setShadowLayer(dp(8), 0, dp(2), Color.BLACK);
             fallback.setContentDescription("Artwork: " + card.title);
             poster.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
             TextView type = label(YouTubeCard.VIDEO.equals(card.type) ? "VIDEO" : "PLAYLIST",
-                    9, Color.WHITE, true);
-            type.setTextColor(Color.WHITE);
+                    9, light ? LiquidTheme.accent(this) : Color.WHITE, true);
+            type.setTextColor(light ? LiquidTheme.accent(this) : Color.WHITE);
             type.setLetterSpacing(.10f);
             type.setPadding(dp(9), dp(5), dp(9), dp(5));
-            type.setBackground(roundedShape(0xDB121212, LiquidTheme.accent(this), 1, 5));
+            type.setBackground(roundedShape(light ? 0xD0FFFFFF : 0xDB121212, LiquidTheme.accent(this), 1, 5));
             FrameLayout.LayoutParams typeParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
             typeParams.setMargins(dp(8), dp(8), 0, 0);
             poster.addView(type, typeParams);
@@ -3120,9 +3149,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 dp(compactNavigation ? 8 : 10), dp(compactNavigation ? 8 : 10));
         icon.setContentDescription(title);
         icon.setTooltipText(title);
+        boolean light = LiquidTheme.isLight(this);
+        int focusFill = light ? 0x22087D91 : 0x24FFFFFF;
+        int focusStroke = light ? LiquidTheme.accent(this) : 0x4DFFFFFF;
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0x24FFFFFF, 0x4DFFFFFF, 1, 22));
-        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(0x24FFFFFF, 0x4DFFFFFF, 1, 22));
+        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(focusFill, focusStroke, 1, 22));
+        states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(focusFill, focusStroke, 1, 22));
         states.addState(new int[]{}, new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
         icon.setBackground(states);
         icon.setFocusable(true);
@@ -3193,11 +3225,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private Drawable headerSectionBackground() {
+        boolean light = LiquidTheme.isLight(this);
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused},
-                roundedShape(0x443D5B61, 0xFF7BE7F4, 1, 14));
-        states.addState(new int[]{android.R.attr.state_pressed},
-                roundedShape(0x443D5B61, 0xFF7BE7F4, 1, 14));
+        Drawable focused = light
+                ? calendarGlassShape(0x25087D91, LiquidTheme.accent(this), 14)
+                : roundedShape(0x443D5B61, 0xFF7BE7F4, 1, 14);
+        states.addState(new int[]{android.R.attr.state_focused}, focused);
+        states.addState(new int[]{android.R.attr.state_pressed}, focused);
         states.addState(new int[]{}, new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
         return states;
     }
@@ -4805,7 +4839,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             calendarUrlField = addInput(form, "Public calendar iCal URL", "https://calendar.google.com/calendar/ical/…/public/basic.ics", draftCalendarUrl, false);
             calendarSummary = label(calendarSummaryText(), 14, SettingsUi.muted(MainActivity.this), false);
             calendarSummary.setPadding(dp(14), dp(8), dp(14), dp(8));
-            calendarSummary.setBackground(roundedShape(LiquidTheme.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 10));
+            calendarSummary.setBackground(roundedShape(SettingsUi.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 10));
             LinearLayout.LayoutParams csParams = new LinearLayout.LayoutParams(-1, -2);
             csParams.setMargins(0, dp(4), 0, dp(6));
             form.addView(calendarSummary, csParams);
@@ -5015,14 +5049,14 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addFormSectionHeader(form, "Cache & Guide status");
             cacheSummary = label(cacheSummaryText(), 14, SettingsUi.muted(MainActivity.this), false);
             cacheSummary.setPadding(dp(14), dp(8), dp(14), dp(8));
-            cacheSummary.setBackground(roundedShape(LiquidTheme.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 10));
+            cacheSummary.setBackground(roundedShape(SettingsUi.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 10));
             LinearLayout.LayoutParams csParams = new LinearLayout.LayoutParams(-1, -2);
             csParams.setMargins(0, dp(4), 0, dp(4));
             form.addView(cacheSummary, csParams);
 
             guideSummary = label(guideSummaryText(), 14, SettingsUi.muted(MainActivity.this), false);
             guideSummary.setPadding(dp(14), dp(8), dp(14), dp(8));
-            guideSummary.setBackground(roundedShape(LiquidTheme.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 10));
+            guideSummary.setBackground(roundedShape(SettingsUi.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 10));
             LinearLayout.LayoutParams gsParams = new LinearLayout.LayoutParams(-1, -2);
             gsParams.setMargins(0, dp(4), 0, dp(6));
             form.addView(guideSummary, gsParams);

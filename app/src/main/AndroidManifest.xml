@@ -16,7 +16,7 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
-        android:banner="@drawable/sva_image"
+        android:banner="@drawable/sva_banner"
         android:icon="@drawable/sva_image"
         android:roundIcon="@drawable/sva_image"
         android:label="@string/app_name"
@@ -51,6 +51,8 @@
             android:screenOrientation="landscape" />
         <activity
             android:name=".MainActivity"
+            android:banner="@drawable/sva_banner"
+            android:icon="@drawable/sva_image"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
             android:exported="true"
             android:label="@string/app_name"
@@ -63,6 +65,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <activity android:name=".ScreensaverSettingsActivity"

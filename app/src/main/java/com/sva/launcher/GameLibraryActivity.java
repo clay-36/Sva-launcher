@@ -7,6 +7,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -70,6 +72,7 @@ public final class GameLibraryActivity extends Activity {
     }
 
     private Drawable libraryBackground() {
+        Drawable photo = null;
         String wallpaper = getIntent().getStringExtra(EXTRA_BACKGROUND_URI);
         if (wallpaper == null) wallpaper = getSharedPreferences("launcher", MODE_PRIVATE).getString("wallpaper", null);
         if (wallpaper != null) {
@@ -84,12 +87,17 @@ public final class GameLibraryActivity extends Activity {
                     sample.inSampleSize = Math.max(1, Math.min(bounds.outWidth, bounds.outHeight) / Math.max(1, target));
                     try (java.io.InputStream image = getContentResolver().openInputStream(Uri.parse(wallpaper))) {
                         Bitmap bitmap = BitmapFactory.decodeStream(image, null, sample);
-                        if (bitmap != null) return new BitmapDrawable(getResources(), bitmap);
+                        if (bitmap != null) photo = new BitmapDrawable(getResources(), bitmap);
                     }
                 }
             } catch (Exception ignored) { }
         }
-        return getDrawable(R.drawable.mountain_wallpaper);
+        if (photo == null) photo = getDrawable(R.drawable.mountain_wallpaper);
+        GradientDrawable veil = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                LiquidTheme.isLight(this)
+                        ? new int[]{0xB8E9F1EE, 0xE8E9F1EE, 0xF4E9F1EE}
+                        : new int[]{0x91041114, 0xC907171A, 0xF4071417});
+        return new LayerDrawable(new Drawable[]{photo, veil});
     }
 
     private void render() {
