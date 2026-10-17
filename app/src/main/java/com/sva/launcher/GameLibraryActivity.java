@@ -24,6 +24,7 @@ import android.widget.Toast;
 import java.util.List;
 
 public final class GameLibraryActivity extends Activity {
+    static final String EXTRA_BACKGROUND_URI = "background_uri";
     private static final int PICK_FILES = 7101, PICK_FOLDER = 7102;
     private GameRepository repository;
     private GridLayout grid;
@@ -69,7 +70,8 @@ public final class GameLibraryActivity extends Activity {
     }
 
     private Drawable libraryBackground() {
-        String wallpaper = getSharedPreferences("launcher", MODE_PRIVATE).getString("wallpaper", null);
+        String wallpaper = getIntent().getStringExtra(EXTRA_BACKGROUND_URI);
+        if (wallpaper == null) wallpaper = getSharedPreferences("launcher", MODE_PRIVATE).getString("wallpaper", null);
         if (wallpaper != null) {
             try (java.io.InputStream input = getContentResolver().openInputStream(Uri.parse(wallpaper))) {
                 BitmapFactory.Options bounds = new BitmapFactory.Options();

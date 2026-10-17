@@ -3,7 +3,6 @@ package com.sva.launcher;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -34,6 +33,7 @@ import java.util.Locale;
 /** A remote-friendly local storage browser. The system picker remains available for cloud providers. */
 public final class TvFilePickerActivity extends Activity {
     static final String EXTRA_MODE = "mode";
+    static final String EXTRA_LOCAL_FILES = "com.sva.launcher.extra.LOCAL_FILES";
     static final String MODE_NES_FILES = "nes_files";
     static final String MODE_NES_FOLDER = "nes_folder";
     static final String MODE_IMAGE = "image";
@@ -318,15 +318,21 @@ public final class TvFilePickerActivity extends Activity {
     }
 
     private void finishWithFiles(List<File> files) {
-        Intent result = new Intent().addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        setResult(RESULT_OK, localFilesResult(files));
+        finish();
+    }
+
+    static Intent localFilesResult(List<File> files) {
+        Intent result = new Intent();
         if (files.size() == 1) result.setData(Uri.fromFile(files.get(0)));
         else {
-            ClipData clips = ClipData.newRawUri("Selected files", Uri.fromFile(files.get(0)));
-            for (int i = 1; i < files.size(); i++) clips.addItem(new ClipData.Item(Uri.fromFile(files.get(i))));
-            result.setClipData(clips);
+            // These paths stay within our non-exported picker/import flow. Putting
+            // file:// URIs in ClipData makes Activity.finish() throw on modern Android.
+            ArrayList<String> paths = new ArrayList<>();
+            for (File file : files) paths.add(file.getAbsolutePath());
+            result.putStringArrayListExtra(EXTRA_LOCAL_FILES, paths);
         }
-        setResult(RESULT_OK, result);
-        finish();
+        return result;
     }
 
     private void openSystemPicker() {
@@ -347,6 +353,8 @@ public final class TvFilePickerActivity extends Activity {
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
         if (request == EXTERNAL_PICK && result == RESULT_OK && data != null) {
+            // Provider results use granted content URIs, never our internal paths.
+            data.removeExtra(EXTRA_LOCAL_FILES);
             if (data.getData() != null && !isSaveMode()) {
                 try {
                     getContentResolver().takePersistableUriPermission(data.getData(), Intent.FLAG_GRANT_READ_URI_PERMISSION);

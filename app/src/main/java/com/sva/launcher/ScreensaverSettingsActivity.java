@@ -20,89 +20,102 @@ public final class ScreensaverSettingsActivity extends Activity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        BackNavigation.install(this, this::requestClose);
         prefs = getSharedPreferences("launcher", MODE_PRIVATE);
-        ScrollView scroll = new ScrollView(this);
-        scroll.setBackground(LiquidTheme.scenicBackground(this));
-        scroll.setFillViewport(true);
-        scroll.setClipToPadding(false);
-        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(48), dp(28), dp(48), dp(32));
-        scroll.addView(page); setContentView(scroll);
-        title("Screensaver", 30);
-        title("Your photographs, with a little atmosphere. Press any remote key to leave the preview.", 14);
-        source = title("", 14); updateSource();
-        album = input("Separate Google Photos album (optional)", prefs.getString(ScreensaverPreferences.ALBUM, ""));
-        title("Leave empty to follow the Home album automatically. Albums must be shared with anyone who has the link.", 12);
-        caption = input("A caption or dedication (optional)", prefs.getString(ScreensaverPreferences.CAPTION, ""));
-        feedback = title("", 13);
-        LinearLayout actions = row();
-        Button save = button(actions, "Save album & caption", v -> save());
-        button(actions, "Use Home album", v -> {
+        getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+                | android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        LinearLayout shell = SettingsUi.page(this, "Screensaver", "Sva Memories · Personalize your idle screen", this::requestClose);
+        page = SettingsUi.scroll(shell);
+        SettingsUi.heading(page, "Photo source");
+        source = SettingsUi.text(this, "", 14, true); page.addView(source); updateSource();
+        album = input("Separate Google Photos album (optional)", state == null
+                ? prefs.getString(ScreensaverPreferences.ALBUM, "") : state.getString("album", ""));
+        SettingsUi.hint(page, "Leave empty to follow the Home album. Use an album shared with anyone who has the link.");
+        caption = input("Caption (optional)", state == null
+                ? prefs.getString(ScreensaverPreferences.CAPTION, "") : state.getString("caption", ""));
+        feedback = SettingsUi.text(this, "", 14, true); SettingsUi.add(page, feedback);
+        SettingsUi.add(page, SettingsUi.action(this, "Use Home album", () -> {
             album.setText(""); prefs.edit().remove(ScreensaverPreferences.ALBUM).apply();
             updateSource(); feedback.setText("Screensaver now follows the Home album.");
-        });
-        button(actions, "Check album", v -> checkAlbum());
-        title("Choose an atmosphere", 22);
-        LinearLayout themes = null;
-        Button[] themeButtons = new Button[ScreensaverPreferences.THEMES.length];
-        for (int i = 0; i < themeButtons.length; i++) {
-            if (i % 3 == 0) themes = row();
-            final int selected = i;
-            themeButtons[i] = button(themes, ScreensaverPreferences.NAMES[i], v -> {
-                prefs.edit().putString(ScreensaverPreferences.THEME, ScreensaverPreferences.THEMES[selected]).apply();
-                for (int n = 0; n < themeButtons.length; n++) themeButtons[n].setText((n == selected ? "✓ " : "") + ScreensaverPreferences.NAMES[n]);
-                feedback.setText(ScreensaverPreferences.DESCRIPTIONS[selected]);
-            });
+        }));
+        SettingsUi.add(page, SettingsUi.action(this, "Check album", this::checkAlbum));
+        SettingsUi.heading(page, "Appearance");
+        int atmosphere = ScreensaverPreferences.themeIndex(prefs.getString(ScreensaverPreferences.THEME, "cinema"));
+        TextView atmosphereDescription = SettingsUi.text(this, ScreensaverPreferences.DESCRIPTIONS[atmosphere], 14, true);
+        SettingsUi.add(page, SettingsUi.choice(this, "Atmosphere", ScreensaverPreferences.NAMES,
+                atmosphere, index -> {
+                    prefs.edit().putString(ScreensaverPreferences.THEME, ScreensaverPreferences.THEMES[index]).apply();
+                    atmosphereDescription.setText(ScreensaverPreferences.DESCRIPTIONS[index]);
+                }));
+        SettingsUi.add(page, atmosphereDescription);
+        int interval = ScreensaverPreferences.interval(prefs.getInt(ScreensaverPreferences.INTERVAL, 20));
+        String[] intervals = new String[ScreensaverPreferences.INTERVALS.length];
+        int selected = 0;
+        for (int i = 0; i < intervals.length; i++) {
+            intervals[i] = ScreensaverPreferences.INTERVALS[i] + " seconds";
+            if (ScreensaverPreferences.INTERVALS[i] == interval) selected = i;
         }
-        int current = ScreensaverPreferences.themeIndex(prefs.getString(ScreensaverPreferences.THEME, "cinema"));
-        themeButtons[current].setText("✓ " + ScreensaverPreferences.NAMES[current]);
-        feedback.setText(ScreensaverPreferences.DESCRIPTIONS[current]);
-        LinearLayout options = row();
-        int seconds = ScreensaverPreferences.interval(prefs.getInt(ScreensaverPreferences.INTERVAL, 20));
-        button(options, "Change photo · " + seconds + " seconds", v -> {
-            int old = ScreensaverPreferences.interval(prefs.getInt(ScreensaverPreferences.INTERVAL, 20));
-            int next = 20;
-            for (int i = 0; i < ScreensaverPreferences.INTERVALS.length; i++)
-                if (ScreensaverPreferences.INTERVALS[i] == old) next = ScreensaverPreferences.INTERVALS[(i + 1) % ScreensaverPreferences.INTERVALS.length];
-            prefs.edit().putInt(ScreensaverPreferences.INTERVAL, next).apply();
-            ((Button)v).setText("Change photo · " + next + " seconds");
-        });
-        title("Show on screensaver", 22);
-        LinearLayout overlays = row();
-        overlayToggle(overlays, "Clock", ScreensaverPreferences.CLOCK, true);
-        overlayToggle(overlays, "Weather", ScreensaverPreferences.WEATHER, false);
-        overlayToggle(overlays, "Events", ScreensaverPreferences.EVENTS, false);
-        title("Weather and events use your Home weather location and calendar. Configure them in Launcher Settings.", 12);
-        LinearLayout idle = row();
-        int idleMinutes = ScreensaverPreferences.idleMinutes(prefs.getInt(ScreensaverPreferences.IDLE, 0));
-        button(idle, "Start while Sva is idle · " + (idleMinutes == 0 ? "Off" : idleMinutes + " min"), v -> {
-            int old = ScreensaverPreferences.idleMinutes(prefs.getInt(ScreensaverPreferences.IDLE, 0));
-            int next = 0;
-            for (int i = 0; i < ScreensaverPreferences.IDLE_MINUTES.length; i++)
-                if (old == ScreensaverPreferences.IDLE_MINUTES[i])
-                    next = ScreensaverPreferences.IDLE_MINUTES[(i + 1) % ScreensaverPreferences.IDLE_MINUTES.length];
-            prefs.edit().putInt(ScreensaverPreferences.IDLE, next).apply();
-            ((Button)v).setText("Start while Sva is idle · " + (next == 0 ? "Off" : next + " min"));
-        });
-        title("The idle option works while Sva is open, including TVs that restrict custom system screensavers. Playback and settings stay uninterrupted.", 12);
-        LinearLayout launch = row();
-        button(launch, "Preview screensaver", v -> {
+        SettingsUi.add(page, SettingsUi.choice(this, "Change photo", intervals, selected,
+                index -> prefs.edit().putInt(ScreensaverPreferences.INTERVAL, ScreensaverPreferences.INTERVALS[index]).apply()));
+        SettingsUi.heading(page, "Overlays");
+        overlayToggle("Clock", ScreensaverPreferences.CLOCK, true);
+        overlayToggle("Weather", ScreensaverPreferences.WEATHER, false);
+        overlayToggle("Events", ScreensaverPreferences.EVENTS, false);
+        SettingsUi.hint(page, "Weather and events use your Home location and calendar.");
+        SettingsUi.heading(page, "Activation");
+        String[] idleOptions = new String[ScreensaverPreferences.IDLE_MINUTES.length];
+        int idle = ScreensaverPreferences.idleMinutes(prefs.getInt(ScreensaverPreferences.IDLE, 0));
+        selected = 0;
+        for (int i = 0; i < idleOptions.length; i++) {
+            int minutes = ScreensaverPreferences.IDLE_MINUTES[i];
+            idleOptions[i] = minutes == 0 ? "Off" : minutes + (minutes == 1 ? " minute" : " minutes");
+            if (idle == minutes) selected = i;
+        }
+        SettingsUi.add(page, SettingsUi.choice(this, "Start while Sva is idle", idleOptions, selected,
+                index -> prefs.edit().putInt(ScreensaverPreferences.IDLE, ScreensaverPreferences.IDLE_MINUTES[index]).apply()));
+        SettingsUi.hint(page, "Runs while Sva is open. Playback and settings stay uninterrupted.");
+        SettingsUi.add(page, SettingsUi.action(this, "Choose in Android TV settings", this::openScreensaverSettings));
+        SettingsUi.hint(page, "Choose Sva Memories in Android TV settings for a system-wide screensaver. Previously downloaded photos work offline.");
+        LinearLayout footer = new LinearLayout(this);
+        Button save = SettingsUi.action(this, "Save changes", this::save);
+        save.setTextColor(LiquidTheme.accent(this));
+        footer.addView(save, new LinearLayout.LayoutParams(0, -2, 1));
+        Button preview = SettingsUi.action(this, "Preview", () -> {
             if (save()) startActivity(new Intent(this, ScreensaverPreviewActivity.class));
         });
-        button(launch, "Choose in Android TV settings", v -> openScreensaverSettings());
-        button(launch, "Back", v -> finish());
-        title("Select Sva Memories in your TV's screensaver settings and choose its idle timeout there. Offline, previously downloaded photos remain available; without an album, the preview uses Sva's landscape wallpaper.", 12);
-        save.requestFocus();
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(0, -2, 1);
+        previewParams.leftMargin = dp(12); footer.addView(preview, previewParams);
+        shell.addView(footer); setContentView(shell); save.requestFocus();
+        if (state != null) page.post(() -> ((ScrollView) page.getParent()).scrollTo(0, state.getInt("scroll", 0)));
     }
 
-    private void overlayToggle(LinearLayout parent, String label, String key, boolean defaultValue) {
-        button(parent, label + " · " + (prefs.getBoolean(key, defaultValue) ? "On" : "Off"), v -> {
-            boolean enabled = !prefs.getBoolean(key, defaultValue);
-            prefs.edit().putBoolean(key, enabled).apply();
-            ((Button)v).setText(label + " · " + (enabled ? "On" : "Off"));
-        });
+    private void overlayToggle(String label, String key, boolean fallback) {
+        SettingsUi.add(page, SettingsUi.toggle(this, label, prefs.getBoolean(key, fallback),
+                enabled -> prefs.edit().putBoolean(key, enabled).apply()));
     }
+
+    private void requestClose() {
+        boolean dirty = !album.getText().toString().trim().equals(prefs.getString(ScreensaverPreferences.ALBUM, ""))
+                || !caption.getText().toString().trim().equals(prefs.getString(ScreensaverPreferences.CAPTION, ""));
+        if (!dirty) { finish(); return; }
+        new android.app.AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this))
+                .setTitle("Save screensaver changes?")
+                .setMessage("Your album and caption have unsaved changes.")
+                .setPositiveButton("Save", (d, w) -> { if (save()) finish(); })
+                .setNegativeButton("Discard", (d, w) -> finish()).setNeutralButton("Keep editing", null).show();
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putString("album", album.getText().toString());
+        state.putString("caption", caption.getText().toString());
+        state.putInt("scroll", ((ScrollView)page.getParent()).getScrollY());
+        super.onSaveInstanceState(state);
+    }
+
+    @android.annotation.SuppressLint("GestureBackNavigation")
+    @Override public void onBackPressed() { requestClose(); }
 
     private void openScreensaverSettings() {
         Intent[] candidates = new Intent[] {
@@ -153,46 +166,14 @@ public final class ScreensaverSettingsActivity extends Activity {
                 + (ScreensaverPreferences.album(prefs).isEmpty() ? " · no link configured yet" : ""));
     }
     private int dp(int n) { return LiquidTheme.dp(this, n); }
-    private TextView title(String value, int size) {
-        TextView t = GameUi.text(this, value, size, true);
-        t.setPadding(0, dp(8), 0, dp(6)); page.addView(t); return t;
-    }
-    private EditText input(String hint, String value) {
-        EditText edit = new EditText(this); edit.setText(value); edit.setHint(hint);
-        edit.setTextColor(LiquidTheme.text(this)); edit.setHintTextColor(LiquidTheme.secondaryText(this));
-        edit.setTypeface(LiquidTheme.font(this));
-        edit.setTextSize(14); edit.setSingleLine(true); edit.setSelectAllOnFocus(true);
-        edit.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        edit.setPadding(dp(14), dp(10), dp(14), dp(10));
-        android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, GameUi.shape(LiquidTheme.raisedSurface(this),
-                LiquidTheme.accent(this), dp(2), dp(13)));
-        states.addState(new int[]{}, GameUi.shape(LiquidTheme.surface(this), LiquidTheme.border(this), dp(1), dp(13)));
-        edit.setBackground(states);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(50));
-        params.setMargins(0, dp(4), 0, dp(6));
-        page.addView(edit, params); return edit;
-    }
-    private LinearLayout row() {
-        LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, dp(6), 0, dp(6)); page.addView(row); return row;
-    }
-    private Button button(LinearLayout parent, String value, View.OnClickListener listener) {
-        Button b = GameUi.button(this, value);
-        b.setTextSize(13); b.setPadding(dp(12), dp(10), dp(12), dp(10));
-        b.setMinWidth(0); b.setMinimumWidth(0);
-        b.setMinHeight(dp(50)); b.setMinimumHeight(dp(50));
-        b.setMaxLines(2); b.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        b.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
-        b.setOnClickListener(listener);
-        if (parent.getChildCount() > 0) {
-            View previous = parent.getChildAt(parent.getChildCount() - 1);
-            LinearLayout.LayoutParams previousParams = (LinearLayout.LayoutParams) previous.getLayoutParams();
-            previousParams.rightMargin = dp(8);
-            previous.setLayoutParams(previousParams);
-        }
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
-        parent.addView(b, params); return b;
+    private EditText input(String label, String value) {
+        SettingsUi.hint(page, label);
+        EditText edit = new EditText(this); edit.setText(value); edit.setSingleLine(true);
+        edit.setSelectAllOnFocus(true);
+        edit.setInputType(android.text.InputType.TYPE_CLASS_TEXT | (label.startsWith("Separate")
+                ? android.text.InputType.TYPE_TEXT_VARIATION_URI : android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES));
+        edit.setHint(label.startsWith("Separate") ? "https://photos.app.goo.gl/…" : "Add a personal caption");
+        SettingsUi.styleInput(edit, false); SettingsUi.add(page, edit); return edit;
     }
     @Override protected void onDestroy() { worker.shutdownNow(); super.onDestroy(); }
 }

@@ -99,6 +99,7 @@ You can also [build and install the APK from source](#build-from-source).
    | **Games** | Import `.nes` files and optionally remap connected gamepads. |
    | **Weather** | Search for a city or explicitly request approximate device location. |
    | **Schedules** | Set an independent refresh cadence for each network-backed source. |
+   | **Navigation** | Show or hide Live TV, Games, and Events; choose the order of Live TV, Games, Events, and Saved. Home stays first, and hidden categories keep their place. |
 
 The first time you browse local files, allow Sva storage access in Android settings. This lets its TV file browser find NES files, photos, and backups across local storage and USB drives. You can use **Other locations** for files provided by another app.
 
@@ -161,6 +162,31 @@ https://stream.example/channel/manifest.mpd
 ```
 
 Widevine playback supports DASH and FMP4/CMAF HLS when the device supports the stream's DRM scheme, packaging, and codecs.
+
+Playlists can also supply stream request headers and an explicit HLS or DASH hint for URLs without a recognizable extension:
+
+```m3u
+#EXTINF:-1,Authenticated HLS
+#EXTVLCOPT:http-user-agent=Sva TV
+#EXTVLCOPT:http-referrer=https://tv.example/
+#KODIPROP:inputstream.adaptive.manifest_type=hls
+#KODIPROP:inputstream.adaptive.stream_headers=Authorization=Bearer%20token&Origin=https%3A%2F%2Ftv.example
+https://stream.example/live
+```
+
+VLC options support user agent, referrer/referer, origin, and cookie. Kodi `stream_headers` override matching VLC headers; a URL suffix such as `|Authorization=Bearer%20token` takes highest precedence. Percent-encode header values individually, including literal `&`, `=` and `+`. Stream headers apply to manifests, segments and HLS encryption keys; DRM license headers are configured separately in `license_key`. Kodi `manifest_type` accepts `hls` or `mpd`/`dash`; `mime_type` also accepts the corresponding MIME type.
+
+ClearKey DASH supports inline 128-bit hexadecimal `KID:key` pairs (comma-separated for multiple keys), a JWK key set, or an HTTP(S) license endpoint:
+
+```m3u
+#EXTINF:-1,ClearKey DASH example
+#KODIPROP:inputstream.adaptive.manifest_type=mpd
+#KODIPROP:inputstream.adaptive.license_type=org.w3.clearkey
+#KODIPROP:inputstream.adaptive.license_key=000102030405060708090a0b0c0d0e0f:00112233445566778899aabbccddeeff
+https://stream.example/live
+```
+
+The example keys are public test values. For JWK, replace the `license_key` value with `{"keys":[{"kty":"oct","kid":"AAECAwQFBgcICQoLDA0ODw","k":"ABEiM0RVZneImaq7zN3u_w"}]}`. For a license endpoint, use `https://license.example/clearkey|Authorization=Bearer%20token`. ClearKey channels use their own keys and license configuration, independently of global Widevine defaults. Invalid inline keys fail that channel without preventing playlist import. These options survive cache and backup/restore; exported backups are unencrypted and include supplied headers and keys.
 
 ## Game controls
 

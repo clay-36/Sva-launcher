@@ -265,10 +265,16 @@ final class GameRepository {
     static List<Uri> urisFromResult(android.content.Intent data) {
         ArrayList<Uri> values = new ArrayList<>();
         if (data == null) return values;
+        ArrayList<String> localFiles = data.getStringArrayListExtra(TvFilePickerActivity.EXTRA_LOCAL_FILES);
+        if (localFiles != null) for (String path : localFiles) {
+            if (path == null) continue;
+            Uri uri = Uri.fromFile(new File(path));
+            if (!values.contains(uri)) values.add(uri);
+        }
         if (data.getData() != null) values.add(data.getData());
         ClipData clips = data.getClipData();
         if (clips != null) for (int i = 0; i < clips.getItemCount(); i++) {
-            Uri uri = clips.getItemAt(i).getUri(); if (!values.contains(uri)) values.add(uri);
+            Uri uri = clips.getItemAt(i).getUri(); if (uri != null && !values.contains(uri)) values.add(uri);
         }
         return values;
     }
