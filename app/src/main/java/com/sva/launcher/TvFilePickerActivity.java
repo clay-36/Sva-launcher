@@ -30,8 +30,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 
-/** A remote-friendly local storage browser. The system picker remains available for cloud providers. */
-public final class TvFilePickerActivity extends Activity {
+/** A remote-friendly browser for internal storage and connected drives. */
+public final class TvFilePickerActivity extends MotionActivity {
     static final String EXTRA_MODE = "mode";
     static final String EXTRA_LOCAL_FILES = "com.sva.launcher.extra.LOCAL_FILES";
     static final String MODE_NES_FILES = "nes_files";
@@ -40,7 +40,6 @@ public final class TvFilePickerActivity extends Activity {
     static final String MODE_IMAGE_FOLDER = "image_folder";
     static final String MODE_JSON = "json";
     static final String MODE_SAVE_JSON = "save_json";
-    private static final int EXTERNAL_PICK = 1;
     private static final int STORAGE_SETTINGS = 2;
     private static final int STORAGE_PERMISSION = 3;
 
@@ -51,7 +50,7 @@ public final class TvFilePickerActivity extends Activity {
     private TextView path;
     private TextView instruction;
     private Button action;
-    private Button system;
+    private Button back;
     private EditText filename;
 
     static Intent intent(Activity activity, String mode) {
@@ -101,53 +100,96 @@ public final class TvFilePickerActivity extends Activity {
     private void build() {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(GameUi.dp(this, 52), GameUi.dp(this, 28), GameUi.dp(this, 52), GameUi.dp(this, 28));
-        page.setBackground(LiquidTheme.scenicBackground(this));
-        TextView title = GameUi.text(this, title(), 30, true);
+        page.setClipChildren(false);
+        page.setClipToPadding(false);
+        page.setPadding(dp(40), dp(24), dp(40), dp(24));
+        page.setBackgroundColor(SettingsUi.background(this));
+        TextView title = SettingsUi.text(this, title(), 28, false);
         page.addView(title);
-        path = GameUi.text(this, "Storage", 15, false);
-        path.setTextColor(LiquidTheme.secondaryText(this));
-        LinearLayout.LayoutParams pathParams = new LinearLayout.LayoutParams(-1, GameUi.dp(this, 38));
-        pathParams.topMargin = GameUi.dp(this, 8);
-        page.addView(path, pathParams);
-        instruction = GameUi.text(this, "", 15, false);
-        page.addView(instruction);
+        instruction = SettingsUi.text(this, "", 14, true);
+        instruction.setMinHeight(dp(38));
+        instruction.setGravity(Gravity.CENTER_VERTICAL);
+        page.addView(instruction, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout browser = new LinearLayout(this);
+        browser.setOrientation(LinearLayout.VERTICAL);
+        browser.setPadding(dp(12), dp(8), dp(12), dp(8));
+        browser.setBackground(SettingsUi.shape(this, SettingsUi.surface(this), SettingsUi.raised(this), 1, 18));
+        path = SettingsUi.text(this, "Storage locations", 15, true);
+        path.setSingleLine(true);
+        path.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+        path.setGravity(Gravity.CENTER_VERTICAL);
+        path.setPadding(dp(12), 0, dp(12), 0);
+        browser.addView(path, new LinearLayout.LayoutParams(-1, dp(44)));
+        View divider = new View(this); divider.setBackgroundColor(SettingsUi.raised(this));
+        browser.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
         ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setClipToPadding(false);
+        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        scroll.setPadding(0, dp(6), 0, dp(6));
         rows = new LinearLayout(this);
         rows.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(rows);
-        LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(-1, 0, 1);
-        scrollParams.topMargin = GameUi.dp(this, 14);
-        page.addView(scroll, scrollParams);
+        rows.setPadding(dp(12), dp(4), dp(12), dp(4));
+        rows.setClipChildren(false);
+        rows.setClipToPadding(false);
+        scroll.addView(rows, new ScrollView.LayoutParams(-1, -2));
+        browser.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        page.addView(browser, new LinearLayout.LayoutParams(-1, 0, 1));
         if (isSaveMode()) {
             filename = new EditText(this);
             filename.setSingleLine(true);
             filename.setText("sva-launcher-backup.json");
             filename.setSelectAllOnFocus(true);
-            filename.setTextColor(LiquidTheme.text(this));
-            filename.setHintTextColor(LiquidTheme.secondaryText(this));
             filename.setHint("Backup filename");
-            page.addView(filename, new LinearLayout.LayoutParams(GameUi.dp(this, 400), GameUi.dp(this, 54)));
+            filename.setContentDescription("Backup filename");
+            SettingsUi.styleInput(filename, false);
+            LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(-1, dp(56));
+            inputParams.topMargin = dp(12);
+            page.addView(filename, inputParams);
         }
         LinearLayout footer = new LinearLayout(this);
         footer.setGravity(Gravity.CENTER_VERTICAL);
-        Button back = GameUi.button(this, "Back");
+        footer.setClipChildren(false);
+        footer.setClipToPadding(false);
+        footer.setPadding(dp(4), dp(4), dp(4), dp(4));
+        back = pickerButton("Back");
         back.setOnClickListener(v -> up());
-        footer.addView(back, new LinearLayout.LayoutParams(0, GameUi.dp(this, 54), 1f));
-        action = GameUi.button(this, "Select");
-        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(0, GameUi.dp(this, 54), 1.5f);
-        actionParams.leftMargin = GameUi.dp(this, 12);
+        footer.addView(back, new LinearLayout.LayoutParams(dp(112), dp(52)));
+        action = pickerButton("Select");
+        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(0, dp(52), 1);
+        actionParams.leftMargin = dp(12);
         footer.addView(action, actionParams);
         action.setOnClickListener(v -> confirm());
-        system = GameUi.button(this, "Other locations");
-        LinearLayout.LayoutParams systemParams = new LinearLayout.LayoutParams(0, GameUi.dp(this, 54), 1.3f);
-        systemParams.leftMargin = GameUi.dp(this, 12);
-        footer.addView(system, systemParams);
-        system.setOnClickListener(v -> openSystemPicker());
-        LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(-1, GameUi.dp(this, 66));
-        footerParams.topMargin = GameUi.dp(this, 14);
+        LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(-1, dp(64));
+        footerParams.topMargin = dp(12);
         page.addView(footer, footerParams);
         setContentView(page);
+    }
+
+    private int dp(int value) { return SettingsUi.dp(this, value); }
+
+    private Button pickerButton(String label) {
+        Button button = SettingsUi.action(this, label, null);
+        button.setMinHeight(0); button.setMinimumHeight(0);
+        button.setSingleLine(true);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(16), 0, dp(16), 0);
+        button.setTextColor(new android.content.res.ColorStateList(
+                new int[][]{new int[]{-android.R.attr.state_enabled}, new int[]{}},
+                new int[]{SettingsUi.muted(this), SettingsUi.text(this)}));
+        return button;
+    }
+
+    private void updateAction() {
+        action.setText(isMultiMode() ? "Add selected (" + selected.size() + ")"
+                : isFolderMode() ? "Use this folder" : isSaveMode() ? "Save here" : "Select a file");
+        boolean enabled = hasAccess() && (isMultiMode() ? !selected.isEmpty()
+                : directory != null && (isFolderMode() || isSaveMode()));
+        action.setEnabled(enabled);
+        action.setAlpha(enabled ? 1f : .5f);
+        action.setBackground(SettingsUi.states(this, enabled));
+        if (!isMultiMode() && !isFolderMode() && !isSaveMode()) action.setVisibility(View.GONE);
     }
 
     private String title() {
@@ -210,15 +252,16 @@ public final class TvFilePickerActivity extends Activity {
 
     private void showDirectory() {
         rows.removeAllViews();
+        path.setContentDescription(null);
+        if (directory != null && !directory.isDirectory()) directory = null;
+        updateAction();
         if (!hasAccess()) {
             path.setText("Storage access needed");
-            instruction.setText("Allow Sva to browse local files, or choose Other locations for a provider.");
+            instruction.setText("Allow storage access to browse files on this device and connected USB drives.");
             row("Allow storage access", this::requestAccess);
-            action.setEnabled(false);
             rows.getChildAt(0).requestFocus();
             return;
         }
-        if (directory != null && !directory.isDirectory()) directory = null;
         if (directory == null) {
             path.setText("Storage locations");
             instruction.setText("Choose internal storage or a connected USB drive.");
@@ -226,11 +269,11 @@ public final class TvFilePickerActivity extends Activity {
             for (File root : roots) row(root.equals(Environment.getExternalStorageDirectory())
                     ? "Internal storage" : "USB · " + root.getName(), () -> navigate(root));
             if (roots.isEmpty()) row("No local storage found", null);
-            action.setEnabled(false);
             if (!roots.isEmpty()) rows.getChildAt(0).requestFocus();
             return;
         }
         path.setText(directory.getAbsolutePath());
+        path.setContentDescription("Current folder: " + directory.getAbsolutePath());
         instruction.setText(isMultiMode() ? selected.size() + " selected · press OK on files, then Add selected"
                 : isFolderMode() ? "Open a folder, then choose Use this folder" : isSaveMode()
                 ? "Enter a filename and save in this folder" : "Select a file with OK");
@@ -243,19 +286,16 @@ public final class TvFilePickerActivity extends Activity {
             int shown = 0;
             for (File child : children) {
                 if (child.isDirectory()) {
-                    if (child.canRead()) { row("📁  " + child.getName(), () -> navigate(child)); shown++; }
+                    if (child.canRead()) { fileRow(child, true); shown++; }
                 } else if (accepts(child)) {
-                    row((selected.contains(child) ? "✓  " : "      ") + child.getName(), () -> chooseFile(child));
+                    fileRow(child, false);
                     shown++;
                 }
             }
             if (shown == 0) row("No matching files here", null);
         }
-        action.setText(isMultiMode() ? "Add selected (" + selected.size() + ")"
-                : isFolderMode() ? "Use this folder" : isSaveMode() ? "Save here" : "Select a file");
-        action.setEnabled(isFolderMode() || isSaveMode() || (isMultiMode() && !selected.isEmpty()));
         if (rows.getChildCount() > 0 && rows.getChildAt(0).isFocusable()) rows.getChildAt(0).requestFocus();
-        else action.requestFocus();
+        else (action.isEnabled() ? action : back).requestFocus();
     }
 
     private boolean accepts(File file) {
@@ -268,26 +308,73 @@ public final class TvFilePickerActivity extends Activity {
                 || name.endsWith(".heic") || name.endsWith(".heif") || name.endsWith(".avif");
     }
 
-    private void row(String title, Runnable click) {
-        Button button = GameUi.button(this, title);
-        button.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
-        button.setPadding(GameUi.dp(this, 20), 0, GameUi.dp(this, 20), 0);
+    private Button row(String title, Runnable click) {
+        Button button = pickerButton(title);
+        button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+        button.setPadding(dp(16), 0, dp(16), 0);
+        button.setEllipsize(android.text.TextUtils.TruncateAt.END);
         button.setEnabled(click != null);
+        button.setFocusable(click != null);
         if (click != null) button.setOnClickListener(v -> click.run());
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, GameUi.dp(this, 58));
-        params.bottomMargin = GameUi.dp(this, 8);
+        else button.setTextColor(SettingsUi.muted(this));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(56));
+        params.setMargins(dp(4), dp(4), dp(4), dp(4));
         rows.addView(button, params);
+        return button;
+    }
+
+    private void fileRow(File file, boolean folder) {
+        Button button = row(file.getName(), folder ? () -> navigate(file) : () -> chooseFile(file));
+        button.setTag(file);
+        styleFileRow(button, file, folder);
+    }
+
+    private void styleFileRow(Button button, File file, boolean folder) {
+        boolean checked = !folder && selected.contains(file);
+        button.setBackground(SettingsUi.states(this, checked));
+        button.setContentDescription(file.getName() + (folder ? ", folder" : checked ? ", selected" : ", file"));
+        android.graphics.drawable.Drawable icon = new android.graphics.drawable.Drawable() {
+            private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+            @Override public void draw(android.graphics.Canvas canvas) {
+                canvas.save(); canvas.translate(getBounds().left, getBounds().top);
+                canvas.scale(getBounds().width() / 24f, getBounds().height() / 24f);
+                paint.setColor(checked ? LiquidTheme.accent(TvFilePickerActivity.this) : SettingsUi.muted(TvFilePickerActivity.this));
+                paint.setStyle(android.graphics.Paint.Style.STROKE); paint.setStrokeWidth(1.8f);
+                paint.setStrokeJoin(android.graphics.Paint.Join.ROUND); paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+                if (checked) {
+                    canvas.drawRoundRect(3, 3, 21, 21, 4, 4, paint);
+                    canvas.drawLine(7, 12, 10, 15, paint); canvas.drawLine(10, 15, 17, 8, paint);
+                } else if (folder) {
+                    android.graphics.Path shape = new android.graphics.Path();
+                    shape.moveTo(3, 7); shape.lineTo(3, 5); shape.lineTo(10, 5); shape.lineTo(12, 8);
+                    shape.lineTo(21, 8); shape.lineTo(21, 19); shape.lineTo(3, 19); shape.close();
+                    canvas.drawPath(shape, paint);
+                } else {
+                    canvas.drawRoundRect(5, 3, 19, 21, 2, 2, paint);
+                    canvas.drawLine(9, 10, 15, 10, paint); canvas.drawLine(9, 14, 15, 14, paint);
+                }
+                canvas.restore();
+            }
+            @Override public void setAlpha(int alpha) { }
+            @Override public void setColorFilter(android.graphics.ColorFilter filter) { }
+            @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
+        };
+        icon.setBounds(0, 0, dp(24), dp(24));
+        button.setCompoundDrawablePadding(dp(14));
+        button.setCompoundDrawablesRelative(icon, null, null, null);
     }
 
     private void navigate(File next) { directory = next; showDirectory(); }
 
     private void chooseFile(File file) {
         if (isMultiMode()) {
-            int focusedRow = rows.indexOfChild(getCurrentFocus());
             if (!selected.add(file)) selected.remove(file);
-            showDirectory();
-            if (focusedRow >= 0 && focusedRow < rows.getChildCount())
-                rows.getChildAt(focusedRow).requestFocus();
+            for (int i = 0; i < rows.getChildCount(); i++) {
+                View row = rows.getChildAt(i);
+                if (row instanceof Button && file.equals(row.getTag())) styleFileRow((Button) row, file, false);
+            }
+            instruction.setText(selected.size() + " selected · press OK on files, then Add selected");
+            updateAction();
         } else finishWithFiles(Arrays.asList(file));
     }
 
@@ -304,10 +391,11 @@ public final class TvFilePickerActivity extends Activity {
             if (!name.toLowerCase(Locale.ROOT).endsWith(".json")) name += ".json";
             File target = new File(directory, name);
             if (target.exists()) {
-                new AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this))
+                AlertDialog prompt = new AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this))
                         .setTitle("Replace " + name + "?")
                         .setPositiveButton("Replace", (dialog, which) -> finishWithFiles(Arrays.asList(target)))
-                        .setNegativeButton("Cancel", null).show();
+                        .setNegativeButton("Cancel", null).create();
+                Motion.dialog(prompt); prompt.show();
             } else {
                 try {
                     if (!target.createNewFile()) throw new IOException("Could not create file");
@@ -335,34 +423,9 @@ public final class TvFilePickerActivity extends Activity {
         return result;
     }
 
-    private void openSystemPicker() {
-        Intent picker;
-        if (isFolderMode()) picker = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        else if (isSaveMode()) picker = new Intent(Intent.ACTION_CREATE_DOCUMENT)
-                .addCategory(Intent.CATEGORY_OPENABLE).setType("application/json")
-                .putExtra(Intent.EXTRA_TITLE, filename.getText().toString().trim());
-        else picker = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
-                .setType(MODE_IMAGE.equals(mode) ? "image/*" : MODE_JSON.equals(mode) ? "application/json" : "*/*")
-                .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, isMultiMode());
-        picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        try { startActivityForResult(picker, EXTERNAL_PICK); }
-        catch (Exception e) { Toast.makeText(this, "No other file provider is available.", Toast.LENGTH_LONG).show(); }
-    }
-
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (request == EXTERNAL_PICK && result == RESULT_OK && data != null) {
-            // Provider results use granted content URIs, never our internal paths.
-            data.removeExtra(EXTRA_LOCAL_FILES);
-            if (data.getData() != null && !isSaveMode()) {
-                try {
-                    getContentResolver().takePersistableUriPermission(data.getData(), Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                } catch (Exception ignored) { }
-            }
-            setResult(RESULT_OK, data);
-            finish();
-        } else if (request == STORAGE_SETTINGS) showDirectory();
+        if (request == STORAGE_SETTINGS) showDirectory();
     }
 
     private void up() {

@@ -160,11 +160,15 @@ final class ChannelLogoLoader {
         return sample;
     }
 
+    private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
+
     private File cacheFile(String address) {
         try {
-            byte[] digest = MessageDigest.getInstance("MD5").digest(address.getBytes("UTF-8"));
-            StringBuilder key = new StringBuilder();
-            for (byte b : digest) key.append(String.format(java.util.Locale.US, "%02x", b & 0xff));
+            byte[] digest = MessageDigest.getInstance("MD5").digest(address.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder key = new StringBuilder(32);
+            for (byte b : digest) {
+                key.append(HEX_CHARS[(b >> 4) & 0x0f]).append(HEX_CHARS[b & 0x0f]);
+            }
             return new File(cacheDir, key + ".img");
         } catch (Exception e) { return new File(cacheDir, Integer.toHexString(address.hashCode()) + ".img"); }
     }

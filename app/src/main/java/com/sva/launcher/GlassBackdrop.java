@@ -17,6 +17,7 @@ final class GlassBackdrop {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ArrayList<WeakReference<GlassDrawable>> surfaces = new ArrayList<>();
+    private final RectF destRect = new RectF();
     private Bitmap current, outgoing;
     private ValueAnimator transition;
     private float fraction = 1f;
@@ -26,6 +27,7 @@ final class GlassBackdrop {
     void register(GlassDrawable drawable) { surfaces.add(new WeakReference<>(drawable)); }
 
     void prepare(Bitmap source, boolean animate, Runnable ready) {
+        if (closed) return;
         int request = ++generation;
         worker.execute(() -> {
             Bitmap blurred = blur(source);
@@ -66,8 +68,8 @@ final class GlassBackdrop {
         float left = (width - image.getWidth() * scale) / 2f - x;
         float top = (height - image.getHeight() * scale) * .30f - y;
         paint.setAlpha(alpha);
-        canvas.drawBitmap(image, null, new RectF(left, top, left + image.getWidth() * scale,
-                top + image.getHeight() * scale), paint);
+        destRect.set(left, top, left + image.getWidth() * scale, top + image.getHeight() * scale);
+        canvas.drawBitmap(image, null, destRect, paint);
     }
 
     void invalidate() {

@@ -122,6 +122,7 @@ public final class MainActivity extends Activity {
     private static final int ACCENT = 0xFF7BE7F4;
     private static final int LAVENDER = 0xFFB7B7B7;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final LifecycleWork lifecycleWork = new LifecycleWork(this, handler);
     private final List<IptvRepository.Channel> channels = new ArrayList<>();
     private final Set<String> hiddenChannelKeys = new HashSet<>();
     private final Set<String> youtubeMetadataInFlight = new HashSet<>();
@@ -186,7 +187,7 @@ public final class MainActivity extends Activity {
     private LinearLayout weatherPanel;
     private TextView weatherTemperature, weatherCondition, weatherDetails, weatherLocation, weatherMetrics;
     private TextView weatherSymbol, homeCalendarEyebrow, homeCalendarTitle, homeCalendarSubtitle;
-    private LinearLayout homeCalendarCard;
+    private LinearLayout timeCard, weatherCard, homeCalendarCard;
     private View clockDivider;
     private LinearLayout nowPlayingSection, nowPlayingCard;
     private Button musicToggle;
@@ -199,12 +200,8 @@ public final class MainActivity extends Activity {
     private HorizontalScrollView channelCategoryScroll;
     private TextView channelsEmpty;
     private LinearLayout guideSection;
-    private RecyclerView guideList;
-    private ProgrammeGuideAdapter guideAdapter;
-    private TextView guideEmpty, guideHeading;
+    private TextView guideEmpty;
     private Button guideToggle;
-    private boolean guideCollapsed;
-    private String renderedGuideCategory;
     private String pendingReminderChannelKey, pendingReminderStreamUrl;
     private final LinkedHashMap<String, ChannelRow> channelRowMap = new LinkedHashMap<>();
     private final LinkedHashMap<String, Button> channelTabMap = new LinkedHashMap<>();
@@ -244,7 +241,6 @@ public final class MainActivity extends Activity {
         BackNavigation.install(this, this::handleBack);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         preferences = getSharedPreferences("launcher", MODE_PRIVATE);
-        guideCollapsed = preferences.getBoolean("guideCollapsed", false);
         if (state != null) {
             focusedPackage = state.getString("focusedPackage");
             activeTab = Math.max(TAB_HOME, Math.min(TAB_SAVED, state.getInt("activeTab", TAB_HOME)));
@@ -418,7 +414,7 @@ public final class MainActivity extends Activity {
                 error = e.getMessage() == null ? "Could not create the backup." : e.getMessage();
             }
             String result = error;
-            handler.post(() -> Toast.makeText(this,
+            lifecycleWork.post(() -> Toast.makeText(this,
                     result == null ? "Backup saved." : "Backup failed: " + result,
                     result == null ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show());
         }, "launcher-backup-export");
@@ -427,6 +423,7 @@ public final class MainActivity extends Activity {
     }
 
     private void importBackup(Uri source) {
+        restoringBackup = true;
         Toast.makeText(this, "Restoring launcher backup…", Toast.LENGTH_SHORT).show();
         Thread worker = new Thread(() -> {
             String error = null;
@@ -448,10 +445,14 @@ public final class MainActivity extends Activity {
                 error = e.getMessage() == null ? "Could not restore that backup." : e.getMessage();
             }
             String result = error;
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
+                restoringBackup = false;
                 if (result != null) {
                     Toast.makeText(this, "Restore failed: " + result, Toast.LENGTH_LONG).show();
                     return;
+                }
+                if (settingsScreen != null) {
+                    settingsScreen.resetDrafts();
                 }
                 Toast.makeText(this, "Backup restored.", Toast.LENGTH_SHORT).show();
                 recreate();
@@ -507,7 +508,6 @@ public final class MainActivity extends Activity {
         handler.postDelayed(mediaTick, 2000);
         if (root != null && !appsLoaded) renderApps();
         if (gameGrid != null) renderGames();
-        if (guideAdapter != null) guideAdapter.refreshTimes();
         if (settingsScreen == null && !backgroundPhotos.isEmpty()) {
             if (slideA.getVisibility() != View.VISIBLE && slideB.getVisibility() != View.VISIBLE) {
                 showNextBackgroundPhoto();
@@ -532,6 +532,7 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        lifecycleWork.close();
         if (clockTick != null) handler.removeCallbacks(clockTick);
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
         if (calendarRefreshTick != null) handler.removeCallbacks(calendarRefreshTick);
@@ -552,13 +553,17 @@ public final class MainActivity extends Activity {
         youtubeThumbnailCache.evictAll();
         backgroundBitmapCache.evictAll();
         glassBackdrop.close();
+        Motion.cancelTree(getWindow().getDecorView());
+        if (settingsScreen != null && settingsScreen.dialog != null && settingsScreen.dialog.isShowing()) {
+            settingsScreen.dialog.dismiss();
+        }
         super.onDestroy();
     }
 
     private void loadCachedChannels() {
-        ioWorker.execute(() -> {
+        lifecycleWork.execute(ioWorker, () -> {
             List<IptvRepository.Channel> cached = iptv.cachedChannels();
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
                 if (isFinishing() || isDestroyed() || !channels.isEmpty()) return;
                 channels.addAll(cached);
                 renderChannels();
@@ -629,8 +634,12 @@ public final class MainActivity extends Activity {
         navigation.setPadding(dp(outerPadding), dp(16), dp(outerPadding), dp(22));
         tabShell.addView(navigation, new LinearLayout.LayoutParams(-1, dp(dockHeight)));
 
+        navigation.setClipChildren(false);
+        navigation.setClipToPadding(false);
         LinearLayout navbar = new LinearLayout(this);
         navbar.setGravity(Gravity.CENTER_VERTICAL);
+        navbar.setClipChildren(false);
+        navbar.setClipToPadding(false);
         navbar.setPadding(dp(10), 0, dp(14), 0);
         navbar.setBackground(roundedShape(light ? 0xE9F9FCF8 : 0xD508181A,
                 light ? 0x887C9E9A : 0x55C4D9D2, 1, 24));
@@ -642,10 +651,14 @@ public final class MainActivity extends Activity {
         tabScroller.setHorizontalScrollBarEnabled(false);
         tabScroller.setOverScrollMode(View.OVER_SCROLL_NEVER);
         tabScroller.setFillViewport(false);
+        tabScroller.setClipChildren(true);
+        tabScroller.setClipToPadding(false);
         LinearLayout.LayoutParams tabGroupParams = new LinearLayout.LayoutParams(-2, dp(52));
         navbar.addView(tabScroller, tabGroupParams);
         tabRow = new LinearLayout(this);
         tabRow.setGravity(Gravity.CENTER_VERTICAL);
+        tabRow.setClipChildren(false);
+        tabRow.setClipToPadding(false);
         tabRow.setPadding(dp(4), dp(3), dp(4), dp(3));
         tabScroller.addView(tabRow, new HorizontalScrollView.LayoutParams(-2, -1));
         for (int i = 0; i < TAB_TITLES.length; i++) {
@@ -752,6 +765,8 @@ public final class MainActivity extends Activity {
 
         systemShortcuts = new LinearLayout(this);
         systemShortcuts.setGravity(Gravity.CENTER_VERTICAL);
+        systemShortcuts.setClipChildren(false);
+        systemShortcuts.setClipToPadding(false);
         systemShortcuts.setPadding(dp(3), dp(3), dp(3), dp(3));
         navbar.addView(systemShortcuts, new LinearLayout.LayoutParams(-2, dp(52)));
         addTopIcon(systemShortcuts, "Network", R.drawable.ic_network, this::openNetworkSettings);
@@ -776,17 +791,14 @@ public final class MainActivity extends Activity {
         int weatherWidth = dp(compactNavigation ? 240 : 270);
 
         // Top-Left: Time
-        LinearLayout timeCard = new LinearLayout(this);
+        timeCard = new LinearLayout(this);
         timeCard.setId(View.generateViewId());
         timeCard.setOrientation(LinearLayout.VERTICAL);
         timeCard.setGravity(Gravity.CENTER_VERTICAL);
         timeCard.setPadding(dp(16), dp(2), dp(16), dp(2));
-        timeCard.setBackground(headerSectionBackground());
         timeCard.setElevation(0);
-        timeCard.setFocusable(true);
-        timeCard.setClickable(true);
-        timeCard.setOnFocusChangeListener(LiquidTheme::animateFocus);
-        timeCard.setOnClickListener(v -> openDateSettings());
+        timeCard.setFocusable(false);
+        timeCard.setClickable(false);
         timeCard.addView(timeStack, new LinearLayout.LayoutParams(-2, -2));
 
         // Top-Center: Event
@@ -794,7 +806,6 @@ public final class MainActivity extends Activity {
         homeCalendarCard.setId(View.generateViewId());
         homeCalendarCard.setGravity(Gravity.CENTER_VERTICAL);
         homeCalendarCard.setPadding(dp(12), dp(6), dp(12), dp(6));
-        homeCalendarCard.setBackground(headerSectionBackground());
         homeCalendarCard.setElevation(0);
         TextView calendarIcon = label("", 26, light ? LiquidTheme.accent(this) : 0xFF81B8F2, true);
         NavigationGlyph eventGlyph = new NavigationGlyph(TAB_EVENTS);
@@ -823,13 +834,8 @@ public final class MainActivity extends Activity {
         homeCalendarSubtitle.setSingleLine(true);
         homeCalendarSubtitle.setEllipsize(TextUtils.TruncateAt.END);
         calendarCopy.addView(homeCalendarSubtitle);
-        TextView calendarArrow = label("›", 24, light ? LiquidTheme.secondaryText(this) : Color.WHITE, false);
-        calendarArrow.setGravity(Gravity.CENTER);
-        homeCalendarCard.addView(calendarArrow, new LinearLayout.LayoutParams(dp(22), dp(40)));
-        homeCalendarCard.setFocusable(true);
-        homeCalendarCard.setClickable(true);
-        homeCalendarCard.setOnFocusChangeListener(LiquidTheme::animateFocus);
-        homeCalendarCard.setOnClickListener(v -> selectTab(TAB_EVENTS, false));
+        homeCalendarCard.setFocusable(false);
+        homeCalendarCard.setClickable(false);
         updateHomeCalendarWidget();
 
         // Top-Right: Weather
@@ -839,23 +845,22 @@ public final class MainActivity extends Activity {
         weatherStack.setClipChildren(false);
         weatherStack.setClipToPadding(false);
 
-        LinearLayout weatherCard = new LinearLayout(this);
+        weatherCard = new LinearLayout(this);
         weatherCard.setId(View.generateViewId());
         weatherCard.setOrientation(LinearLayout.HORIZONTAL);
         weatherCard.setGravity(Gravity.CENTER_VERTICAL);
         weatherCard.setPadding(dp(12), dp(6), dp(14), dp(6));
-        weatherCard.setBackground(headerSectionBackground());
         weatherCard.setElevation(0);
-        weatherCard.setFocusable(true);
-        weatherCard.setClickable(true);
-        weatherCard.setOnFocusChangeListener(LiquidTheme::animateFocus);
-        weatherCard.setOnClickListener(v -> showWeatherForecast());
+        weatherCard.setFocusable(false);
+        weatherCard.setClickable(false);
         weatherCard.addView(weatherPanel, new LinearLayout.LayoutParams(-1, -1));
 
 
         nowPlayingSection = new LinearLayout(this);
         nowPlayingSection.setOrientation(LinearLayout.VERTICAL);
         nowPlayingSection.setVisibility(View.GONE);
+        nowPlayingSection.setClipChildren(false);
+        nowPlayingSection.setClipToPadding(false);
         TextView musicLabel = label("NOW PLAYING", 11, light ? LiquidTheme.accent(this) : 0xFF8BE4F5, true);
         musicLabel.setLetterSpacing(.18f);
         LinearLayout.LayoutParams musicLabelParams = new LinearLayout.LayoutParams(-1, -2);
@@ -863,6 +868,8 @@ public final class MainActivity extends Activity {
         nowPlayingSection.addView(musicLabel, musicLabelParams);
         nowPlayingCard = new LinearLayout(this);
         nowPlayingCard.setGravity(Gravity.CENTER_VERTICAL);
+        nowPlayingCard.setClipChildren(false);
+        nowPlayingCard.setClipToPadding(false);
         nowPlayingCard.setPadding(dp(8), dp(6), dp(8), dp(6));
         nowPlayingCard.setBackground(roundedShape(
                 light ? LiquidTheme.surface(this) : 0x7A091F21,
@@ -891,36 +898,46 @@ public final class MainActivity extends Activity {
         nowPlayingCard.addView(musicCopy, new LinearLayout.LayoutParams(0, -2, 1));
         musicToggle = actionButton("Ⅱ");
         musicToggle.setTextColor(LiquidTheme.accent(this));
+        musicToggle.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
         musicToggle.setContentDescription("Pause playback");
         musicToggle.setOnClickListener(v -> toggleMediaPlayback());
-        nowPlayingCard.addView(musicToggle, new LinearLayout.LayoutParams(dp(36), dp(40)));
+        LinearLayout.LayoutParams musicToggleParams = new LinearLayout.LayoutParams(dp(36), dp(40));
+        musicToggleParams.setMargins(dp(4), dp(2), dp(4), dp(2));
+        nowPlayingCard.addView(musicToggle, musicToggleParams);
         nowPlayingSection.addView(nowPlayingCard, new LinearLayout.LayoutParams(weatherWidth, dp(68)));
         weatherStack.addView(nowPlayingSection);
 
-        timeCard.setNextFocusRightId(weatherCard.getId());
-        weatherCard.setNextFocusLeftId(timeCard.getId());
-        weatherCard.setNextFocusRightId(homeCalendarCard.getId());
-        homeCalendarCard.setNextFocusLeftId(weatherCard.getId());
-
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setClipChildren(false);
+        header.setClipToPadding(false);
         header.setPadding(dp(14), dp(4), dp(10), dp(4));
         header.setBackgroundColor(Color.TRANSPARENT);
-        header.addView(timeCard, new LinearLayout.LayoutParams(0, -1, 28));
+        LinearLayout.LayoutParams timeCardParams = new LinearLayout.LayoutParams(0, -1, 28);
+        timeCardParams.setMargins(dp(2), dp(2), dp(2), dp(2));
+        header.addView(timeCard, timeCardParams);
         View timeRule = new View(this);
         timeRule.setBackgroundColor(light ? LiquidTheme.border(this) : 0x55CDD0D4);
         header.addView(timeRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
-        header.addView(weatherCard, new LinearLayout.LayoutParams(0, -1, 40));
+        LinearLayout.LayoutParams weatherCardParams = new LinearLayout.LayoutParams(0, -1, 40);
+        weatherCardParams.setMargins(dp(2), dp(2), dp(2), dp(2));
+        header.addView(weatherCard, weatherCardParams);
         View eventRule = new View(this);
         eventRule.setBackgroundColor(light ? LiquidTheme.border(this) : 0x55CDD0D4);
         header.addView(eventRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
-        header.addView(homeCalendarCard, new LinearLayout.LayoutParams(0, -1, 32));
+        LinearLayout.LayoutParams eventCardParams = new LinearLayout.LayoutParams(0, -1, 32);
+        eventCardParams.setMargins(dp(2), dp(2), dp(2), dp(2));
+        header.addView(homeCalendarCard, eventCardParams);
         FrameLayout topBar = new FrameLayout(this);
+        topBar.setClipChildren(false);
+        topBar.setClipToPadding(false);
         topBar.setPadding(dp(20), dp(16), dp(20), 0);
         topBar.addView(header, new FrameLayout.LayoutParams(-1, topCardHeight));
         FrameLayout.LayoutParams musicParams = new FrameLayout.LayoutParams(weatherWidth, -2, Gravity.END | Gravity.TOP);
         musicParams.topMargin = topCardHeight + dp(8);
         topBar.addView(weatherStack, musicParams);
+        page.setClipChildren(false);
+        page.setClipToPadding(false);
         page.addView(topBar, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
 
         homeContent = new LinearLayout(this);
@@ -934,25 +951,37 @@ public final class MainActivity extends Activity {
         View appsSpacer = new View(this);
         homeContent.addView(appsSpacer, new LinearLayout.LayoutParams(-1, dp(34)));
 
-        HorizontalScrollView appScroll = new HorizontalScrollView(this);
+        HorizontalScrollView appScroll = new HorizontalScrollView(this) {
+            @Override protected int computeScrollDeltaToGetChildRectOnScreen(android.graphics.Rect rect) {
+                android.graphics.Rect focusBounds = new android.graphics.Rect(rect);
+                focusBounds.inset(-dp(12), 0);
+                return super.computeScrollDeltaToGetChildRectOnScreen(focusBounds);
+            }
+        };
         appScroll.setHorizontalScrollBarEnabled(false);
         appScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        appScroll.setPadding(dp(4), dp(10), dp(4), dp(10));
+        // Keep focus clearance inside the scroll content: the viewport clips its child bounds.
         appScroll.setClipChildren(true);
-        appScroll.setClipToPadding(true);
+        appScroll.setClipToPadding(false);
         appRow = new LinearLayout(this);
         appRow.setOrientation(LinearLayout.HORIZONTAL);
+        appRow.setPadding(dp(12), dp(14), dp(12), dp(14));
         appRow.setClipChildren(false);
         appRow.setClipToPadding(false);
         appScroll.addView(appRow);
-        homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(88)));
+        homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(92)));
 
         LinearLayout gamesHeading = new LinearLayout(this);
         gamesHeading.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        gamesHeading.setClipChildren(false);
+        gamesHeading.setClipToPadding(false);
         Button seeAllGames = actionButton("Import games");
+        seeAllGames.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
         seeAllGames.setOnClickListener(v -> openGameLibrary());
         linkTabEntry(TAB_GAMES, seeAllGames);
-        gamesHeading.addView(seeAllGames, new LinearLayout.LayoutParams(dp(172), dp(48)));
+        LinearLayout.LayoutParams seeAllParams = new LinearLayout.LayoutParams(dp(172), dp(46));
+        seeAllParams.setMargins(dp(4), dp(4), dp(12), dp(4));
+        gamesHeading.addView(seeAllGames, seeAllParams);
         LinearLayout.LayoutParams gamesHeadingParams = new LinearLayout.LayoutParams(-1, dp(56));
         gamesHeadingParams.topMargin = dp(14);
         gamesContent.addView(gamesHeading, gamesHeadingParams);
@@ -976,7 +1005,8 @@ public final class MainActivity extends Activity {
         channelCategoryScroll = new HorizontalScrollView(this);
         channelCategoryScroll.setHorizontalScrollBarEnabled(false);
         channelCategoryScroll.setClipChildren(true);
-        channelCategoryScroll.setClipToPadding(true);
+        channelCategoryScroll.setClipToPadding(false);
+        channelCategoryScroll.setPadding(dp(4), dp(4), dp(4), dp(4));
         channelCategoryTabs = new LinearLayout(this);
         channelCategoryTabs.setOrientation(LinearLayout.HORIZONTAL);
         channelCategoryTabs.setGravity(Gravity.CENTER_VERTICAL);
@@ -992,14 +1022,21 @@ public final class MainActivity extends Activity {
 
         youtubeSection = new LinearLayout(this);
         youtubeSection.setOrientation(LinearLayout.VERTICAL);
+        youtubeSection.setClipChildren(false);
+        youtubeSection.setClipToPadding(false);
         LinearLayout youtubeTitleRow = new LinearLayout(this);
         youtubeTitleRow.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        youtubeTitleRow.setClipChildren(false);
+        youtubeTitleRow.setClipToPadding(false);
         Button addYouTube = actionButton("Add shortcut");
+        addYouTube.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
         addYouTube.setOnClickListener(v -> openYouTubeSettings());
         linkTabEntry(TAB_SAVED, addYouTube);
-        youtubeTitleRow.addView(addYouTube, new LinearLayout.LayoutParams(dp(175), dp(48)));
+        LinearLayout.LayoutParams addYouTubeParams = new LinearLayout.LayoutParams(dp(175), dp(46));
+        addYouTubeParams.setMargins(dp(4), dp(4), dp(12), dp(4));
+        youtubeTitleRow.addView(addYouTube, addYouTubeParams);
 
-        youtubeTitleRow.setPadding(0, dp(8), 0, 0);
+        youtubeTitleRow.setPadding(0, dp(4), 0, 0);
         LinearLayout.LayoutParams youtubeSectionParams = new LinearLayout.LayoutParams(-1, -2);
         youtubeSectionParams.topMargin = dp(16);
         youtubeSection.addView(youtubeTitleRow, new LinearLayout.LayoutParams(-1, dp(56)));
@@ -1024,43 +1061,29 @@ public final class MainActivity extends Activity {
 
         guideSection = new LinearLayout(this);
         guideSection.setOrientation(LinearLayout.VERTICAL);
+        guideSection.setClipChildren(false);
+        guideSection.setClipToPadding(false);
         LinearLayout.LayoutParams guideParams = new LinearLayout.LayoutParams(-1, -2);
-        guideParams.topMargin = dp(24);
+        guideParams.topMargin = dp(20);
         liveContent.addView(guideSection, guideParams);
-        LinearLayout guideHeader = new LinearLayout(this);
-        guideHeader.setGravity(Gravity.CENTER_VERTICAL);
-        guideSection.addView(guideHeader, new LinearLayout.LayoutParams(-1, dp(52)));
-        guideHeading = label("TV guide", 22, Color.WHITE, true);
-        guideHeading.setLetterSpacing(.01f);
-        guideHeading.setSingleLine(true);
-        guideHeading.setEllipsize(TextUtils.TruncateAt.END);
-        guideHeader.addView(guideHeading, new LinearLayout.LayoutParams(0, -2, 1));
-        guideToggle = actionButton(guideCollapsed ? "Expand" : "Collapse");
-        guideToggle.setOnClickListener(view -> {
-            guideCollapsed = !guideCollapsed;
-            preferences.edit().putBoolean("guideCollapsed", guideCollapsed).apply();
-            renderGuide();
-        });
-        guideHeader.addView(guideToggle, new LinearLayout.LayoutParams(dp(148), dp(44)));
-        guideEmpty = label("Add a playlist and programme guide in Settings.", 15, MUTED, false);
-        guideEmpty.setPadding(dp(8), dp(18), 0, dp(18));
+        guideToggle = actionButton("Open TV guide  →");
+        guideToggle.setContentDescription("Open full-screen TV guide");
+        guideToggle.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
+        guideToggle.setOnClickListener(view -> openTvGuide());
+        LinearLayout.LayoutParams guideToggleParams = new LinearLayout.LayoutParams(dp(260), dp(52));
+        guideToggleParams.setMargins(dp(4), dp(4), dp(4), dp(4));
+        guideSection.addView(guideToggle, guideToggleParams);
+        linkTabEntry(TAB_TV, guideToggle);
+        guideEmpty = label("Explore the schedule, see what's on now, and set reminders.", 14, MUTED, false);
+        guideEmpty.setPadding(dp(4), dp(12), 0, dp(8));
         guideSection.addView(guideEmpty, new LinearLayout.LayoutParams(-1, -2));
-        guideList = new RecyclerView(this);
-        guideList.setLayoutManager(new LinearLayoutManager(this));
-        guideList.setClipChildren(false);
-        guideList.setClipToPadding(false);
-        guideList.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        guideAdapter = new ProgrammeGuideAdapter(this, glassBackdrop, logoLoader,
-                ((SvaApplication) getApplication()).guideReminders(), new ProgrammeGuideAdapter.Actions() {
-            @Override public void watch(IptvRepository.Channel channel) { playChannel(channel); }
-            @Override public void details(IptvRepository.Channel channel, IptvRepository.Programme programme) {
-                showProgrammeDetails(channel, programme);
-            }
-        });
-        guideList.setAdapter(guideAdapter);
-        guideSection.addView(guideList, new LinearLayout.LayoutParams(-1, dp(400)));
-        guideList.setVisibility(View.GONE);
+        renderGuide();
         selectTab(activeTab, false);
+    }
+
+    @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+    private void openTvGuide() {
+        startActivityForResult(new Intent(this, GuideActivity.class).putExtra("category", selectedChannelCategory), 7410);
     }
 
     private LinearLayout addTabContentPage(FrameLayout viewport, int tab) {
@@ -1318,6 +1341,7 @@ public final class MainActivity extends Activity {
             if (button == currentFocus) { navigatingTabs = true; break; }
         }
         final boolean keepNavigationFocus = navigatingTabs;
+        boolean animatePage = tabsInitialized && activeTab != selectedTab;
         View oldPage = tabPages[activeTab];
         if (tabsInitialized && oldPage != null && oldPage.getVisibility() == View.VISIBLE) {
             tabScroll[activeTab] = activeTab == TAB_HOME ? 0 : oldPage.getScrollY();
@@ -1329,7 +1353,10 @@ public final class MainActivity extends Activity {
         switchingTabs = true;
         try {
             for (int i = 0; i < tabPages.length; i++) {
-                if (tabPages[i] != null) tabPages[i].setVisibility(i == selectedTab ? View.VISIBLE : View.GONE);
+                if (tabPages[i] != null) {
+                    if (i != selectedTab) Motion.reset(tabPages[i]);
+                    tabPages[i].setVisibility(i == selectedTab ? View.VISIBLE : View.GONE);
+                }
                 if (tabButtons[i] != null) {
                     boolean light = LiquidTheme.isLight(this);
                     boolean selected = i == selectedTab;
@@ -1341,7 +1368,7 @@ public final class MainActivity extends Activity {
                     focusedPill.setColor(accentColor);
                     focusedPill.setCornerRadius(dp(24));
                     focusedPill.setStroke(dp(2), light ? 0x66000000 : 0x66FFFFFF);
-                    StateListDrawable states = new StateListDrawable();
+                    StateListDrawable states = new Motion.States();
                     states.addState(new int[]{android.R.attr.state_focused}, focusedPill);
                     states.addState(new int[]{}, selected
                             ? selectedPill : new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
@@ -1365,13 +1392,16 @@ public final class MainActivity extends Activity {
         browsingShade.setAlpha(selectedTab == TAB_HOME ? (LiquidTheme.isLight(this) ? .50f : 0f)
                 : (LiquidTheme.isLight(this) ? .88f : .65f));
         View selectedPage = tabPages[selectedTab];
-        selectedPage.post(() -> {
-            if (activeTab != selectedTab) return;
-            if (selectedTab != TAB_HOME) selectedPage.scrollTo(0, tabScroll[selectedTab]);
-            View previous = tabFocus[selectedTab];
-            if (focusTabButton) navigationButton(selectedTab).requestFocus();
-            else if (!keepNavigationFocus && previous != null && previous.isAttachedToWindow() && previous.isShown()) previous.requestFocus();
-        });
+        if (selectedPage != null) {
+            if (animatePage) Motion.reveal(selectedPage);
+            selectedPage.post(() -> {
+                if (activeTab != selectedTab) return;
+                if (selectedTab != TAB_HOME) selectedPage.scrollTo(0, tabScroll[selectedTab]);
+                View previous = tabFocus[selectedTab];
+                if (focusTabButton) navigationButton(selectedTab).requestFocus();
+                else if (!keepNavigationFocus && previous != null && previous.isAttachedToWindow() && previous.isShown()) previous.requestFocus();
+            });
+        }
     }
 
     private boolean isNavigationHidden(int tab) {
@@ -1417,6 +1447,8 @@ public final class MainActivity extends Activity {
         eventsContent.setPadding(dp(28), dp(20), dp(28), dp(12));
         LinearLayout monthHeading = new LinearLayout(this);
         monthHeading.setGravity(Gravity.CENTER_VERTICAL);
+        monthHeading.setClipChildren(false);
+        monthHeading.setClipToPadding(false);
         LinearLayout.LayoutParams monthParams = new LinearLayout.LayoutParams(-1, dp(80));
         eventsContent.addView(monthHeading, monthParams);
         boolean light = LiquidTheme.isLight(this);
@@ -1430,7 +1462,7 @@ public final class MainActivity extends Activity {
         backButton.setOnClickListener(v -> selectTab(TAB_HOME, true));
         linkTabEntry(TAB_EVENTS, backButton);
         LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(dp(52), dp(52));
-        backParams.rightMargin = dp(14);
+        backParams.setMargins(dp(2), dp(2), dp(14), dp(2));
         monthHeading.addView(backButton, backParams);
         monthTitle = label("Calendar", 32, Color.WHITE, true);
         monthTitle.setTextColor(LiquidTheme.text(this));
@@ -1450,6 +1482,8 @@ public final class MainActivity extends Activity {
         monthHeading.addView(eventSummary, new LinearLayout.LayoutParams(0, -1, 1));
         LinearLayout monthSwitcher = new LinearLayout(this);
         monthSwitcher.setGravity(Gravity.CENTER_VERTICAL);
+        monthSwitcher.setClipChildren(false);
+        monthSwitcher.setClipToPadding(false);
         monthSwitcher.setBackground(calendarGlassShape(
                 light ? LiquidTheme.surface(this) : 0xC91A1D26,
                 light ? LiquidTheme.border(this) : 0xAAFFFFFF, 30));
@@ -1459,7 +1493,9 @@ public final class MainActivity extends Activity {
         alignCalendarArrow(previousMonthButton);
         previousMonthButton.setContentDescription("Previous month");
         styleCalendarHeaderControl(previousMonthButton);
-        monthSwitcher.addView(previousMonthButton, new LinearLayout.LayoutParams(dp(46), dp(48)));
+        LinearLayout.LayoutParams prevParams = new LinearLayout.LayoutParams(dp(46), dp(46));
+        prevParams.setMargins(dp(3), dp(3), dp(1), dp(3));
+        monthSwitcher.addView(previousMonthButton, prevParams);
         Button todayButton = actionButton("Today");
         todayButton.setTextSize(14);
         styleCalendarHeaderControl(todayButton);
@@ -1468,13 +1504,18 @@ public final class MainActivity extends Activity {
             selectedCalendarDay = LocalDate.now();
             renderMonthCalendar(cachedCalendarEvents());
         });
-        monthSwitcher.addView(todayButton, new LinearLayout.LayoutParams(0, dp(48), 1));
+        LinearLayout.LayoutParams todayParams = new LinearLayout.LayoutParams(0, dp(46), 1);
+        todayParams.setMargins(dp(1), dp(3), dp(1), dp(3));
+        monthSwitcher.addView(todayButton, todayParams);
         nextMonthButton = actionButton("›");
         nextMonthButton.setTextSize(28);
         alignCalendarArrow(nextMonthButton);
         nextMonthButton.setContentDescription("Next month");
         styleCalendarHeaderControl(nextMonthButton);
         nextMonthButton.setId(View.generateViewId());
+        LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(dp(46), dp(46));
+        nextParams.setMargins(dp(1), dp(3), dp(3), dp(3));
+        monthSwitcher.addView(nextMonthButton, nextParams);
         previousMonthButton.setOnClickListener(v -> {
             YearMonth candidate = displayedMonth.minusMonths(1);
             if (!CalendarDates.inRange(candidate, YearMonth.now())) return;
@@ -1489,7 +1530,6 @@ public final class MainActivity extends Activity {
             selectedCalendarDay = displayedMonth.atDay(1);
             renderMonthCalendar(cachedCalendarEvents());
         });
-        monthSwitcher.addView(nextMonthButton, new LinearLayout.LayoutParams(dp(46), dp(48)));
 
         calendarMonthGrid = new GridLayout(this) {
             private final Paint rulePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1646,7 +1686,7 @@ public final class MainActivity extends Activity {
     }
 
     private void styleCalendarDateButton(Button button, boolean selected, boolean today, boolean weekend) {
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         states.addState(new int[]{android.R.attr.state_focused}, calendarDayHighlight(true));
         states.addState(new int[]{android.R.attr.state_pressed}, calendarDayHighlight(true));
         states.addState(new int[]{}, selected ? calendarDayHighlight(false)
@@ -1697,7 +1737,7 @@ public final class MainActivity extends Activity {
 
     private void styleCalendarHeaderControl(Button button) {
         boolean light = LiquidTheme.isLight(this);
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         states.addState(new int[]{-android.R.attr.state_enabled},
                 calendarGlassShape(Color.TRANSPARENT, Color.TRANSPARENT, 24));
         states.addState(new int[]{android.R.attr.state_pressed},
@@ -2150,7 +2190,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void stylePrimaryButton(Button button) {
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         states.addState(new int[]{android.R.attr.state_focused}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 18));
         states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2, 18));
         states.addState(new int[]{}, roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 1, 18));
@@ -2217,7 +2257,17 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             } catch (SecurityException | IllegalArgumentException ignored) { }
         }
         MediaController controller = activeMediaController;
-        nowPlayingSection.setVisibility(controller == null ? View.GONE : View.VISIBLE);
+        boolean hasMedia = controller != null;
+        nowPlayingSection.setVisibility(hasMedia ? View.VISIBLE : View.GONE);
+        if (appRow != null) {
+            int upId = (hasMedia && musicToggle != null) ? musicToggle.getId() : View.NO_ID;
+            for (int i = 0; i < appRow.getChildCount(); i++) {
+                appRow.getChildAt(i).setNextFocusUpId(upId);
+            }
+        }
+        if (hasMedia && musicToggle != null && tabEntryFocus[TAB_HOME] != null) {
+            musicToggle.setNextFocusDownId(tabEntryFocus[TAB_HOME].getId());
+        }
         if (controller == null) return;
         MediaMetadata metadata = controller.getMetadata();
         PlaybackState state = controller.getPlaybackState();
@@ -2343,7 +2393,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 .setMessage(details.length() > 0 ? details.toString() : "Forecast unavailable")
                 .setPositiveButton("Close", null)
                 .create();
-        dialog.show();
+        Motion.dialog(dialog); dialog.show();
         styleDialog(dialog);
     }
 
@@ -2370,12 +2420,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         preferences.edit().putLong("weatherAttemptedAt", System.currentTimeMillis()).apply();
         int generation = ++weatherRequestGeneration;
         if (settingsScreen != null) settingsScreen.setWeatherFeedback("Refreshing weather…");
-        ioWorker.execute(() -> {
+        lifecycleWork.execute(ioWorker, () -> {
             WeatherRepository.Forecast forecast = null; String error = null;
             try { forecast = WeatherRepository.fetch(location, System.currentTimeMillis()); }
             catch (Exception failure) { error = failure.getMessage() == null ? "Could not refresh weather." : failure.getMessage(); }
             WeatherRepository.Forecast result = forecast; String resultError = error;
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
                 if (generation != weatherRequestGeneration || isFinishing() || isDestroyed()) return;
                 weatherRefreshing = false;
                 if (result != null) {
@@ -2458,7 +2508,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         cancelWeatherLocation();
         if (location == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback("Could not determine this TV’s location."); return; }
         double latitude = location.getLatitude(), longitude = location.getLongitude();
-        ioWorker.execute(() -> {
+        lifecycleWork.execute(ioWorker, () -> {
             String label = "Current location";
             try {
                 List<Address> addresses = new Geocoder(this, Locale.getDefault()).getFromLocation(latitude, longitude, 1);
@@ -2469,7 +2519,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 }
             } catch (Exception ignored) { }
             String result = label;
-            handler.post(() -> saveWeatherLocation("device", new WeatherRepository.Location(result, latitude, longitude)));
+            lifecycleWork.post(() -> saveWeatherLocation("device", new WeatherRepository.Location(result, latitude, longitude)));
         });
     }
 
@@ -2623,7 +2673,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         preferences.edit().putLong("publicCalendarAttemptedAt", System.currentTimeMillis())
                 .putInt("publicCalendarAttemptedVersion", CALENDAR_CACHE_VERSION).apply();
         int generation = ++calendarRequestGeneration;
-        calendarWorker.execute(() -> {
+        lifecycleWork.execute(calendarWorker, () -> {
             String error = null;
             List<PublicCalendarRepository.Event> events = null;
             try {
@@ -2634,7 +2684,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
             String resultError = error;
             List<PublicCalendarRepository.Event> resultEvents = events;
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
                 if (generation != calendarRequestGeneration) return;
                 calendarRefreshing = false;
                 calendarRefreshingUrl = "";
@@ -2675,7 +2725,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         TextView loading = label("Loading apps…", 15, MUTED, false);
         loading.setGravity(Gravity.CENTER_VERTICAL);
         appRow.addView(loading, new LinearLayout.LayoutParams(dp(180), dp(72)));
-        ioWorker.execute(() -> {
+        lifecycleWork.execute(ioWorker, () -> {
             List<AppEntry> loaded = installedApps();
             List<String> selected = selectedPackages(loaded);
             if (selected.isEmpty() && !preferences.getBoolean("customApps", false)) {
@@ -2691,7 +2741,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 }
                 withIcons.add(new AppEntry(entry.info, entry.packageName, entry.label, icon));
             }
-            handler.post(() -> showApps(withIcons));
+            lifecycleWork.post(() -> showApps(withIcons));
         });
     }
 
@@ -2718,7 +2768,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             tile.setOrientation(LinearLayout.HORIZONTAL);
             tile.setFocusable(true);
             tile.setClickable(true);
-            StateListDrawable appTileStates = new StateListDrawable();
+            StateListDrawable appTileStates = new Motion.States();
             String brand = (entry.packageName + " " + entry.label).toLowerCase(Locale.ROOT);
             boolean isBranded = brand.contains("netflix") || brand.contains("prime") || brand.contains("disney")
                     || brand.contains("youtube") || brand.contains("apple");
@@ -2743,6 +2793,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             tile.setFocusableInTouchMode(false);
             tile.setElevation(dp(2));
             tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+            Motion.interaction(tile, false);
             tile.setPadding(dp(10), dp(4), dp(8), dp(4));
             tile.setTag(packageName);
             ImageView icon = new ImageView(this);
@@ -2764,10 +2815,16 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             appNameParams.leftMargin = dp(8);
             tile.addView(name, appNameParams);
             tile.setOnClickListener(v -> launchApp(entry.packageName));
+            if (nowPlayingSection != null && nowPlayingSection.getVisibility() == View.VISIBLE && musicToggle != null) {
+                tile.setNextFocusUpId(musicToggle.getId());
+            }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(tileWidth), dp(64));
-            lp.setMargins(0, 0, dp(8), 0);
+            lp.setMargins(0, 0, dp(10), 0);
             appRow.addView(tile, lp);
-            if (displayed == 0) tabEntryFocus[TAB_HOME] = tile;
+            if (displayed == 0) {
+                tabEntryFocus[TAB_HOME] = tile;
+                if (musicToggle != null) musicToggle.setNextFocusDownId(tile.getId());
+            }
             displayed++;
             if (initialAppFocus && activeTab == TAB_HOME && settingsScreen == null
                     && packageName.equals(focusedPackage)) tile.requestFocus();
@@ -2854,7 +2911,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             tile.setFocusableInTouchMode(false);
             tile.setClickable(true);
             tile.setPadding(dp(8), dp(8), dp(8), dp(7));
-            StateListDrawable states = new StateListDrawable();
+            StateListDrawable states = new Motion.States();
             boolean light = LiquidTheme.isLight(this);
             states.addState(new int[]{android.R.attr.state_focused},
                     roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
@@ -2865,6 +2922,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             tile.setBackground(states);
             tile.setElevation(dp(2));
             tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+            Motion.interaction(tile, false);
 
             FrameLayout poster = new FrameLayout(this);
             GradientDrawable posterBackground = new GradientDrawable(
@@ -2911,7 +2969,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? "Play video: " : "Open playlist: ") + card.title);
             tile.setOnClickListener(view -> launchYouTubeCard(card));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(240), dp(198));
-            params.setMargins(0, dp(2), dp(16), dp(8));
+            params.setMargins(dp(4), dp(4), dp(14), dp(8));
             youtubeRow.addView(tile, params);
             linkTopControl(TAB_SAVED, tile);
             loadYouTubeThumbnail(card, thumbnail, fallback);
@@ -2947,7 +3005,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         synchronized (youtubeMetadataInFlight) {
             if (!youtubeMetadataInFlight.add(url)) return;
         }
-        youtubeWorker.execute(() -> {
+        lifecycleWork.execute(youtubeWorker, () -> {
             String title = null, thumbnail = null;
             HttpURLConnection connection = null;
             try {
@@ -2984,7 +3042,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 thumbnail = playlistFeedThumbnail(parsed.playlistId);
             }
             final String resultTitle = title, resultThumbnail = thumbnail;
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
                 synchronized (youtubeMetadataInFlight) { youtubeMetadataInFlight.remove(url); }
                 List<YouTubeCard> cards = savedYouTubeCards();
                 boolean changed = false;
@@ -3056,7 +3114,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             fallback.setVisibility(View.GONE);
             return;
         }
-        youtubeWorker.execute(() -> {
+        lifecycleWork.execute(youtubeWorker, () -> {
             String cacheName = youtubeThumbnailCacheName(card.thumbnailUrl);
             java.io.File imageFile = new java.io.File(getFilesDir(), cacheName);
             android.graphics.Bitmap bitmap = imageFile.isFile() ? decodeYouTubeImage(imageFile) : null;
@@ -3095,9 +3153,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 }
             }
             if (bitmap == null) return;
+            if (!lifecycleWork.active()) return;
             youtubeThumbnailCache.put(card.thumbnailUrl, bitmap);
             android.graphics.Bitmap result = bitmap;
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
                 if (card.url.equals(image.getTag())) {
                     image.setImageBitmap(result);
                     fallback.setVisibility(View.GONE);
@@ -3152,14 +3211,14 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         boolean light = LiquidTheme.isLight(this);
         int focusFill = light ? 0x22087D91 : 0x24FFFFFF;
         int focusStroke = light ? LiquidTheme.accent(this) : 0x4DFFFFFF;
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         states.addState(new int[]{android.R.attr.state_focused}, roundedShape(focusFill, focusStroke, 1, 22));
         states.addState(new int[]{android.R.attr.state_pressed}, roundedShape(focusFill, focusStroke, 1, 22));
         states.addState(new int[]{}, new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
         icon.setBackground(states);
         icon.setFocusable(true);
         icon.setClickable(true);
-        icon.setOnFocusChangeListener(LiquidTheme::animateFocus);
+        icon.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
         icon.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 dp(compactNavigation ? 34 : 40), dp(compactNavigation ? 34 : 40));
@@ -3213,7 +3272,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void styleFocusableTile(View tile) {
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         states.addState(new int[]{android.R.attr.state_focused}, tileShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2));
         states.addState(new int[]{android.R.attr.state_pressed}, tileShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 2));
         states.addState(new int[]{}, tileShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1));
@@ -3222,11 +3281,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         tile.setFocusableInTouchMode(false);
         tile.setClickable(true);
         tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+        Motion.interaction(tile, false);
     }
 
     private Drawable headerSectionBackground() {
         boolean light = LiquidTheme.isLight(this);
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         Drawable focused = light
                 ? calendarGlassShape(0x25087D91, LiquidTheme.accent(this), 14)
                 : roundedShape(0x443D5B61, 0xFF7BE7F4, 1, 14);
@@ -3237,7 +3297,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private Drawable topWidgetBackground() {
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         states.addState(new int[]{android.R.attr.state_focused},
                 roundedShape(0xE0173032, 0xFF7BE7F4, 2, 18));
         states.addState(new int[]{android.R.attr.state_pressed},
@@ -3351,7 +3411,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 Button tab = createChannelCategoryTab(category);
                 channelTabMap.put(category, tab);
                 LinearLayout.LayoutParams tabParams = new LinearLayout.LayoutParams(-2, dp(44));
-                tabParams.setMargins(0, 0, dp(10), 0);
+                tabParams.setMargins(dp(2), dp(2), dp(8), dp(2));
                 channelCategoryTabs.addView(tab, tabParams);
                 linkTopControl(TAB_TV, tab);
                 if (channelCategoryTabs.getChildCount() == 1) linkTabEntry(TAB_TV, tab);
@@ -3371,62 +3431,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private void refreshCachedProgrammeDisplay() {
         IptvRepository.refreshProgrammeDisplay(channels, System.currentTimeMillis());
         for (ChannelRow row : channelRowMap.values()) row.adapter.refreshProgrammeLabels();
-        if (guideAdapter != null) guideAdapter.refreshTimes();
     }
 
     private void renderGuide() {
-        if (guideAdapter == null) return;
-        guideHeading.setText(selectedChannelCategory == null ? "TV guide"
-                : "TV guide  ·  " + selectedChannelCategory);
-        guideToggle.setText(guideCollapsed ? "Expand" : "Collapse");
-        guideToggle.setContentDescription(guideCollapsed ? "Expand TV guide" : "Collapse TV guide");
-        boolean categoryChanged = !java.util.Objects.equals(renderedGuideCategory, selectedChannelCategory);
-        renderedGuideCategory = selectedChannelCategory;
-        List<IptvRepository.Channel> selected = selectedChannelCategory == null
-                ? Collections.emptyList() : channelsForCategory(selectedChannelCategory);
-        if (selected.isEmpty()) {
-            guideAdapter.setChannels(Collections.emptyList());
-            guideList.setVisibility(View.GONE);
-            guideEmpty.setVisibility(guideCollapsed ? View.GONE : View.VISIBLE);
-            guideEmpty.setText(channels.isEmpty() ? "Add a playlist and programme guide in Settings."
-                    : "All channels are hidden. Restore channels in Settings.");
-        } else {
-            guideEmpty.setVisibility(View.GONE);
-            guideList.setVisibility(guideCollapsed ? View.GONE : View.VISIBLE);
-            guideAdapter.setChannels(selected);
-            guideList.getLayoutParams().height = dp(Math.min(4, guideAdapter.getItemCount()) * 100);
-            guideList.requestLayout();
-            if (categoryChanged) guideList.scrollToPosition(0);
-        }
-    }
-
-    private void showProgrammeDetails(IptvRepository.Channel channel, IptvRepository.Programme programme) {
-        long now = System.currentTimeMillis();
-        if (programme.startMs <= now) { playChannel(channel); return; }
-        GuideReminders reminders = ((SvaApplication) getApplication()).guideReminders();
-        GuideReminders.Reminder reminder = new GuideReminders.Reminder(channel.stableKey(),
-                channel.streamUrl, channel.name, programme.title, programme.startMs, programme.endMs);
-        boolean saved = reminders.has(reminder);
-        DateFormat format = preferences.getBoolean("24h", false)
-                ? new java.text.SimpleDateFormat("EEE, d MMM · HH:mm", Locale.getDefault())
-                : new java.text.SimpleDateFormat("EEE, d MMM · h:mm a", Locale.getDefault());
-        String when = format.format(new Date(programme.startMs)) + " – " + format.format(new Date(programme.endMs));
-        AlertDialog dialog = new AlertDialog.Builder(new android.view.ContextThemeWrapper(this,
-                LiquidTheme.alertDialogTheme(this)))
-                .setTitle(programme.title)
-                .setMessage(channel.name + "\n" + when + "\n\nReminders appear five minutes before the show while Sva is open.")
-                .setPositiveButton(saved ? "Remove reminder" : "Remind me", (ignored, which) -> {
-                    if (saved) reminders.remove(reminder);
-                    else if (!reminders.add(reminder)) {
-                        Toast.makeText(this, "This programme has already started.", Toast.LENGTH_SHORT).show();
-                    }
-                    guideAdapter.refreshTimes();
-                })
-                .setNeutralButton("Watch channel", (ignored, which) -> playChannel(channel))
-                .setNegativeButton("Close", null)
-                .create();
-        dialog.show();
-        styleDialog(dialog);
+        if (guideEmpty == null) return;
+        guideEmpty.setText(channels.isEmpty() ? "Add a playlist and programme guide in Settings."
+                : "Explore the schedule, see what's on now, and set reminders.");
     }
 
     private Button createChannelCategoryTab(String category) {
@@ -3470,7 +3480,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         for (Map.Entry<String, Button> entry : channelTabMap.entrySet()) {
             boolean selected = entry.getKey().equals(selectedChannelCategory);
             Button tab = entry.getValue();
-            android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
+            android.graphics.drawable.StateListDrawable states = new Motion.States();
             states.addState(new int[]{android.R.attr.state_focused}, roundedShape(
                     LiquidTheme.raisedSurface(this),
                     LiquidTheme.accent(this), 2, 8));
@@ -3507,9 +3517,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         List<BackgroundPhoto> cached = cachedBackgroundFolder(treeUri.toString());
         if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
         else if (userSelected && cached.isEmpty()) setBackgroundPhotos(Collections.emptyList());
-        ioWorker.execute(() -> {
+        lifecycleWork.execute(ioWorker, () -> {
             FolderScanResult scan = enumeratePhotos(treeUri);
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
                 if (generation != backgroundFolderGeneration || isFinishing()) return;
                 if (!scan.success) {
                     if (userSelected) Toast.makeText(this,
@@ -3533,7 +3543,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         List<BackgroundPhoto> cached = cachedBackgroundAlbum(shareUrl);
         if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
         preferences.edit().putLong("googlePhotosAttemptedAt", System.currentTimeMillis()).apply();
-        ioWorker.execute(() -> {
+        lifecycleWork.execute(ioWorker, () -> {
             List<BackgroundPhoto> photos = new ArrayList<>();
             String failure = null;
             try {
@@ -3545,7 +3555,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
             List<BackgroundPhoto> result = photos;
             String error = failure;
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
                 if (generation != backgroundFolderGeneration || isFinishing()) return;
                 if (error != null || result.isEmpty()) {
                     if (userSelected) Toast.makeText(this, error == null ? "No public photos were found in that album." : error, Toast.LENGTH_LONG).show();
@@ -3782,11 +3792,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         int generation = ++backgroundImageGeneration;
         ImageView incoming = slideAActive ? slideA : slideB;
         ImageView outgoing = slideAActive ? slideB : slideA;
-        ioWorker.execute(() -> {
+        lifecycleWork.execute(ioWorker, () -> {
             android.graphics.Bitmap bitmap = decodeWallpaper(photo.uri,
                     Math.min(getResources().getDisplayMetrics().widthPixels, 1280),
                     Math.min(dp(heroHeightDp()), 720));
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
                 if (generation != backgroundImageGeneration || !screenActive || isFinishing()) return;
                 backgroundIndex = (index + 1) % backgroundPhotos.size();
                 if (bitmap == null) {
@@ -3837,35 +3847,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
     private void playChannel(IptvRepository.Channel channel) {
-        IptvRepository.refreshProgrammeDisplay(channels, System.currentTimeMillis());
-        Intent play = new Intent(this, PlaybackActivity.class);
-        play.putExtra("name", channel.name);
-        play.putExtra("now", channel.now);
-        play.putExtra("nowStartMs", channel.nowStartMs);
-        play.putExtra("nowEndMs", channel.nowEndMs);
-        play.putExtra("next", channel.next);
-        try { play.putExtra("programmes", IptvRepository.serializeProgrammes(channel.programmes).toString()); }
-        catch (Exception ignored) { }
-        try { play.putExtra("playbackRequest", PlaybackRequest.resolve(channel, iptv.drmLicenseUrl(), iptv.drmHeaders()).toJson().toString()); }
-        catch (Exception ignored) { return; }
-        JSONArray zapList = new JSONArray();
-        int selectedIndex = 0;
-        for (IptvRepository.Channel item : channels) {
-            if (hiddenChannelKeys.contains(item.stableKey())) continue;
-            JSONObject entry = new JSONObject();
-            try {
-                entry.put("name", item.name);
-                entry.put("now", item.now); entry.put("nowStartMs", item.nowStartMs);
-                entry.put("nowEndMs", item.nowEndMs); entry.put("next", item.next);
-                entry.put("playbackRequest", PlaybackRequest.resolve(item, iptv.drmLicenseUrl(), iptv.drmHeaders()).toJson());
-                if (item.sameRenderIdentity(channel)) selectedIndex = zapList.length();
-                zapList.put(entry);
-            } catch (Exception ignored) { }
-        }
-        play.putExtra("zapChannels", zapList.toString());
-        play.putExtra("zapIndex", selectedIndex);
-        try { startActivity(PlaybackSession.createIntent(this, play)); }
-        catch (Exception ignored) { Toast.makeText(this, "Could not open playback. Please try again.", Toast.LENGTH_LONG).show(); }
+        PlaybackLauncher.watch(this, channel, channels);
     }
 
     private void refreshChannels() {
@@ -3874,7 +3856,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         status.setVisibility(View.VISIBLE);
         status.setText("Refreshing channels…");
         if (settingsScreen != null) settingsScreen.onRefreshResult("Refreshing channels…");
-        iptv.refreshChannels((loaded, message) -> handler.post(() -> {
+        iptv.refreshChannels((loaded, message) -> lifecycleWork.post(() -> {
             channelsRefreshing = false;
             channels.clear(); channels.addAll(loaded);
             renderChannels();
@@ -3895,7 +3877,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         status.setVisibility(View.VISIBLE);
         status.setText(refreshing);
         if (settingsScreen != null) settingsScreen.onRefreshResult(refreshing);
-        iptv.refreshGuide(new ArrayList<>(channels), (loaded, message) -> handler.post(() -> {
+        iptv.refreshGuide(new ArrayList<>(channels), (loaded, message) -> lifecycleWork.post(() -> {
             guideRefreshing = false;
             channels.clear(); channels.addAll(loaded);
             renderChannels();
@@ -3927,9 +3909,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (delay != Long.MAX_VALUE) handler.postDelayed(guideRefreshTick, Math.max(60_000L, delay));
     }
 
+    private volatile boolean restoringBackup;
     private SettingsScreen settingsScreen;
 
     private void styleDialog(AlertDialog dialog) {
+        Motion.dialog(dialog);
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 26));
@@ -3941,6 +3925,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 styleFocusableTile(button);
                 button.setTextColor(LiquidTheme.text(this));
                 button.setAllCaps(false);
+                ViewGroup.LayoutParams lp = button.getLayoutParams();
+                if (lp instanceof ViewGroup.MarginLayoutParams) {
+                    ((ViewGroup.MarginLayoutParams) lp).setMargins(dp(6), dp(4), dp(6), dp(4));
+                }
+                if (button.getParent() instanceof ViewGroup) {
+                    ViewGroup parent = (ViewGroup) button.getParent();
+                    parent.setClipChildren(false);
+                    parent.setClipToPadding(false);
+                }
             }
         }
     }
@@ -4043,14 +4036,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             ScrollView railScroll = new ScrollView(MainActivity.this);
             railScroll.setFillViewport(true);
             railScroll.setSmoothScrollingEnabled(true);
-            railScroll.setClipChildren(false);
-            railScroll.setClipToPadding(false);
             railScroll.setVerticalScrollBarEnabled(false);
             railScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            railScroll.setClipToPadding(false);
             railScroll.setPadding(dp(8), dp(8), dp(8), dp(8));
 
             rail = new LinearLayout(MainActivity.this);
             rail.setOrientation(LinearLayout.VERTICAL);
+            rail.setClipChildren(false);
+            rail.setClipToPadding(false);
             railScroll.addView(rail, new FrameLayout.LayoutParams(-1, -2));
             railFrame.addView(railScroll, new FrameLayout.LayoutParams(-1, -1));
 
@@ -4101,13 +4095,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 tab.setElevation(0);
                 tab.setOnClickListener(v -> {
                     captureDrafts();
+                    sectionScroll.put(target, 0);
+                    sectionFocus.remove(target);
                     section = target;
                     renderSection();
                     if (firstControl != null) firstControl.requestFocus();
                 });
                 tabs[target] = tab;
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(64));
-                params.setMargins(0, 0, 0, dp(3));
+                params.setMargins(dp(6), dp(1), dp(6), dp(3));
                 rail.addView(tab, params);
             }
             detail.setBackgroundColor(SettingsUi.background(MainActivity.this));
@@ -4182,7 +4178,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 }
             });
             renderSection();
-            dialog.show();
+            Motion.dialog(dialog); dialog.show();
             BackNavigation.install(dialog, this::requestClose);
             if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
             backgroundImageGeneration++;
@@ -4303,27 +4299,53 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             });
         }
 
+        void resetDrafts() {
+            draftPlaylist = iptv.playlistUrl();
+            draftGuide = iptv.guideUrl();
+            draftLicense = iptv.drmLicenseUrl();
+            draftHeaders = iptv.drmHeaderText();
+            draftCalendarUrl = preferences.getString("publicCalendarUrl", "");
+            draftYoutubeUrl = "";
+            draftYoutubeTitle = "";
+            draftYoutubeArt = "";
+            if (playlistField != null) playlistField.setText(draftPlaylist);
+            if (guideField != null) guideField.setText(draftGuide);
+            if (licenseField != null) licenseField.setText(draftLicense);
+            if (headersField != null) headersField.setText(draftHeaders);
+            if (calendarUrlField != null) calendarUrlField.setText(draftCalendarUrl);
+            if (youtubeUrlField != null) youtubeUrlField.setText("");
+            if (youtubeTitleField != null) youtubeTitleField.setText("");
+            if (youtubeArtField != null) youtubeArtField.setText("");
+            appsChanged = false;
+            channelsChanged = false;
+            youtubeChanged = false;
+        }
+
         private boolean hasUnsavedEdits() {
+            if (restoringBackup) return false;
             captureDrafts();
-            return !draftPlaylist.trim().equals(iptv.playlistUrl())
-                    || !draftGuide.trim().equals(iptv.guideUrl())
-                    || !draftLicense.trim().equals(iptv.drmLicenseUrl())
-                    || !draftHeaders.trim().equals(iptv.drmHeaderText())
-                    || !draftCalendarUrl.trim().equals(preferences.getString("publicCalendarUrl", ""));
+            return !draftPlaylist.trim().equals(iptv.playlistUrl().trim())
+                    || !draftGuide.trim().equals(iptv.guideUrl().trim())
+                    || !draftLicense.trim().equals(iptv.drmLicenseUrl().trim())
+                    || !draftHeaders.trim().equals(iptv.drmHeaderText().trim())
+                    || !draftCalendarUrl.trim().equals(preferences.getString("publicCalendarUrl", "").trim());
         }
 
         private void requestClose() {
+            if (restoringBackup) { dialog.dismiss(); return; }
             if (!hasUnsavedEdits()) { dialog.dismiss(); return; }
             AlertDialog prompt = new AlertDialog.Builder(new android.view.ContextThemeWrapper(MainActivity.this,
                     LiquidTheme.alertDialogTheme(MainActivity.this)))
                     .setTitle("Discard unsaved edits?")
                     .setMessage("Playlist, DRM, or calendar changes have not been saved.")
                     .setPositiveButton("Discard", (ignored, which) -> dialog.dismiss())
-                    .setNegativeButton("Keep editing", null).show();
+                    .setNegativeButton("Keep editing", null).create();
+            Motion.dialog(prompt); prompt.show();
             styleDialog(prompt);
         }
 
         private void renderSection() {
+            boolean animateSection = renderedSection >= 0 && renderedSection != section;
             boolean restoreFocus = detail.findFocus() != null;
             rememberLayout();
             renderedSection = section;
@@ -4338,7 +4360,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             // Detail page
             LinearLayout page = new LinearLayout(MainActivity.this);
             page.setOrientation(LinearLayout.VERTICAL);
-            page.setPadding(dp(20), dp(8), dp(4), dp(4));
+            page.setPadding(dp(16), dp(8), dp(16), dp(4));
             detail.addView(page, new FrameLayout.LayoutParams(-1, -1));
 
             // Section header: glyph badge + title + subtitle
@@ -4392,6 +4414,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 firstControl.setNextFocusUpId(tabs[section].getId());
             }
             restoreLayout(restoreFocus);
+            if (animateSection) Motion.reveal(page);
         }
 
         private void renderGameSettings(LinearLayout page) {
@@ -4409,6 +4432,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             LinearLayout form = scrollForm(page);
             LinearLayout orderRows = new LinearLayout(MainActivity.this);
             orderRows.setOrientation(LinearLayout.VERTICAL);
+            orderRows.setClipChildren(false);
+            orderRows.setClipToPadding(false);
             addFormSectionHeader(form, "Visible categories");
             addFormHint(form, "Choose which categories appear in the navigation bar. Your games and calendar data stay saved.");
             boolean hidden = preferences.getBoolean(PREF_HIDE_LIVE_TV, false);
@@ -4468,17 +4493,20 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addFormHint(form, saved == null ? "Choose a city or use this TV's location to show weather on Home."
                     : "Weather location · " + saved.label);
             EditText search = addInput(form, "Search city or postal code", "Pune, India", "", false);
-            weatherSearchResults = new LinearLayout(MainActivity.this); weatherSearchResults.setOrientation(LinearLayout.VERTICAL);
+            weatherSearchResults = new LinearLayout(MainActivity.this);
+            weatherSearchResults.setOrientation(LinearLayout.VERTICAL);
+            weatherSearchResults.setClipChildren(false);
+            weatherSearchResults.setClipToPadding(false);
             addFormButton(form, "Search", v -> {
                 String query = search.getText().toString().trim();
                 if (query.length() < 2) { setWeatherFeedback("Enter at least two characters."); return; }
                 setWeatherFeedback("Searching locations…"); weatherSearchResults.removeAllViews();
-                ioWorker.execute(() -> {
+                lifecycleWork.execute(ioWorker, () -> {
                     List<WeatherRepository.Location> results = null; String error = null;
                     try { results = WeatherRepository.search(query, Locale.getDefault()); }
                     catch (Exception failure) { error = failure.getMessage() == null ? "Location search failed." : failure.getMessage(); }
                     List<WeatherRepository.Location> found = results; String failure = error;
-                    handler.post(() -> {
+                    lifecycleWork.post(() -> {
                         if (settingsScreen != this || section != WEATHER) return;
                         weatherSearchResults.removeAllViews();
                         if (failure != null) { setWeatherFeedback("Search failed · " + failure); return; }
@@ -4679,6 +4707,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             form.addView(savedTitle, titleParams);
             youtubeSavedList = new LinearLayout(MainActivity.this);
             youtubeSavedList.setOrientation(LinearLayout.VERTICAL);
+            youtubeSavedList.setClipChildren(false);
+            youtubeSavedList.setClipToPadding(false);
             form.addView(youtubeSavedList);
             renderYouTubeSavedList();
         }
@@ -4713,6 +4743,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 copy.addView(detail);
                 row.addView(copy, new LinearLayout.LayoutParams(-1, -2));
                 LinearLayout cardActions = new LinearLayout(MainActivity.this);
+                cardActions.setClipChildren(false);
+                cardActions.setClipToPadding(false);
+                row.setClipChildren(false);
+                row.setClipToPadding(false);
                 LinearLayout.LayoutParams cardActionParams = new LinearLayout.LayoutParams(-1, -2);
                 cardActionParams.topMargin = dp(10);
                 row.addView(cardActions, cardActionParams);
@@ -4723,13 +4757,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 Button editArt = settingsButton("Art");
                 editArt.setContentDescription("Edit artwork for " + card.title);
                 LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(0, dp(46), 1);
-                editParams.setMargins(0, 0, 0, 0);
+                editParams.setMargins(dp(2), dp(2), dp(3), dp(2));
                 cardActions.addView(editTitle, editParams);
                 LinearLayout.LayoutParams artParams = new LinearLayout.LayoutParams(0, dp(46), 1);
-                artParams.setMargins(dp(6), 0, 0, 0);
+                artParams.setMargins(dp(3), dp(2), dp(3), dp(2));
                 cardActions.addView(editArt, artParams);
                 LinearLayout.LayoutParams removeParams = new LinearLayout.LayoutParams(0, dp(46), 1);
-                removeParams.setMargins(dp(6), 0, 0, 0);
+                removeParams.setMargins(dp(3), dp(2), dp(2), dp(2));
                 cardActions.addView(remove, removeParams);
                 editTitle.setOnClickListener(view -> editYouTubeTitle(card));
                 editArt.setOnClickListener(view -> editYouTubeArtwork(card));
@@ -4743,7 +4777,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     renderYouTubeSavedList();
                 });
                 LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
-                rowParams.setMargins(0, 0, 0, dp(8));
+                rowParams.setMargins(dp(6), dp(2), dp(6), dp(8));
                 youtubeSavedList.addView(row, rowParams);
             }
         }
@@ -4791,7 +4825,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                         renderYouTubeCards();
                         artworkDialog.dismiss();
                     }));
-            artworkDialog.show();
+            Motion.dialog(artworkDialog); artworkDialog.show();
             styleDialog(artworkDialog);
         }
 
@@ -4828,7 +4862,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                         saveYouTubeCards(latest);
                         youtubeChanged = true;
                         renderYouTubeSavedList();
-                    }).show();
+                    }).create();
+            Motion.dialog(prompt); prompt.show();
             styleDialog(prompt);
         }
 
@@ -4917,7 +4952,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private LinearLayout scrollForm(LinearLayout page) {
             ScrollView scroll = new ScrollView(MainActivity.this);
             scroll.setFillViewport(false);
-            scroll.setPadding(dp(2), dp(2), dp(2), dp(4));
+            scroll.setPadding(dp(8), dp(4), dp(8), dp(6));
             scroll.setClipToPadding(false);
             scroll.setSmoothScrollingEnabled(true);
             scroll.setVerticalScrollBarEnabled(false);
@@ -4925,6 +4960,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
             LinearLayout form = new LinearLayout(MainActivity.this);
             form.setOrientation(LinearLayout.VERTICAL);
+            form.setClipChildren(false);
+            form.setClipToPadding(false);
             form.setPadding(0, 0, 0, dp(8));
             scroll.addView(form);
             return form;
@@ -4935,7 +4972,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
             title.setMinHeight(dp(24));
             LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-1, -2);
-            labelParams.setMargins(dp(2), dp(10), 0, 0);
+            labelParams.setMargins(dp(10), dp(10), dp(10), 0);
             form.addView(title, labelParams);
             EditText field = new EditText(MainActivity.this);
             field.setText(value);
@@ -4964,7 +5001,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             field.setPadding(dp(16), dp(10), dp(16), dp(10));
             SettingsUi.styleInput(field, multiline);
             LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(-1, -2);
-            fieldParams.setMargins(0, dp(4), 0, dp(12));
+            fieldParams.setMargins(dp(8), dp(4), dp(8), dp(12));
             form.addView(field, fieldParams);
             if (firstControl == null) firstControl = field;
             return field;
@@ -4975,7 +5012,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             button.setOnClickListener(listener);
             button.setMinHeight(dp(50));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
-            params.setMargins(0, dp(6), 0, dp(6));
+            params.setMargins(dp(8), dp(6), dp(8), dp(6));
             form.addView(button, params);
             if (firstControl == null) firstControl = button;
             return button;
@@ -5014,28 +5051,31 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void addSaveActions(LinearLayout page, View.OnClickListener save,
                                     View.OnClickListener discard, View.OnClickListener refresh) {
             LinearLayout actions = new LinearLayout(MainActivity.this);
+            actions.setClipChildren(false);
+            actions.setClipToPadding(false);
             LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
             actions.setGravity(Gravity.CENTER_VERTICAL);
-            rowParams.setMargins(0, dp(10), 0, dp(4));
+            rowParams.setMargins(dp(8), dp(10), dp(8), dp(4));
             page.addView(actions, rowParams);
             Button saveButton = settingsButton("Save changes");
             saveButton.setTextColor(LiquidTheme.accent(MainActivity.this));
-
             saveButton.setMinHeight(dp(50));
             saveButton.setOnClickListener(save);
-            actions.addView(saveButton, new LinearLayout.LayoutParams(0, -2, 1));
+            LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(0, -2, 1);
+            saveParams.setMargins(dp(2), dp(3), dp(4), dp(3));
+            actions.addView(saveButton, saveParams);
             Button discardButton = settingsButton("Discard edits");
             discardButton.setOnClickListener(discard);
             discardButton.setMinHeight(dp(50));
             LinearLayout.LayoutParams discardParams = new LinearLayout.LayoutParams(0, -2, 1);
-            discardParams.setMargins(dp(12), 0, 0, 0);
+            discardParams.setMargins(dp(6), dp(3), dp(4), dp(3));
             actions.addView(discardButton, discardParams);
             if (refresh != null) {
                 Button refreshButton = settingsButton("Refresh channels");
                 refreshButton.setOnClickListener(refresh);
                 refreshButton.setMinHeight(dp(50));
                 LinearLayout.LayoutParams refreshParams = new LinearLayout.LayoutParams(0, -2, 1);
-                refreshParams.setMargins(dp(12), 0, 0, 0);
+                refreshParams.setMargins(dp(6), dp(3), dp(2), dp(3));
                 actions.addView(refreshButton, refreshParams);
             }
         }
@@ -5136,7 +5176,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             // — Theme ——————————————————————————————————————————————————————————
             addFormSectionHeader(form, "Theme");
             addFormHint(form, "Follow your TV’s theme, or choose a light or dark appearance.");
-            String mode = preferences.getString(LiquidTheme.PREF_MODE, LiquidTheme.SYSTEM);
+            String mode = preferences.getString(LiquidTheme.PREF_MODE, LiquidTheme.DEFAULT_MODE);
             String[] modes = {LiquidTheme.SYSTEM, LiquidTheme.LIGHT, LiquidTheme.DARK};
             addChoice(form, "Appearance", new String[]{"System default", "Light", "Dark"},
                     LiquidTheme.LIGHT.equals(mode) ? 1 : LiquidTheme.DARK.equals(mode) ? 2 : 0,
@@ -5209,7 +5249,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
 
         private void changeLiquidGlassMode(String mode) {
-            if (mode.equals(preferences.getString(LiquidTheme.PREF_MODE, LiquidTheme.SYSTEM))) return;
+            if (mode.equals(preferences.getString(LiquidTheme.PREF_MODE, LiquidTheme.DEFAULT_MODE))) return;
             preferences.edit().putString(LiquidTheme.PREF_MODE, mode).apply();
             recreate();
         }
@@ -5249,7 +5289,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             page.addView(count, new LinearLayout.LayoutParams(-1, dp(30)));
             RecyclerView list = new RecyclerView(MainActivity.this);
             list.setLayoutManager(new LinearLayoutManager(MainActivity.this));
-            list.setClipChildren(false);
+            list.setClipChildren(true);
+            list.setClipToPadding(false);
+            list.setPadding(dp(4), dp(4), dp(4), dp(4));
             list.setItemViewCacheSize(6);
             list.setOverScrollMode(View.OVER_SCROLL_NEVER);
             channelAdapter = new ChannelSettingsAdapter(count);
@@ -5267,7 +5309,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addFormHint(page, "Choose up to five apps for Home. Use arrows to change their order.");
             appList = new RecyclerView(MainActivity.this);
             appList.setLayoutManager(new LinearLayoutManager(MainActivity.this));
-            appList.setClipChildren(false);
+            appList.setClipChildren(true);
+            appList.setClipToPadding(false);
+            appList.setPadding(dp(4), dp(4), dp(4), dp(4));
             appList.setItemViewCacheSize(6);
             appList.setOverScrollMode(View.OVER_SCROLL_NEVER);
             appAdapter = new AppSettingsAdapter(appList);
@@ -5276,9 +5320,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             if (availableApps != null) appAdapter.setApps(availableApps);
             else if (!loadingApps) {
                 loadingApps = true;
-                ioWorker.execute(() -> {
+                lifecycleWork.execute(ioWorker, () -> {
                     List<AppEntry> loaded = installedApps();
-                    handler.post(() -> {
+                    lifecycleWork.post(() -> {
                         if (settingsScreen != this) return;
                         availableApps = loaded;
                         loadingApps = false;
@@ -5321,8 +5365,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 row.setPadding(dp(18), dp(4), dp(18), dp(4));
                 row.setFocusable(true); row.setClickable(true);
                 row.setBackground(SettingsUi.states(MainActivity.this, false));
+                Motion.interaction(row, true);
                 RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(-1, dp(70));
-                params.setMargins(0, 0, 0, dp(7));
+                params.setMargins(dp(6), dp(1), dp(6), dp(7));
                 row.setLayoutParams(params);
                 LinearLayout text = new LinearLayout(MainActivity.this);
                 text.setOrientation(LinearLayout.VERTICAL);
@@ -5425,20 +5470,24 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             @Override public Holder onCreateViewHolder(ViewGroup parent, int viewType) {
                 LinearLayout row = new LinearLayout(MainActivity.this);
                 row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setClipChildren(false);
+                row.setClipToPadding(false);
                 RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(-1, dp(70));
-                params.setMargins(0, 0, 0, dp(7));
+                params.setMargins(dp(6), dp(1), dp(6), dp(7));
                 row.setLayoutParams(params);
                 Button toggle = settingsButton("");
                 toggle.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
                 toggle.setPadding(dp(18), 0, dp(12), 0);
-                row.addView(toggle, new LinearLayout.LayoutParams(0, dp(60), 1));
+                LinearLayout.LayoutParams toggleParams = new LinearLayout.LayoutParams(0, dp(60), 1);
+                toggleParams.setMargins(dp(2), dp(2), dp(4), dp(2));
+                row.addView(toggle, toggleParams);
                 Button up = settingsButton("↑");
                 LinearLayout.LayoutParams upParams = new LinearLayout.LayoutParams(dp(56), dp(60));
-                upParams.setMargins(dp(8), 0, 0, 0);
+                upParams.setMargins(dp(4), dp(2), 0, dp(2));
                 row.addView(up, upParams);
                 Button down = settingsButton("↓");
                 LinearLayout.LayoutParams downParams = new LinearLayout.LayoutParams(dp(56), dp(60));
-                downParams.setMargins(dp(8), 0, 0, 0);
+                downParams.setMargins(dp(6), dp(2), dp(4), dp(2));
                 row.addView(down, downParams);
                 return new Holder(row, toggle, up, down);
             }
@@ -5486,6 +5535,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 7410) {
+            if (guideToggle != null) guideToggle.post(() -> guideToggle.requestFocus());
+            return;
+        }
         if (resultCode == RESULT_OK && data != null && data.getData() != null) {
             if (requestCode == PICK_BACKUP_EXPORT) {
                 exportBackup(data.getData());
@@ -5517,7 +5570,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         String uriValue = preferences.getString("wallpaper", null);
         int targetWidth = Math.min(getResources().getDisplayMetrics().widthPixels, 1920);
         int targetHeight = Math.min(dp(heroHeightDp()), 1080);
-        ioWorker.execute(() -> {
+        lifecycleWork.execute(ioWorker, () -> {
             android.graphics.Bitmap decoded = uriValue == null ? null : decodeWallpaper(Uri.parse(uriValue), targetWidth, targetHeight);
             if (decoded == null) {
                 BitmapFactory.Options options = new BitmapFactory.Options();
@@ -5525,7 +5578,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 decoded = BitmapFactory.decodeResource(getResources(), R.drawable.mountain_wallpaper, options);
             }
             final android.graphics.Bitmap bitmap = decoded;
-            handler.post(() -> {
+            lifecycleWork.post(() -> {
                 if (isFinishing() || isDestroyed() || !java.util.Objects.equals(uriValue, preferences.getString("wallpaper", null))) return;
                 if (bitmap == null) return;
                 if (!backgroundPhotos.isEmpty()) {
@@ -5673,15 +5726,53 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private final class NavigationGlyph extends Drawable {
         private final int kind;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Path path = new Path();
+        private final Path strokePath = new Path();
+        private final Path fillPath = new Path();
         private int glyphColor = 0xFFEAF4F5;
 
         NavigationGlyph(int kind) {
             this.kind = kind;
-            paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(2.1f);
             paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setStrokeJoin(Paint.Join.ROUND);
+            initPaths();
+        }
+
+        private void initPaths() {
+            switch (kind) {
+                case TAB_HOME:
+                    strokePath.moveTo(2, 11); strokePath.lineTo(12, 3); strokePath.lineTo(22, 11);
+                    strokePath.moveTo(5, 10); strokePath.lineTo(5, 21); strokePath.lineTo(10, 21); strokePath.lineTo(10, 15);
+                    strokePath.lineTo(14, 15); strokePath.lineTo(14, 21); strokePath.lineTo(19, 21); strokePath.lineTo(19, 10);
+                    break;
+                case TAB_TV:
+                    strokePath.addRoundRect(new RectF(3, 8, 21, 19), 2, 2, Path.Direction.CW);
+                    strokePath.moveTo(8, 4); strokePath.lineTo(12, 8); strokePath.lineTo(16, 4);
+                    strokePath.moveTo(9, 22); strokePath.lineTo(15, 22); strokePath.moveTo(12, 19); strokePath.lineTo(12, 22);
+                    break;
+                case TAB_GAMES:
+                    strokePath.moveTo(7, 8); strokePath.lineTo(17, 8);
+                    strokePath.cubicTo(20, 8, 21, 10, 22, 16); strokePath.cubicTo(23, 20, 20, 21, 17, 18);
+                    strokePath.lineTo(15, 16); strokePath.lineTo(9, 16); strokePath.lineTo(7, 18);
+                    strokePath.cubicTo(4, 21, 1, 20, 2, 16); strokePath.cubicTo(3, 10, 4, 8, 7, 8);
+                    strokePath.moveTo(6, 11); strokePath.lineTo(6, 15); strokePath.moveTo(4, 13); strokePath.lineTo(8, 13);
+                    fillPath.addCircle(17, 12, 1, Path.Direction.CW);
+                    fillPath.addCircle(19, 14, 1, Path.Direction.CW);
+                    break;
+                case TAB_EVENTS:
+                    strokePath.addRoundRect(new RectF(3, 5, 21, 21), 2, 2, Path.Direction.CW);
+                    strokePath.moveTo(7, 3); strokePath.lineTo(7, 8); strokePath.moveTo(17, 3); strokePath.lineTo(17, 8);
+                    strokePath.moveTo(3, 10); strokePath.lineTo(21, 10);
+                    fillPath.addCircle(8, 14, 1, Path.Direction.CW);
+                    fillPath.addCircle(12, 14, 1, Path.Direction.CW);
+                    fillPath.addCircle(16, 14, 1, Path.Direction.CW);
+                    fillPath.addCircle(8, 18, 1, Path.Direction.CW);
+                    break;
+                default:
+                    strokePath.moveTo(6, 3); strokePath.lineTo(18, 3); strokePath.lineTo(18, 21); strokePath.lineTo(12, 17);
+                    strokePath.lineTo(6, 21); strokePath.close();
+                    break;
+            }
         }
 
         void setGlyphColor(int color) { glyphColor = color; invalidateSelf(); }
@@ -5693,39 +5784,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             canvas.translate(bounds.left, bounds.top);
             canvas.scale(bounds.width() / 24f, bounds.height() / 24f);
             paint.setColor(glyphColor);
-            paint.setStyle(Paint.Style.STROKE);
-            path.reset();
-            switch (kind) {
-                case TAB_HOME:
-                    path.moveTo(2, 11); path.lineTo(12, 3); path.lineTo(22, 11);
-                    path.moveTo(5, 10); path.lineTo(5, 21); path.lineTo(10, 21); path.lineTo(10, 15);
-                    path.lineTo(14, 15); path.lineTo(14, 21); path.lineTo(19, 21); path.lineTo(19, 10);
-                    canvas.drawPath(path, paint); break;
-                case TAB_TV:
-                    canvas.drawRoundRect(new RectF(3, 8, 21, 19), 2, 2, paint);
-                    path.moveTo(8, 4); path.lineTo(12, 8); path.lineTo(16, 4);
-                    path.moveTo(9, 22); path.lineTo(15, 22); path.moveTo(12, 19); path.lineTo(12, 22);
-                    canvas.drawPath(path, paint); break;
-                case TAB_GAMES:
-                    path.moveTo(7, 8); path.lineTo(17, 8);
-                    path.cubicTo(20, 8, 21, 10, 22, 16); path.cubicTo(23, 20, 20, 21, 17, 18);
-                    path.lineTo(15, 16); path.lineTo(9, 16); path.lineTo(7, 18);
-                    path.cubicTo(4, 21, 1, 20, 2, 16); path.cubicTo(3, 10, 4, 8, 7, 8);
-                    canvas.drawPath(path, paint);
-                    path.reset(); path.moveTo(6, 11); path.lineTo(6, 15); path.moveTo(4, 13); path.lineTo(8, 13);
-                    canvas.drawPath(path, paint);
-                    paint.setStyle(Paint.Style.FILL); canvas.drawCircle(17, 12, 1, paint); canvas.drawCircle(19, 14, 1, paint); break;
-                case TAB_EVENTS:
-                    canvas.drawRoundRect(new RectF(3, 5, 21, 21), 2, 2, paint);
-                    path.moveTo(7, 3); path.lineTo(7, 8); path.moveTo(17, 3); path.lineTo(17, 8);
-                    path.moveTo(3, 10); path.lineTo(21, 10);
-                    canvas.drawPath(path, paint);
-                    paint.setStyle(Paint.Style.FILL);
-                    canvas.drawCircle(8, 14, 1, paint); canvas.drawCircle(12, 14, 1, paint);
-                    canvas.drawCircle(16, 14, 1, paint); canvas.drawCircle(8, 18, 1, paint); break;
-                default:
-                    path.moveTo(6, 3); path.lineTo(18, 3); path.lineTo(18, 21); path.lineTo(12, 17);
-                    path.lineTo(6, 21); path.close(); canvas.drawPath(path, paint); break;
+            if (!strokePath.isEmpty()) {
+                paint.setStyle(Paint.Style.STROKE);
+                canvas.drawPath(strokePath, paint);
+            }
+            if (!fillPath.isEmpty()) {
+                paint.setStyle(Paint.Style.FILL);
+                canvas.drawPath(fillPath, paint);
             }
             canvas.restoreToCount(save);
         }

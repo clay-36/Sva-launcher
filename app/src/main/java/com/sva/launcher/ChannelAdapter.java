@@ -103,10 +103,10 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         tile.setFocusableInTouchMode(false);
         tile.setClickable(true);
         RecyclerView.LayoutParams tileParams = new RecyclerView.LayoutParams(dp(196, density), dp(216, density));
-        tileParams.setMargins(0, 0, dp(14, density), 0);
+        tileParams.setMargins(dp(4, density), dp(4, density), dp(14, density), dp(4, density));
         tile.setLayoutParams(tileParams);
 
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         int accent = LiquidTheme.accent(activity);
         states.addState(new int[]{android.R.attr.state_focused}, shape(
                 LiquidTheme.raisedSurface(activity), accent, 3, density));
@@ -117,6 +117,7 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         tile.setBackground(states);
         tile.setElevation(dp(2, density));
         tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+        Motion.interaction(tile, false);
 
         FrameLayout logoBox = new FrameLayout(activity);
         GradientDrawable logoBackground = new GradientDrawable(GradientDrawable.Orientation.TL_BR,

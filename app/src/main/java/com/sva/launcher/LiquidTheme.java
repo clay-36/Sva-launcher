@@ -14,6 +14,7 @@ final class LiquidTheme {
     static final String SYSTEM = "system";
     static final String LIGHT = "light";
     static final String DARK = "dark";
+    static final String DEFAULT_MODE = DARK;
 
     private LiquidTheme() { }
 
@@ -30,8 +31,10 @@ final class LiquidTheme {
     }
 
     static boolean isLight(Context context) {
+        // SharedPreferences already caches values in memory. Read the preference so
+        // backup restores and other preference writers cannot leave a stale theme.
         String mode = context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
-                .getString(PREF_MODE, SYSTEM);
+                .getString(PREF_MODE, DEFAULT_MODE);
         if (LIGHT.equals(mode)) return true;
         if (DARK.equals(mode)) return false;
         int nightMask = context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
@@ -61,19 +64,10 @@ final class LiquidTheme {
     }
 
     static void animateFocus(android.view.View view, boolean focused) {
-        view.animate().cancel();
-        view.animate().scaleX(1f).scaleY(1f)
-                .translationZ(focused ? dp(view.getContext(), 8) : 0)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator())
-                .setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 180 : 0).start();
+        Motion.interaction(view, false);
     }
 
-    /** Focus animation for controls contained by a fixed rounded panel. */
     static void animateContainedFocus(android.view.View view, boolean focused) {
-        view.animate().cancel();
-        view.animate().scaleX(1f).scaleY(1f)
-                .translationZ(focused ? dp(view.getContext(), 4) : 0)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator())
-                .setDuration(android.animation.ValueAnimator.areAnimatorsEnabled() ? 140 : 0).start();
+        Motion.interaction(view, true);
     }
 }

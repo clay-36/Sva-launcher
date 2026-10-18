@@ -12,12 +12,13 @@ import android.view.View;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class ScreensaverSettingsActivity extends Activity {
+public final class ScreensaverSettingsActivity extends MotionActivity {
     private SharedPreferences prefs;
     private LinearLayout page;
     private EditText album, caption;
     private TextView source, feedback;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final LifecycleWork lifecycleWork = new LifecycleWork(this, new android.os.Handler(android.os.Looper.getMainLooper()));
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         BackNavigation.install(this, this::requestClose);
@@ -79,15 +80,23 @@ public final class ScreensaverSettingsActivity extends Activity {
         SettingsUi.add(page, SettingsUi.action(this, "Choose in Android TV settings", this::openScreensaverSettings));
         SettingsUi.hint(page, "Choose Sva Memories in Android TV settings for a system-wide screensaver. Previously downloaded photos work offline.");
         LinearLayout footer = new LinearLayout(this);
+        footer.setClipChildren(false);
+        footer.setClipToPadding(false);
+        LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(-1, -2);
+        footerParams.setMargins(0, dp(10), 0, dp(12));
         Button save = SettingsUi.action(this, "Save changes", this::save);
         save.setTextColor(LiquidTheme.accent(this));
-        footer.addView(save, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(0, -2, 1);
+        saveParams.setMargins(dp(4), dp(4), dp(6), dp(4));
+        footer.addView(save, saveParams);
         Button preview = SettingsUi.action(this, "Preview", () -> {
             if (save()) startActivity(new Intent(this, ScreensaverPreviewActivity.class));
         });
         LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(0, -2, 1);
-        previewParams.leftMargin = dp(12); footer.addView(preview, previewParams);
-        shell.addView(footer); setContentView(shell); save.requestFocus();
+        previewParams.setMargins(dp(6), dp(4), dp(4), dp(4));
+        footer.addView(preview, previewParams);
+        shell.addView(footer, footerParams);
+        setContentView(shell); save.requestFocus();
         if (state != null) page.post(() -> ((ScrollView) page.getParent()).scrollTo(0, state.getInt("scroll", 0)));
     }
 
@@ -100,11 +109,12 @@ public final class ScreensaverSettingsActivity extends Activity {
         boolean dirty = !album.getText().toString().trim().equals(prefs.getString(ScreensaverPreferences.ALBUM, ""))
                 || !caption.getText().toString().trim().equals(prefs.getString(ScreensaverPreferences.CAPTION, ""));
         if (!dirty) { finish(); return; }
-        new android.app.AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this))
+        android.app.AlertDialog prompt = new android.app.AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this))
                 .setTitle("Save screensaver changes?")
                 .setMessage("Your album and caption have unsaved changes.")
                 .setPositiveButton("Save", (d, w) -> { if (save()) finish(); })
-                .setNegativeButton("Discard", (d, w) -> finish()).setNeutralButton("Keep editing", null).show();
+                .setNegativeButton("Discard", (d, w) -> finish()).setNeutralButton("Keep editing", null).create();
+        Motion.dialog(prompt); prompt.show();
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -152,12 +162,12 @@ public final class ScreensaverSettingsActivity extends Activity {
         String selected = ScreensaverPreferences.album(prefs);
         if (selected.isEmpty()) { feedback.setText("Add an album on Home or paste a separate album above."); return; }
         feedback.setText("Checking shared album…");
-        worker.execute(() -> {
+        lifecycleWork.execute(worker, () -> {
             String result;
             try { result = "Album ready · " + new ScreensaverPhotoRepository(this).refresh(selected, true).size() + " photos"; }
             catch (Exception e) { result = "Could not read album. Check the link, sharing settings and connection."; }
             String message = result;
-            runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) feedback.setText(message); });
+            lifecycleWork.post(() -> feedback.setText(message));
         });
     }
     private void updateSource() {
@@ -175,5 +185,5 @@ public final class ScreensaverSettingsActivity extends Activity {
         edit.setHint(label.startsWith("Separate") ? "https://photos.app.goo.gl/…" : "Add a personal caption");
         SettingsUi.styleInput(edit, false); SettingsUi.add(page, edit); return edit;
     }
-    @Override protected void onDestroy() { worker.shutdownNow(); super.onDestroy(); }
+    @Override protected void onDestroy() { lifecycleWork.close(); worker.shutdownNow(); super.onDestroy(); }
 }

@@ -20,7 +20,7 @@
   <a href="#features">Features</a> ·
   <a href="#installation">Installation</a> ·
   <a href="#getting-started">Getting started</a> ·
-  <a href="#build-from-source">Build from source</a> ·
+  <a href="DEVELOPER.md">Developer guide</a> ·
   <a href="#contributing">Contributing</a>
 </p>
 
@@ -64,7 +64,7 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 - **Weather** — current conditions and a three-day forecast from Open-Meteo, using a chosen city or optional approximate device location.
 - **Configurable refresh schedules** — independently control updates for photos, playlists, programme data, calendars, and Google Photos.
 - **Backup and restore** — export launcher preferences, app and channel choices, and IPTV/DRM configuration to JSON.
-- **TV file browser** — browse internal storage and USB drives with the remote when adding games, choosing images or photo folders, and saving or restoring backups. **Other locations** opens an Android document provider for cloud files.
+- **TV file browser** — browse internal storage and USB drives with the remote when adding games, choosing images or photo folders, and saving or restoring backups.
 - **Home-button helper** — an optional Accessibility service can reopen Sva on TVs that insist on returning to the manufacturer's launcher.
 
 Cached channels, guide data, calendar entries, weather, and artwork remain available where supported when the network is unavailable.
@@ -80,7 +80,7 @@ Install Sva Launcher on your Android TV through the Google Play testing programm
 Use the same Google account to join the group, join the testing programme, and
 install the app on your TV. Join the group before opening the testing page.
 
-You can also [build and install the APK from source](#build-from-source).
+You can also [build and install the APK from source](DEVELOPER.md).
 
 ## Getting started
 
@@ -101,7 +101,7 @@ You can also [build and install the APK from source](#build-from-source).
    | **Schedules** | Set an independent refresh cadence for each network-backed source. |
    | **Navigation** | Show or hide Live TV, Games, and Events; choose the order of Live TV, Games, Events, and Saved. Home stays first, and hidden categories keep their place. |
 
-The first time you browse local files, allow Sva storage access in Android settings. This lets its TV file browser find NES files, photos, and backups across local storage and USB drives. You can use **Other locations** for files provided by another app.
+The first time you browse local files, allow Sva storage access in Android settings. This lets its TV file browser find NES files, photos, and backups across local storage and USB drives.
 
 If the TV continues to open its built-in launcher, go to **Settings → Home button**, open Android's Accessibility settings, and enable Sva's service. This helper is optional and can be disabled at any time.
 
@@ -147,46 +147,13 @@ idle timeout. Availability and activation controls depend on the TV manufacturer
 Sva does not replace a manufacturer's Ambient mode automatically. Its registered
 Android DreamService runs independently of the launcher and exits on user input.
 
-## Live TV notes
+## Live TV and TV guide
+
+Choose **Open TV guide** in Live TV for the full-screen schedule. The guide opens in the selected channel category, with an **All channels** option, a shared time ruler, live progress, and programme reminders. Use Up/Down for channels, Left/Right for programmes, **Now** to return to the current time, and Back to return to Live TV. Hidden channels stay hidden; channels without guide data remain watchable.
 
 Guide entries are matched to channels by `tvg-id`. Selecting a current programme starts playback; selecting an upcoming programme creates an in-app reminder five minutes before it begins. Reminders are shown only while Sva is open and do not create background notifications.
 
-For Widevine streams, configure a default license URL and request headers under **Playback & DRM**, or use per-channel Kodi properties in the playlist. Per-channel values take precedence:
-
-```m3u
-#EXTM3U
-#EXTINF:-1 tvg-id="channel.one" tvg-logo="https://img.example/logo.png" group-title="News",Channel One
-#KODIPROP:inputstream.adaptive.license_type=com.widevine.alpha
-#KODIPROP:inputstream.adaptive.license_key=https://license.example/widevine|Authorization=Bearer%20token&Origin=tv.example|R{SSM}|
-https://stream.example/channel/manifest.mpd
-```
-
-Widevine playback supports DASH and FMP4/CMAF HLS when the device supports the stream's DRM scheme, packaging, and codecs.
-
-Playlists can also supply stream request headers and an explicit HLS or DASH hint for URLs without a recognizable extension:
-
-```m3u
-#EXTINF:-1,Authenticated HLS
-#EXTVLCOPT:http-user-agent=Sva TV
-#EXTVLCOPT:http-referrer=https://tv.example/
-#KODIPROP:inputstream.adaptive.manifest_type=hls
-#KODIPROP:inputstream.adaptive.stream_headers=Authorization=Bearer%20token&Origin=https%3A%2F%2Ftv.example
-https://stream.example/live
-```
-
-VLC options support user agent, referrer/referer, origin, and cookie. Kodi `stream_headers` override matching VLC headers; a URL suffix such as `|Authorization=Bearer%20token` takes highest precedence. Percent-encode header values individually, including literal `&`, `=` and `+`. Stream headers apply to manifests, segments and HLS encryption keys; DRM license headers are configured separately in `license_key`. Kodi `manifest_type` accepts `hls` or `mpd`/`dash`; `mime_type` also accepts the corresponding MIME type.
-
-ClearKey DASH supports inline 128-bit hexadecimal `KID:key` pairs (comma-separated for multiple keys), a JWK key set, or an HTTP(S) license endpoint:
-
-```m3u
-#EXTINF:-1,ClearKey DASH example
-#KODIPROP:inputstream.adaptive.manifest_type=mpd
-#KODIPROP:inputstream.adaptive.license_type=org.w3.clearkey
-#KODIPROP:inputstream.adaptive.license_key=000102030405060708090a0b0c0d0e0f:00112233445566778899aabbccddeeff
-https://stream.example/live
-```
-
-The example keys are public test values. For JWK, replace the `license_key` value with `{"keys":[{"kty":"oct","kid":"AAECAwQFBgcICQoLDA0ODw","k":"ABEiM0RVZneImaq7zN3u_w"}]}`. For a license endpoint, use `https://license.example/clearkey|Authorization=Bearer%20token`. ClearKey channels use their own keys and license configuration, independently of global Widevine defaults. Invalid inline keys fail that channel without preventing playlist import. These options survive cache and backup/restore; exported backups are unencrypted and include supplied headers and keys.
+Sva supports HLS and DASH streams with Widevine and ClearKey DRM, custom HTTP headers, and per-channel playlist overrides. For advanced playlist properties, Kodi options, and license setup, see the [IPTV & DRM guide](DEVELOPER.md#iptv--drm-stream-configuration).
 
 ## Game controls
 
@@ -199,87 +166,6 @@ The example keys are public test values. For JWK, replace the `license_key` valu
 
 Standard Android gamepads are assigned automatically for up to two players and can be remapped under **Settings → Games**. Save data is kept in Sva's private app storage.
 
-## Build from source
-
-### Requirements
-
-- Android Studio or a command-line Android SDK installation
-- JDK 17
-- Android SDK Platform 36 and Build Tools `36.0.0`
-- Android NDK `28.2.13676358`
-
-Clone and build the project:
-
-```sh
-git clone https://github.com/clay-36/Duo-launcher-iptv.git
-cd Duo-launcher-iptv
-./gradlew assembleDebug
-```
-
-The debug APK is created at `app/build/outputs/apk/debug/app-debug.apk`. Install it on a connected TV or emulator with:
-
-```sh
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-Run local checks with:
-
-```sh
-./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease
-./scripts/check-native.sh
-python3 scripts/audit-source.py --history
-python3 scripts/check-apk.py app/build/outputs/apk/release/app-release-unsigned.apk
-```
-
-The native helper checks require a C++17 compiler (`c++`, or set `CXX`). On a
-connected Android TV emulator, run `./gradlew connectedDebugAndroidTest` for the
-screensaver and native runtime regression checks. The instrumentation test APK
-includes upstream diagnostic fixtures; the application APK includes no games.
-
-The project pins Gradle 8.13, Android Gradle Plugin 8.12.2 and the NDK version
-above. The wrapper verifies the downloaded distribution's SHA-256 checksum.
-First builds download the toolchain and Maven dependencies; `--offline` works
-once they are cached.
-
-The app targets Android 16 (API 36), supports Android 8.0 (API 26) and newer, and builds native libraries for `arm64-v8a`, `armeabi-v7a`, and `x86_64`. The pinned Nestopia source is included under `third_party/nestopia` so native builds do not download emulator source at build time.
-
-### Release builds and signing
-
-A clean checkout builds an **unsigned**, optimized release APK without private keys:
-
-```sh
-./gradlew assembleRelease bundleRelease
-```
-
-Outputs: `app/build/outputs/apk/release/app-release-unsigned.apk` and
-`app/build/outputs/bundle/release/app-release.aab`. For a signed build,
-provide all four environment variables through your shell or CI secret store:
-
-| Variable | Value |
-| --- | --- |
-| `SVA_KEYSTORE_PATH` | Absolute path to your release keystore, kept outside the repository |
-| `SVA_STORE_PASSWORD` | Keystore password |
-| `SVA_KEY_ALIAS` | Signing key alias |
-| `SVA_KEY_PASSWORD` | Signing key password |
-
-Run `./gradlew assembleRelease bundleRelease` again; a complete signing configuration produces
-`app-release.apk` and a signed `app-release.aab`. Gradle reads environment variables directly; it does not load a
-`.env` file automatically. Incomplete signing configuration produces an unsigned
-APK. Keep the same release key for updates. A debug APK cannot update a release
-installation signed with a different key.
-
-GitHub Actions builds debug and release APKs and a release AAB on each push and
-pull request. You can also start **Android build and checks** manually from the
-Actions tab and choose `apk`, `aab`, or `both`. Automatic runs build both formats.
-Download the selected artifacts from a successful run's summary;
-they are retained for 14 days. The debug APK is installable; release outputs
-are unsigned by default. Manual runs on `main` can enable **Sign release outputs**
-using GitHub secrets. See [workflow signing setup](docs/RELEASING.md#configure-workflow-signing)
-and [CI build downloads](docs/RELEASING.md#download-ci-builds).
-
-See [the release checklist](docs/RELEASING.md), [audit notes](docs/RELEASE_AUDIT.md),
-[third-party inventory](docs/THIRD_PARTY.md) and [asset provenance](docs/ASSET_PROVENANCE.md).
-
 ## Privacy and security
 
 - Location permission is optional and is requested only when you choose device-based weather setup or refresh. City search works without device location.
@@ -287,7 +173,7 @@ See [the release checklist](docs/RELEASING.md), [audit notes](docs/RELEASE_AUDIT
 - Public album, calendar, playlist, guide, weather, and YouTube metadata requests are made directly from the TV.
 - Exported JSON backups are **unencrypted** and can contain playlist URLs, DRM endpoints, credentials, public album links and weather coordinates. Store them privately; never attach them to public issues.
 - HTTP is supported for user-provided IPTV and local-network sources; these connections are unencrypted. Prefer HTTPS when your provider supports it.
-- The TV file-picker fallback may request all-files access on TVs without a usable system document picker. Deny it if you use only system-picked documents.
+- The built-in TV file browser requests storage access when you open it to browse local files and USB drives. Storage access is not requested at app startup.
 - Installed-app visibility supports launcher shortcuts. Optional notification access supports Now Playing; the Home override accessibility service only watches window changes and cannot retrieve window content.
 - Only connect sources and open links that you trust. Stream, DRM, and codec compatibility depends on the TV.
 
@@ -295,15 +181,12 @@ See [the release checklist](docs/RELEASING.md), [audit notes](docs/RELEASE_AUDIT
 
 Bug reports, feature proposals, documentation fixes, and pull requests are welcome.
 
-1. Search the existing issues before opening a new one.
+1. Search existing issues before opening a new one.
 2. Keep each pull request focused on one change.
-3. Run `./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease` and `./scripts/check-native.sh` before submitting.
-4. For UI changes, include sanitized before/after screenshots and verify remote/D-pad focus at normal and compact layouts.
-5. Do not commit commercial ROMs, credentials, private playlist URLs, or artwork without redistribution rights. Run `python3 scripts/audit-source.py` before submitting.
+3. For UI changes, verify remote/D-pad navigation and include before/after screenshots.
+4. For development setup, testing commands, and contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md) and the [Developer guide](DEVELOPER.md).
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and report security issues using [SECURITY.md](SECURITY.md).
-
-When reporting a bug, include the TV/device model, Android version, reproduction steps, and a sanitized sample playlist or feed when relevant.
+When reporting a bug, include the TV/device model, Android version, reproduction steps, and a sanitized sample playlist or feed when relevant. Report security issues using [SECURITY.md](SECURITY.md).
 
 ## License
 

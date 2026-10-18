@@ -50,12 +50,12 @@ final class GameUi {
         button.setTypeface(LiquidTheme.font(activity));
         button.setText(value); button.setTextColor(LiquidTheme.text(activity)); button.setTextSize(15);
         button.setAllCaps(false); button.setFocusable(true); button.setFocusableInTouchMode(false);
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         states.addState(new int[]{android.R.attr.state_focused}, shape(LiquidTheme.raisedSurface(activity), LiquidTheme.accent(activity), 3, 13));
         states.addState(new int[]{android.R.attr.state_pressed}, shape(LiquidTheme.raisedSurface(activity), LiquidTheme.accent(activity), 3, 13));
         states.addState(new int[]{}, shape(LiquidTheme.surface(activity), LiquidTheme.border(activity), 1, 13));
         button.setBackground(states);
-        button.setOnFocusChangeListener(LiquidTheme::animateFocus);
+        button.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
         return button;
     }
 
@@ -64,11 +64,12 @@ final class GameUi {
         card.setOrientation(LinearLayout.VERTICAL); card.setGravity(Gravity.CENTER_HORIZONTAL);
         card.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
         card.setFocusable(true); card.setClickable(true); card.setOnClickListener(click);
-        StateListDrawable states = new StateListDrawable();
+        StateListDrawable states = new Motion.States();
         states.addState(new int[]{android.R.attr.state_focused}, shape(LiquidTheme.raisedSurface(activity), LiquidTheme.accent(activity), 3, 14));
         states.addState(new int[]{}, shape(LiquidTheme.surface(activity), LiquidTheme.border(activity), 1, 14));
         card.setBackground(states);
-        card.setOnFocusChangeListener(LiquidTheme::animateFocus);
+        card.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
+        Motion.interaction(card, true);
         ImageView image = new ImageView(activity);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         File art = new GameRepository(activity).artworkFile(game);
@@ -106,6 +107,10 @@ final class GameUi {
             if (bitmap == null) return;
             ARTWORK_CACHE.put(key, bitmap);
             MAIN.post(() -> {
+                if (image.getContext() instanceof Activity) {
+                    Activity owner = (Activity) image.getContext();
+                    if (owner.isFinishing() || owner.isDestroyed()) return;
+                }
                 if (!key.equals(image.getTag())) return;
                 image.setPadding(0, 0, 0, 0);
                 image.setImageBitmap(bitmap);
