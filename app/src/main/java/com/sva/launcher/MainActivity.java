@@ -3992,7 +3992,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             openPendingReminder();
             status.setText(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
-            if (!channels.isEmpty() && !iptv.guideUrl().isEmpty() && iptv.isGuideStale(channels)) refreshGuide(false);
+            if (!channels.isEmpty() && iptv.hasGuide() && iptv.isGuideStale(channels)) refreshGuide(false);
             scheduleLiveRefreshCheck();
         }));
     }
@@ -4018,9 +4018,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void maybeRefreshLiveData() {
         if (!screenActive) return;
-        if (!iptv.playlistUrl().isEmpty() && iptv.isChannelsStale()) {
+        if (iptv.hasPlaylist() && iptv.isChannelsStale()) {
             refreshChannels();
-        } else if (!channels.isEmpty() && !iptv.guideUrl().isEmpty() && iptv.isGuideStale(channels)) {
+        } else if (!channels.isEmpty() && iptv.hasGuide() && iptv.isGuideStale(channels)) {
             refreshGuide(false);
         }
     }
@@ -4029,8 +4029,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (guideRefreshTick == null) return;
         handler.removeCallbacks(guideRefreshTick);
         if (!screenActive) return;
-        long channelDelay = iptv.playlistUrl().isEmpty() ? Long.MAX_VALUE : iptv.millisUntilChannelsRefresh();
-        long guideDelay = channels.isEmpty() || iptv.guideUrl().isEmpty()
+        long channelDelay = !iptv.hasPlaylist() ? Long.MAX_VALUE : iptv.millisUntilChannelsRefresh();
+        long guideDelay = channels.isEmpty() || !iptv.hasGuide()
                 ? Long.MAX_VALUE : iptv.millisUntilGuideRefresh();
         long delay = Math.min(channelDelay, guideDelay);
         if (delay != Long.MAX_VALUE) handler.postDelayed(guideRefreshTick, Math.max(60_000L, delay));
@@ -4457,8 +4457,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private boolean hasUnsavedEdits() {
             if (restoringBackup) return false;
             captureDrafts();
-            return !draftPlaylist.trim().equals(iptv.playlistUrl().trim())
-                    || !draftGuide.trim().equals(iptv.guideUrl().trim())
+            return !IptvRepository.normalizeUrls(draftPlaylist).equals(IptvRepository.normalizeUrls(iptv.playlistUrl()))
+                    || !IptvRepository.normalizeUrls(draftGuide).equals(IptvRepository.normalizeUrls(iptv.guideUrl()))
                     || !draftLicense.trim().equals(iptv.drmLicenseUrl().trim())
                     || !draftHeaders.trim().equals(iptv.drmHeaderText().trim())
                     || !draftCalendarUrl.trim().equals(preferences.getString("publicCalendarUrl", "").trim());
@@ -5216,9 +5216,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void renderLive(LinearLayout page) {
             LinearLayout form = scrollForm(page);
             addFormSectionHeader(form, "Playlist & Guide URLs");
-            playlistField = addInput(form, "M3U playlist", "https://example.com/playlist.m3u", draftPlaylist, false);
-            guideField = addInput(form, "Programme guide · XML, XML.GZ or JSON", "https://www.epgschedule.com/data/index-lite.json", draftGuide, false);
-            addFormHint(form, "XMLTV matches by tvg-id. JSON guides match channel IDs or a unique channel name. EPGSchedule times use India Standard Time.");
+            playlistField = addInput(form, "M3U playlists · One URL per line", "https://example.com/playlist.m3u", draftPlaylist, true);
+            guideField = addInput(form, "Programme guides · One URL per line (XML, XML.GZ or JSON)", "https://www.epgschedule.com/data/index-lite.json", draftGuide, true);
+            addFormHint(form, "Enter one URL per line to combine multiple sources. XMLTV matches by tvg-id. JSON guides match channel IDs or a unique channel name. EPGSchedule times use India Standard Time.");
             addFormSectionHeader(form, "Cache & Guide status");
             cacheSummary = label(cacheSummaryText(), 14, SettingsUi.muted(MainActivity.this), false);
             cacheSummary.setPadding(dp(14), dp(8), dp(14), dp(8));
@@ -5235,8 +5235,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             form.addView(guideSummary, gsParams);
 
             addFormButton(form, "Refresh programme guide now", v -> {
-                String enteredGuide = guideField == null ? draftGuide : guideField.getText().toString().trim();
-                if (enteredGuide.isEmpty() || !enteredGuide.equals(iptv.guideUrl())) {
+                String enteredGuide = guideField == null ? draftGuide : guideField.getText().toString();
+                if (IptvRepository.normalizeUrls(enteredGuide).isEmpty()
+                        || !IptvRepository.normalizeUrls(enteredGuide).equals(IptvRepository.normalizeUrls(iptv.guideUrl()))) {
                     if (liveFeedback != null) liveFeedback.setText("Save the programme guide URL before refreshing it.");
                     return;
                 }
@@ -5245,8 +5246,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addFormHint(form, "Playlist and programme-guide refresh cadences are configured independently under Schedules. You can also refresh them manually here.");
             addSaveActions(page, v -> {
                 captureDrafts();
-                String playlist = draftPlaylist.trim(), guide = draftGuide.trim();
-                boolean changed = !playlist.equals(iptv.playlistUrl()) || !guide.equals(iptv.guideUrl());
+                String playlist = IptvRepository.normalizeUrls(draftPlaylist);
+                String guide = IptvRepository.normalizeUrls(draftGuide);
+                boolean changed = !playlist.equals(IptvRepository.normalizeUrls(iptv.playlistUrl()))
+                        || !guide.equals(IptvRepository.normalizeUrls(iptv.guideUrl()));
                 iptv.saveUrls(playlist, guide);
                 draftPlaylist = playlist; draftGuide = guide;
                 if (changed) {
@@ -5263,8 +5266,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 draftPlaylist = iptv.playlistUrl(); draftGuide = iptv.guideUrl(); renderSection();
             }, v -> {
                 String enteredPlaylist = playlistField == null
-                        ? draftPlaylist : playlistField.getText().toString().trim();
-                if (enteredPlaylist.isEmpty() || !enteredPlaylist.equals(iptv.playlistUrl())) {
+                        ? draftPlaylist : playlistField.getText().toString();
+                if (IptvRepository.normalizeUrls(enteredPlaylist).isEmpty()
+                        || !IptvRepository.normalizeUrls(enteredPlaylist).equals(IptvRepository.normalizeUrls(iptv.playlistUrl()))) {
                     if (liveFeedback != null) liveFeedback.setText("Save the playlist URL before refreshing channels.");
                     return;
                 }

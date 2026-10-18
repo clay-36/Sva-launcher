@@ -9,3 +9,4 @@ Version code: 7
 - Lightweight backups: removed raw channel playlist dumps, programme schedules, and calendar event caches from backup files, reducing backup sizes from ~2.7 MB to ~31 KB while preserving launcher settings and channel preferences.
 - Improved backup restore flow to immediately refresh channel visibility and safely ignore legacy raw channel caches.
 - Enhanced gamepad and remote controller mappings (pause, select, start, and back buttons) for built-in game activities.
+- Support for multiple IPTV playlist (M3U) and programme guide (XML, XML.GZ, JSON) sources, entered as one URL per line in Settings, combining all streams without deduplication and merging guide schedules across all sources.

@@ -123,16 +123,44 @@ final class IptvRepository {
         prefs = this.context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    static List<String> parseUrls(String raw) {
+        List<String> urls = new ArrayList<>();
+        if (raw == null || raw.trim().isEmpty()) return urls;
+        String[] lines = raw.split("\\r?\\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty()) {
+                urls.add(trimmed);
+            }
+        }
+        return urls;
+    }
+
+    static String normalizeUrls(String raw) {
+        List<String> urls = parseUrls(raw);
+        if (urls.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < urls.size(); i++) {
+            if (i > 0) sb.append('\n');
+            sb.append(urls.get(i));
+        }
+        return sb.toString();
+    }
+
     String playlistUrl() { return prefs.getString("playlist", ""); }
     String guideUrl() { return prefs.getString("guide", ""); }
+    List<String> playlistUrls() { return parseUrls(playlistUrl()); }
+    List<String> guideUrls() { return parseUrls(guideUrl()); }
+    boolean hasPlaylist() { return !playlistUrls().isEmpty(); }
+    boolean hasGuide() { return !guideUrls().isEmpty(); }
     String drmLicenseUrl() { return prefs.getString("drmLicenseUrl", ""); }
     String drmHeaderText() { return prefs.getString("drmHeaders", ""); }
     Map<String, String> drmHeaders() { return parseHeaders(drmHeaderText()); }
     void saveUrls(String playlist, String guide) {
-        String normalizedPlaylist = playlist.trim();
-        String normalizedGuide = guide.trim();
-        String previousPlaylist = playlistUrl();
-        String previousGuide = guideUrl();
+        String normalizedPlaylist = normalizeUrls(playlist);
+        String normalizedGuide = normalizeUrls(guide);
+        String previousPlaylist = normalizeUrls(playlistUrl());
+        String previousGuide = normalizeUrls(guideUrl());
         SharedPreferences.Editor editor = prefs.edit().putString("playlist", normalizedPlaylist).putString("guide", normalizedGuide);
         if (!normalizedPlaylist.equals(previousPlaylist)) {
             if (!previousPlaylist.isEmpty()) editor.putString("channelsCacheSource", previousPlaylist);
@@ -149,10 +177,12 @@ final class IptvRepository {
     }
 
     boolean isGuideStale() {
+        if (!hasGuide()) return false;
         return isGuideStale(System.currentTimeMillis(), lastGuideUpdatedAt(),
                 prefs.getLong("guideAttempted", lastGuideUpdatedAt()), guideRefreshInterval());
     }
     boolean isGuideStale(List<Channel> channels) {
+        if (!hasGuide()) return false;
         long updatedAt = lastGuideUpdatedAt();
         long attemptedAt = prefs.getLong("guideAttempted", updatedAt);
         boolean hasProgrammeSchedule = false;
@@ -185,6 +215,7 @@ final class IptvRepository {
         return isGuideStale(now, updatedAt, attemptedAt, interval);
     }
     boolean isChannelsStale() {
+        if (!hasPlaylist()) return false;
         return isChannelsStale(System.currentTimeMillis(), lastUpdatedAt(),
                 prefs.getLong("channelsAttempted", lastUpdatedAt()), playlistRefreshInterval());
     }
@@ -204,10 +235,12 @@ final class IptvRepository {
                 SchedulePreferences.GUIDE, SchedulePreferences.GUIDE_VALUES, SchedulePreferences.DEFAULT_GUIDE);
     }
     long millisUntilChannelsRefresh() {
+        if (!hasPlaylist()) return Long.MAX_VALUE;
         return millisUntilRefresh(System.currentTimeMillis(), lastUpdatedAt(),
                 prefs.getLong("channelsAttempted", lastUpdatedAt()), playlistRefreshInterval());
     }
     long millisUntilGuideRefresh() {
+        if (!hasGuide()) return Long.MAX_VALUE;
         return millisUntilRefresh(System.currentTimeMillis(), lastGuideUpdatedAt(),
                 prefs.getLong("guideAttempted", lastGuideUpdatedAt()), guideRefreshInterval());
     }
@@ -231,7 +264,8 @@ final class IptvRepository {
     }
 
     static boolean cacheMatchesSource(String configured, String cachedSource) {
-        return cachedSource == null || cachedSource.isEmpty() || cachedSource.equals(configured);
+        if (cachedSource == null || cachedSource.trim().isEmpty()) return true;
+        return normalizeUrls(configured).equals(normalizeUrls(cachedSource));
     }
 
     private static void clearProgrammeData(Channel channel) {
@@ -352,27 +386,44 @@ final class IptvRepository {
                 List<Channel> loaded;
                 String message;
                 try {
-                    String playlist = playlistUrl();
-                    if (playlist.isEmpty()) throw new IllegalStateException("Add an M3U playlist URL in Settings.");
+                    List<String> playlists = playlistUrls();
+                    if (playlists.isEmpty()) throw new IllegalStateException("Add an M3U playlist URL in Settings.");
+                    String startPlaylistSource = normalizeUrls(playlistUrl());
                     prefs.edit().putLong("channelsAttempted", System.currentTimeMillis()).apply();
-                    List<Channel> channels = downloadPlaylist(playlist);
-                    if (channels.isEmpty()) {
+                    List<Channel> combined = new ArrayList<>();
+                    List<String> errors = new ArrayList<>();
+                    for (String playlist : playlists) {
+                        try {
+                            combined.addAll(downloadPlaylist(playlist));
+                        } catch (Exception e) {
+                            Log.w("IptvRepository", "Failed to download playlist " + playlist, e);
+                            errors.add(safeMessage(e));
+                        }
+                    }
+                    if (combined.isEmpty() && !errors.isEmpty()) {
+                        throw new IllegalStateException(errors.size() == 1
+                                ? errors.get(0)
+                                : errors.size() + " playlists failed to load.");
+                    }
+                    if (combined.isEmpty()) {
                         loaded = cachedChannels();
                         message = loaded.isEmpty()
                                 ? "No channels found in the playlist."
-                                : "Playlist was empty. Keeping saved channels.";
-                    } else if (!playlist.equals(playlistUrl())) {
+                                : "Playlists were empty. Keeping saved channels.";
+                    } else if (!normalizeUrls(playlistUrl()).equals(startPlaylistSource)) {
                         loaded = cachedChannels();
                         message = "Playlist URL changed during refresh. Refresh channels again.";
                     } else {
-                        preserveGuideData(channels, cachedChannels());
-                        saveCache(channels);
+                        preserveGuideData(combined, cachedChannels());
+                        saveCache(combined);
                         long completedAt = System.currentTimeMillis();
                         prefs.edit().putLong("channelsUpdated", completedAt)
                                 .putLong("channelsAttempted", completedAt)
-                                .putString("channelsCacheSource", playlist).apply();
-                        loaded = channels;
-                        message = "Channels updated.";
+                                .putString("channelsCacheSource", startPlaylistSource).apply();
+                        loaded = combined;
+                        message = errors.isEmpty()
+                                ? "Channels updated."
+                                : "Channels updated (" + errors.size() + " playlist" + (errors.size() == 1 ? "" : "s") + " failed).";
                     }
                 } catch (Exception e) {
                     loaded = cachedChannels();
@@ -391,26 +442,50 @@ final class IptvRepository {
                 List<Channel> cached = cacheOrFallback(cachedChannels(), fallbackChannels);
                 List<Channel> loaded;
                 String message;
-                String guide = guideUrl();
+                List<String> guides = guideUrls();
+                String startGuideSource = normalizeUrls(guideUrl());
                 try {
-                    if (guide.isEmpty()) throw new IllegalStateException("Add and save a programme guide URL in Settings.");
+                    if (guides.isEmpty()) throw new IllegalStateException("Add and save a programme guide URL in Settings.");
                     if (cached.isEmpty()) throw new IllegalStateException("Refresh channels first to load the programme guide.");
                     prefs.edit().putLong("guideAttempted", System.currentTimeMillis()).apply();
                     List<Channel> updated = copyChannels(cached);
-                    attachGuide(updated, guide);
-                    if (!guide.equals(guideUrl())) {
+                    clearGuideData(updated);
+                    List<String> errors = new ArrayList<>();
+                    int successCount = 0;
+                    long now = System.currentTimeMillis();
+                    for (String guide : guides) {
+                        try {
+                            attachGuide(updated, guide, now);
+                            successCount++;
+                        } catch (Exception e) {
+                            Log.w("IptvRepository", "Failed to attach guide: " + guide, e);
+                            errors.add(safeMessage(e));
+                        }
+                    }
+                    if (successCount == 0) {
+                        throw new IllegalStateException(errors.size() == 1
+                                ? errors.get(0)
+                                : errors.size() + " programme guides failed to load.");
+                    }
+                    refreshProgrammeDisplay(updated, now);
+                    if (!hasCurrentOrUpcomingProgramme(updated)) {
+                        throw new IllegalStateException("Guide has no current or upcoming programmes.");
+                    }
+                    if (!normalizeUrls(guideUrl()).equals(startGuideSource)) {
                         prefs.edit().remove("guideUpdated").remove("guideAttempted").apply();
                         throw new IllegalStateException("Programme guide URL changed during refresh. Refresh the guide again.");
                     }
                     saveCache(updated);
                     long completedAt = System.currentTimeMillis();
                     prefs.edit().putLong("guideUpdated", completedAt).putLong("guideAttempted", completedAt)
-                            .putString("guideCacheSource", guide).apply();
+                            .putString("guideCacheSource", startGuideSource).apply();
                     loaded = updated;
-                    message = "Programme guide updated.";
+                    message = errors.isEmpty()
+                            ? "Programme guide updated."
+                            : "Programme guide updated (" + errors.size() + " guide" + (errors.size() == 1 ? "" : "s") + " failed).";
                 } catch (Exception e) {
                     loaded = cacheOrFallback(cachedChannels(), cached);
-                    if (!guide.equals(guideUrl())) {
+                    if (!normalizeUrls(guideUrl()).equals(startGuideSource)) {
                         prefs.edit().remove("guideUpdated").remove("guideAttempted").apply();
                         message = "Programme guide URL changed during refresh. Refresh the guide again.";
                     } else {
@@ -497,7 +572,7 @@ final class IptvRepository {
         return connection;
     }
 
-    private List<Channel> downloadPlaylist(String address) throws Exception {
+    List<Channel> downloadPlaylist(String address) throws Exception {
         HttpURLConnection connection = openConnection(address);
         try {
             int length = connection.getContentLength();
@@ -656,7 +731,11 @@ final class IptvRepository {
         return end < 0 ? "" : source.substring(start, end);
     }
 
-    private void attachGuide(List<Channel> channels, String address) throws Exception {
+    void attachGuide(List<Channel> channels, String address) throws Exception {
+        attachGuide(channels, address, System.currentTimeMillis());
+    }
+
+    void attachGuide(List<Channel> channels, String address, long now) throws Exception {
         HttpURLConnection connection = openConnection(address);
         try (InputStream raw = new BufferedInputStream(connection.getInputStream())) {
             raw.mark(64);
@@ -669,9 +748,9 @@ final class IptvRepository {
             if (json) {
                 int length = connection.getContentLength();
                 if (length > MAX_JSON_GUIDE_BYTES) throw new IllegalStateException("JSON guide is larger than 16 MB.");
-                applyJsonGuide(channels, new JSONArray(readGuideJson(raw)), System.currentTimeMillis());
+                applyJsonGuide(channels, new JSONArray(readGuideJson(raw)), now);
             } else {
-                attachXmlGuide(channels, guideStream(raw));
+                attachXmlGuide(channels, guideStream(raw), now);
             }
         } finally { connection.disconnect(); }
     }
@@ -689,19 +768,22 @@ final class IptvRepository {
         return new String(output.toByteArray(), StandardCharsets.UTF_8);
     }
 
-    private static void attachXmlGuide(List<Channel> channels, InputStream stream) throws Exception {
+    static void attachXmlGuide(List<Channel> channels, InputStream stream) throws Exception {
+        attachXmlGuide(channels, stream, System.currentTimeMillis());
+    }
+
+    static void attachXmlGuide(List<Channel> channels, InputStream stream, long now) throws Exception {
         List<Channel> working = copyChannels(channels);
-        clearGuideData(working);
         Map<String, List<Channel>> byId = new HashMap<>();
         for (Channel channel : working) {
             if (!channel.epgId.isEmpty()) byId.computeIfAbsent(channel.epgId, ignored -> new ArrayList<>()).add(channel);
         }
         XmlPullParser parser = Xml.newPullParser();
         parser.setInput(stream, "UTF-8");
-        long now = System.currentTimeMillis();
         SimpleDateFormat timeFormat = new SimpleDateFormat("yyyyMMddHHmmssZ", Locale.US);
         String channelId = null, title = null, start = null, stop = null;
         int matchedProgrammes = 0;
+        int currentOrUpcomingProgrammes = 0;
         int event;
         while ((event = parser.next()) != XmlPullParser.END_DOCUMENT) {
             if (event == XmlPullParser.START_TAG) {
@@ -717,15 +799,18 @@ final class IptvRepository {
                 List<Channel> matched = byId.get(channelId);
                 long begin = xmlTime(start, timeFormat), end = xmlTime(stop, timeFormat);
                 if (matched != null && title != null && !title.trim().isEmpty() && begin > 0 && end > begin) {
-                    for (Channel channel : matched) recordProgramme(channel, title.trim(), begin, end, now);
                     matchedProgrammes++;
+                    if (end > now) {
+                        currentOrUpcomingProgrammes++;
+                        for (Channel channel : matched) recordProgramme(channel, title.trim(), begin, end, now);
+                    }
                 }
                 title = null;
             }
         }
         if (matchedProgrammes == 0) throw new IllegalArgumentException("Guide contains no valid programmes matching playlist tvg-id values.");
+        if (currentOrUpcomingProgrammes == 0) throw new IllegalArgumentException("Guide has no current or upcoming programmes.");
         refreshProgrammeDisplay(working, now);
-        if (!hasCurrentOrUpcomingProgramme(working)) throw new IllegalArgumentException("Guide has no current or upcoming programmes.");
         copyGuideData(working, channels);
     }
 
@@ -762,13 +847,13 @@ final class IptvRepository {
         private final java.util.Set<String> ambiguousNames = new java.util.HashSet<>();
         private int channelEntries;
         private int matchedProgrammes;
+        private int currentOrUpcomingProgrammes;
 
         GuideAccumulator(List<Channel> channels, long now) {
             this.original = channels;
             this.working = copyChannels(channels);
             this.now = now;
             this.timeFormat = guideTimeFormat();
-            clearGuideData(working);
             for (Channel channel : working) {
                 addUnique(byId, ambiguousIds, channel.epgId, channel);
                 addUnique(byName, ambiguousNames, channel.name, channel);
@@ -816,15 +901,18 @@ final class IptvRepository {
             long begin = jsonTime(start, timeFormat);
             long finish = jsonTime(end, timeFormat);
             if (cleanTitle.isEmpty() || begin <= 0 || finish <= begin) return;
-            recordProgramme(channel, cleanTitle, begin, finish, now);
             matchedProgrammes++;
+            if (finish > now) {
+                currentOrUpcomingProgrammes++;
+                recordProgramme(channel, cleanTitle, begin, finish, now);
+            }
         }
 
         void finish(String noEntriesMessage, String noMatchesMessage) {
             if (channelEntries == 0) throw new IllegalArgumentException(noEntriesMessage);
             if (matchedProgrammes == 0) throw new IllegalArgumentException(noMatchesMessage);
+            if (currentOrUpcomingProgrammes == 0) throw new IllegalArgumentException("JSON guide has no current or upcoming programmes.");
             refreshProgrammeDisplay(working, now);
-            if (!hasCurrentOrUpcomingProgramme(working)) throw new IllegalArgumentException("JSON guide has no current or upcoming programmes.");
             copyGuideData(working, original);
         }
     }
@@ -833,7 +921,7 @@ final class IptvRepository {
         if (end <= now || begin > now + PROGRAMME_CACHE_HORIZON_MS
                 || channel.programmes.size() >= MAX_CACHED_PROGRAMMES_PER_CHANNEL) return;
         for (Programme programme : channel.programmes) {
-            if (programme.startMs == begin && programme.endMs == end && programme.title.equals(title)) return;
+            if (programme.startMs == begin && programme.endMs == end) return;
         }
         channel.programmes.add(new Programme(title, begin, end));
     }
@@ -859,6 +947,7 @@ final class IptvRepository {
             }
             return;
         }
+        channel.programmes.sort((a, b) -> Long.compare(a.startMs, b.startMs));
         Programme current = null;
         Programme next = null;
         for (Programme programme : channel.programmes) {

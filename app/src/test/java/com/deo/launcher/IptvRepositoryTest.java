@@ -328,6 +328,115 @@ public final class IptvRepositoryTest {
         assertEquals("news.id", recovered.get(0).epgId);
     }
 
+    @Test public void parsesAndNormalizesMultipleUrlsWithWhitespaceAndLineBreaks() {
+        assertTrue(IptvRepository.parseUrls(null).isEmpty());
+        assertTrue(IptvRepository.parseUrls("   \n\t\r\n  ").isEmpty());
+        assertEquals("", IptvRepository.normalizeUrls(null));
+        assertEquals("", IptvRepository.normalizeUrls("   \n\t  "));
+
+        String raw = "  https://src1.test/list.m3u \r\n\r\n   https://src2.test/list.m3u\n https://src3.test/list.m3u  \n";
+        List<String> parsed = IptvRepository.parseUrls(raw);
+        assertEquals(3, parsed.size());
+        assertEquals("https://src1.test/list.m3u", parsed.get(0));
+        assertEquals("https://src2.test/list.m3u", parsed.get(1));
+        assertEquals("https://src3.test/list.m3u", parsed.get(2));
+
+        String normalized = IptvRepository.normalizeUrls(raw);
+        assertEquals("https://src1.test/list.m3u\nhttps://src2.test/list.m3u\nhttps://src3.test/list.m3u", normalized);
+    }
+
+    @Test public void cacheMatchesMultiUrlSourcesRegardlessOfWhitespaceOrFormatting() {
+        String configured = "https://one.test/list.m3u\r\nhttps://two.test/list.m3u\n";
+        String cached = "  https://one.test/list.m3u  \n  https://two.test/list.m3u  ";
+        assertTrue(IptvRepository.cacheMatchesSource(configured, cached));
+
+        String different = "https://one.test/list.m3u\nhttps://other.test/list.m3u";
+        assertFalse(IptvRepository.cacheMatchesSource(configured, different));
+    }
+
+    @Test public void combinesChannelsFromMultiplePlaylistsWithoutDeduplication() {
+        List<IptvRepository.Channel> first = IptvRepository.parseM3u(
+                "#EXTM3U\n" +
+                "#EXTINF:-1 tvg-id=\"shared.id\",Channel One\nhttps://stream1.test/live.m3u8\n" +
+                "#EXTINF:-1 tvg-id=\"chan2\",Channel Two\nhttps://stream2.test/live.m3u8\n");
+        List<IptvRepository.Channel> second = IptvRepository.parseM3u(
+                "#EXTM3U\n" +
+                "#EXTINF:-1 tvg-id=\"shared.id\",Channel One Backup\nhttps://stream3.test/live.m3u8\n" +
+                "#EXTINF:-1 tvg-id=\"chan4\",Channel Four\nhttps://stream4.test/live.m3u8\n");
+
+        List<IptvRepository.Channel> combined = new java.util.ArrayList<>();
+        combined.addAll(first);
+        combined.addAll(second);
+
+        assertEquals(4, combined.size());
+        assertEquals("Channel One", combined.get(0).name);
+        assertEquals("https://stream1.test/live.m3u8", combined.get(0).streamUrl);
+        assertEquals("Channel Two", combined.get(1).name);
+        assertEquals("Channel One Backup", combined.get(2).name);
+        assertEquals("https://stream3.test/live.m3u8", combined.get(2).streamUrl);
+        assertEquals("shared.id", combined.get(2).epgId);
+        assertEquals("Channel Four", combined.get(3).name);
+    }
+
+    @Test public void multipleGuideSourcesAttachProgrammesToDifferentChannelsWithoutOverwriting() throws Exception {
+        IptvRepository.Channel channel1 = channel("Channel One", "chan.one");
+        IptvRepository.Channel channel2 = channel("Channel Two", "chan.two");
+        List<IptvRepository.Channel> channels = java.util.Arrays.asList(channel1, channel2);
+        long now = ist("26-09-2026 12:15:00");
+
+        // Guide 1 matches Channel One
+        List<Map<String, Object>> feed1 = java.util.Collections.singletonList(
+                entry("matching_key", "chanone", "channel", "Channel One", "schedule",
+                        java.util.Collections.singletonList(
+                                programme("Source 1 Show", "26-09-2026 12:00:00", "26-09-2026 13:00:00"))));
+        IptvRepository.applyJsonGuideEntries(channels, feed1, now);
+
+        assertEquals("Source 1 Show", channel1.now);
+        assertEquals("", channel2.now);
+
+        // Guide 2 matches Channel Two
+        List<Map<String, Object>> feed2 = java.util.Collections.singletonList(
+                entry("matching_key", "chantwo", "channel", "Channel Two", "schedule",
+                        java.util.Collections.singletonList(
+                                programme("Source 2 Show", "26-09-2026 12:00:00", "26-09-2026 13:00:00"))));
+        IptvRepository.applyJsonGuideEntries(channels, feed2, now);
+
+        // Both channels now have their respective guide programmes attached
+        assertEquals("Source 1 Show", channel1.now);
+        assertEquals("Source 2 Show", channel2.now);
+        assertEquals(1, channel1.programmes.size());
+        assertEquals(1, channel2.programmes.size());
+    }
+
+    @Test public void multipleGuideSourcesMergeProgrammesForSameChannelChronologically() throws Exception {
+        IptvRepository.Channel channel = channel("Sports", "sports.one");
+        List<IptvRepository.Channel> channels = java.util.Collections.singletonList(channel);
+        long now = ist("26-09-2026 10:15:00");
+
+        // First guide provides 10:00-11:00 show
+        List<Map<String, Object>> feed1 = java.util.Collections.singletonList(
+                entry("matching_key", "sportsone", "channel", "Sports", "schedule",
+                        java.util.Collections.singletonList(
+                                programme("Morning Match", "26-09-2026 10:00:00", "26-09-2026 11:00:00"))));
+        IptvRepository.applyJsonGuideEntries(channels, feed1, now);
+        assertEquals("Morning Match", channel.now);
+        assertEquals(1, channel.programmes.size());
+
+        // Second guide provides 11:00-12:00 show AND duplicate 10:00-11:00 show
+        List<Map<String, Object>> feed2 = java.util.Collections.singletonList(
+                entry("matching_key", "sportsone", "channel", "Sports", "schedule", java.util.Arrays.asList(
+                        programme("Morning Match Duplicate", "26-09-2026 10:00:00", "26-09-2026 11:00:00"),
+                        programme("Afternoon Match", "26-09-2026 11:00:00", "26-09-2026 12:00:00"))));
+        IptvRepository.applyJsonGuideEntries(channels, feed2, now);
+
+        // No duplicate slot, non-duplicate slot appended, next show updated
+        assertEquals(2, channel.programmes.size());
+        assertEquals("Morning Match", channel.programmes.get(0).title);
+        assertEquals("Afternoon Match", channel.programmes.get(1).title);
+        assertEquals("Morning Match", channel.now);
+        assertEquals("Afternoon Match", channel.next);
+    }
+
     private static IptvRepository.Channel channel(String name, String id) {
         return new IptvRepository.Channel(name, "https://stream.test/" + id, id,
                 "", "", "", "", new java.util.LinkedHashMap<>());
