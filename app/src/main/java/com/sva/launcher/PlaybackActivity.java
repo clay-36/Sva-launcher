@@ -15,6 +15,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -23,10 +24,13 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.ui.PlayerView;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -88,8 +92,10 @@ public final class PlaybackActivity extends Activity {
         infoPanel.setBackground(new GlassDrawable(this, null, LiquidTheme.surface(this),
                 LiquidTheme.border(this), 1, 24));
         infoPanel.setElevation(dp(8));
+        boolean initialFavorite = activeChannel != null ? activeChannel.optBoolean("favorite", false)
+                : playback.getBooleanExtra("favorite", false);
         message = new TextView(this);
-        message.setText("Loading " + currentChannelName + "…");
+        message.setText("Loading " + (initialFavorite ? "★ " : "") + currentChannelName + "…");
         message.setTextColor(LiquidTheme.text(this));
         message.setTextSize(12);
         message.setLetterSpacing(.08f);
@@ -204,8 +210,35 @@ public final class PlaybackActivity extends Activity {
         if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
             if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP && zapChannels != null && zapChannels.length() > 0) { changeChannel(-1); return true; }
             if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN && zapChannels != null && zapChannels.length() > 0) { changeChannel(1); return true; }
+            if (isFavoriteKey(event.getKeyCode())) { toggleActiveFavorite(); return true; }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private boolean isFavoriteKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_STAR || keyCode == KeyEvent.KEYCODE_BOOKMARK
+                || keyCode == KeyEvent.KEYCODE_PROG_YELLOW || keyCode == KeyEvent.KEYCODE_BUTTON_Y;
+    }
+
+    private void toggleActiveFavorite() {
+        if (zapChannels == null || zapIndex < 0 || zapIndex >= zapChannels.length()) return;
+        JSONObject item = zapChannels.optJSONObject(zapIndex);
+        if (item == null) return;
+        String stableKey = item.optString("stableKey", "");
+        if (stableKey.isEmpty()) return;
+        Set<String> favorites = new HashSet<>(getSharedPreferences("launcher", 0)
+                .getStringSet(FavoriteChannels.PREF_FAVORITES, Collections.emptySet()));
+        boolean wasFav = favorites.contains(stableKey);
+        if (wasFav) favorites.remove(stableKey);
+        else favorites.add(stableKey);
+        getSharedPreferences("launcher", 0).edit()
+                .putStringSet(FavoriteChannels.PREF_FAVORITES, favorites).apply();
+        boolean nowFav = !wasFav;
+        try { item.put("favorite", nowFav); } catch (Exception ignored) { }
+        message.setText((nowFav ? "★ " : "") + currentChannelName);
+        Motion.show(infoPanel, false);
+        hideMessageAfter(2500);
+        Toast.makeText(this, (nowFav ? "Added to" : "Removed from") + " favourites: " + currentChannelName, Toast.LENGTH_SHORT).show();
     }
 
     private void changeChannel(int direction) {
@@ -214,7 +247,8 @@ public final class PlaybackActivity extends Activity {
         if (item == null) return;
         String name = item.optString("name", "Channel");
         currentChannelName = name;
-        message.setText(name);
+        boolean isFav = item.optBoolean("favorite", false);
+        message.setText((isFav ? "★ " : "") + name);
         message.setVisibility(View.VISIBLE);
         Motion.show(infoPanel, false);
         programmeSchedule = item.optJSONArray("programmes");

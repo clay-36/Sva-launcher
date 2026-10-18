@@ -81,9 +81,12 @@ final class GuideReminders {
     void reconcile(List<IptvRepository.Channel> channels, Set<String> hiddenKeys) {
         List<Reminder> saved = read();
         boolean changed = saved.removeIf(reminder -> {
-            if (hiddenKeys.contains(reminder.channelKey)) return true;
+            if (hiddenKeys != null && (hiddenKeys.contains(reminder.channelKey)
+                    || hiddenKeys.contains("id:" + reminder.channelKey)
+                    || hiddenKeys.contains("url:" + reminder.streamUrl)
+                    || hiddenKeys.contains(reminder.streamUrl))) return true;
             IptvRepository.Channel channel = findChannel(channels, reminder);
-            if (channel == null) return true;
+            if (channel == null || HiddenChannels.isHidden(hiddenKeys, channel)) return true;
             if (channel.programmes.isEmpty()) return false;
             for (IptvRepository.Programme programme : channel.programmes) {
                 if (programme.startMs == reminder.startMs && programme.title.equals(reminder.title)) return false;

@@ -33,6 +33,7 @@ public final class GuideActivity extends MotionActivity {
     private final Map<IptvRepository.Channel, List<GuideTimeline.Slot>> slotCache = new HashMap<>();
     private List<IptvRepository.Channel> all = new ArrayList<>(), channels = new ArrayList<>();
     private final List<String> categories = new ArrayList<>();
+    private final Set<String> favoriteKeys = new HashSet<>();
     private String category, selectedKey;
     private long origin, horizon, windowStart, anchor, navigationTime;
     private double renderedWindowStart;
@@ -179,12 +180,23 @@ public final class GuideActivity extends MotionActivity {
         boolean focusGrid = !loaded || (getCurrentFocus() != null && getCurrentFocus().getTag() instanceof Target);
         lifecycleWork.execute(worker, () -> {
             List<IptvRepository.Channel> cached = new IptvRepository(this).cachedChannels();
-            Set<String> hidden = getSharedPreferences("launcher", 0).getStringSet("hiddenChannels", Collections.emptySet());
-            List<IptvRepository.Channel> visible = new ArrayList<>();
-            for (IptvRepository.Channel channel : cached) if (!hidden.contains(channel.stableKey())) visible.add(channel);
+            Set<String> hidden = HiddenChannels.load(getSharedPreferences("launcher", 0));
+            Set<String> favorites = FavoriteChannels.load(getSharedPreferences("launcher", 0));
+            List<IptvRepository.Channel> visible = HiddenChannels.filterVisible(cached, hidden);
             lifecycleWork.post(() -> {
                 if (destroyed || generation != loadGeneration) return;
-                all = visible; categories.clear();
+                all = visible;
+                favoriteKeys.clear();
+                favoriteKeys.addAll(favorites);
+                categories.clear();
+                boolean hasFavorites = false;
+                for (IptvRepository.Channel channel : all) {
+                    if (favoriteKeys.contains(channel.stableKey())) {
+                        hasFavorites = true;
+                        break;
+                    }
+                }
+                if (hasFavorites) categories.add(FavoriteChannels.CATEGORY_FAVORITES);
                 LinkedHashSet<String> groups = new LinkedHashSet<>();
                 for (IptvRepository.Channel channel : all) groups.add(group(channel));
                 categories.addAll(groups);
@@ -194,17 +206,44 @@ public final class GuideActivity extends MotionActivity {
         });
     }
 
+    private void updateFavoriteCategoryList() {
+        boolean hasFavorites = false;
+        for (IptvRepository.Channel channel : all) {
+            if (favoriteKeys.contains(channel.stableKey())) {
+                hasFavorites = true;
+                break;
+            }
+        }
+        if (hasFavorites) {
+            if (!categories.contains(FavoriteChannels.CATEGORY_FAVORITES)) {
+                categories.add(0, FavoriteChannels.CATEGORY_FAVORITES);
+            }
+        } else {
+            categories.remove(FavoriteChannels.CATEGORY_FAVORITES);
+            if (FavoriteChannels.CATEGORY_FAVORITES.equals(category)) {
+                category = null;
+                filter(false);
+            }
+        }
+    }
+
     private static String group(IptvRepository.Channel channel) { return channel.group.trim().isEmpty() ? "Uncategorized" : channel.group.trim(); }
     private static String key(IptvRepository.Channel channel) { return channel.stableKey() + "\n" + channel.streamUrl; }
     private void filter(boolean focusGrid) {
         slotCache.clear();
         channels = new ArrayList<>();
-        for (IptvRepository.Channel channel : all) if (category == null || category.equals(group(channel))) channels.add(channel);
+        for (IptvRepository.Channel channel : all) {
+            if (category == null) channels.add(channel);
+            else if (FavoriteChannels.CATEGORY_FAVORITES.equals(category)) {
+                if (favoriteKeys.contains(channel.stableKey())) channels.add(channel);
+            } else if (category.equals(group(channel))) channels.add(channel);
+        }
         selectedRow = 0;
         for (int i = 0; i < channels.size(); i++) if (key(channels.get(i)).equals(selectedKey)) { selectedRow = i; break; }
         if (!channels.isEmpty()) selectedKey = key(channels.get(selectedRow));
-        categoryButton.setText((category == null ? "All channels" : category) + "  ▾");
-        categoryButton.setContentDescription("Category: " + (category == null ? "All channels" : category));
+        String label = category == null ? "All channels" : (FavoriteChannels.CATEGORY_FAVORITES.equals(category) ? "★ " + category : category);
+        categoryButton.setText(label + "  ▾");
+        categoryButton.setContentDescription("Category: " + label);
         empty.setVisibility(channels.isEmpty() ? View.VISIBLE : View.GONE);
         empty.setText("No visible channels. Add a playlist or restore hidden channels in Settings.");
         list.setVisibility(channels.isEmpty() ? View.GONE : View.VISIBLE);
@@ -214,7 +253,11 @@ public final class GuideActivity extends MotionActivity {
     }
 
     private void chooseCategory() {
-        List<String> labels = new ArrayList<>(); labels.add("All channels"); labels.addAll(categories);
+        List<String> labels = new ArrayList<>();
+        labels.add("All channels");
+        for (String cat : categories) {
+            labels.add(FavoriteChannels.CATEGORY_FAVORITES.equals(cat) ? "★ " + cat : cat);
+        }
         int checked = category == null ? 0 : categories.indexOf(category) + 1;
         AlertDialog dialog = new AlertDialog.Builder(new ContextThemeWrapper(this, LiquidTheme.alertDialogTheme(this)))
                 .setTitle("Channel category").setSingleChoiceItems(labels.toArray(new String[0]), checked, (d, which) -> {
@@ -342,6 +385,18 @@ public final class GuideActivity extends MotionActivity {
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER || event.getKeyCode() == KeyEvent.KEYCODE_ENTER || event.getKeyCode() == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                event.startTracking();
+            }
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_STAR || event.getKeyCode() == KeyEvent.KEYCODE_BOOKMARK
+                    || event.getKeyCode() == KeyEvent.KEYCODE_PROG_YELLOW || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_Y) {
+                View focused = getCurrentFocus();
+                if (focused != null && focused.performLongClick()) return true;
+            }
+        }
         if (event.getAction() != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event);
         int code = event.getKeyCode();
         if (code != KeyEvent.KEYCODE_DPAD_UP && code != KeyEvent.KEYCODE_DPAD_DOWN
@@ -380,6 +435,14 @@ public final class GuideActivity extends MotionActivity {
             return true;
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    @Override public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            View focused = getCurrentFocus();
+            if (focused != null && focused.performLongClick()) return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
     }
 
     private GuideReminders.Reminder reminder(IptvRepository.Channel channel, IptvRepository.Programme p) {
@@ -486,9 +549,12 @@ public final class GuideActivity extends MotionActivity {
         }
         void bind(int position) {
             IptvRepository.Channel c = channels.get(position);
-            name.setText(c.name); fallback.setText(c.name.isEmpty() ? "TV" : c.name.substring(0, 1).toUpperCase(Locale.getDefault()));
+            boolean isFav = favoriteKeys.contains(c.stableKey());
+            name.setText((isFav ? "★ " : "") + c.name);
+            fallback.setText(c.name.isEmpty() ? "TV" : c.name.substring(0, 1).toUpperCase(Locale.getDefault()));
             logos.load(c.logoUrl, logo, fallback);
-            configure(channel, new Target(position, null)); channel.setContentDescription("Watch " + c.name);
+            configure(channel, new Target(position, null));
+            channel.setContentDescription("Watch " + c.name + (isFav ? ", favourite" : ""));
             int childIndex = 0;
             for (GuideTimeline.Slot slot : slots(position)) {
                 if (slot.end <= renderFrom || slot.start >= renderTo) continue;
@@ -520,6 +586,21 @@ public final class GuideActivity extends MotionActivity {
             updateDetails();
         });
         view.setOnClickListener(v -> activate(target));
+        view.setOnLongClickListener(v -> {
+            if (target.row >= 0 && target.row < channels.size()) {
+                IptvRepository.Channel c = channels.get(target.row);
+                boolean added = FavoriteChannels.toggle(favoriteKeys, c);
+                FavoriteChannels.save(getSharedPreferences("launcher", 0), favoriteKeys);
+                Toast.makeText(GuideActivity.this, (added ? "Added to" : "Removed from") + " favourites: " + c.name, Toast.LENGTH_SHORT).show();
+                updateFavoriteCategoryList();
+                adapter.notifyItemChanged(target.row);
+                if (FavoriteChannels.CATEGORY_FAVORITES.equals(category)) {
+                    filter(false);
+                }
+                return true;
+            }
+            return false;
+        });
     }
     private void updateTile(TextView tile, Target target) {
         IptvRepository.Programme p = target.slot.programme;

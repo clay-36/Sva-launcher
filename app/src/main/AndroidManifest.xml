@@ -34,11 +34,12 @@
         <activity
             android:name=".GamePlayerActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
-            android:exported="false"
+            android:enableOnBackInvokedCallback="false"
+            android:exported="true"
             android:screenOrientation="landscape" />
         <activity
             android:name=".GameDetailActivity"
-            android:exported="false"
+            android:exported="true"
             android:screenOrientation="landscape" />
         <activity
             android:name=".GameLibraryActivity"
@@ -67,6 +68,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
