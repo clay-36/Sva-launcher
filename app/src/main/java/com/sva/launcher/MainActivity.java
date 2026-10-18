@@ -125,6 +125,7 @@ public final class MainActivity extends Activity {
     private final LifecycleWork lifecycleWork = new LifecycleWork(this, handler);
     private final List<IptvRepository.Channel> channels = new ArrayList<>();
     private final Set<String> hiddenChannelKeys = new HashSet<>();
+    private final Set<String> favoriteChannelKeys = new HashSet<>();
     private final Set<String> youtubeMetadataInFlight = new HashSet<>();
     private final ExecutorService youtubeWorker = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "youtube-card-metadata");
@@ -254,7 +255,8 @@ public final class MainActivity extends Activity {
         acceptReminderIntent(getIntent());
         logoLoader = new ChannelLogoLoader(this);
         weatherForecast = cachedWeather();
-        hiddenChannelKeys.addAll(preferences.getStringSet("hiddenChannels", Collections.emptySet()));
+        hiddenChannelKeys.addAll(HiddenChannels.load(preferences));
+        favoriteChannelKeys.addAll(FavoriteChannels.load(preferences));
         String folder = preferences.getString("wallpaperFolder", "");
         String album = preferences.getString("wallpaperAlbum", "");
         if (!folder.isEmpty()) backgroundPhotos.addAll(cachedBackgroundFolder(folder));
@@ -357,7 +359,7 @@ public final class MainActivity extends Activity {
         IptvRepository.Channel fallback = null;
         int matches = 0;
         for (IptvRepository.Channel channel : channels) {
-            if (!channel.stableKey().equals(key) || hiddenChannelKeys.contains(channel.stableKey())) continue;
+            if (!channel.stableKey().equals(key) || HiddenChannels.isHidden(hiddenChannelKeys, channel)) continue;
             if (channel.streamUrl.equals(url)) { playChannel(channel); return; }
             fallback = channel;
             matches++;
@@ -451,8 +453,20 @@ public final class MainActivity extends Activity {
                     Toast.makeText(this, "Restore failed: " + result, Toast.LENGTH_LONG).show();
                     return;
                 }
+                hiddenChannelKeys.clear();
+                hiddenChannelKeys.addAll(HiddenChannels.load(preferences));
+                favoriteChannelKeys.clear();
+                favoriteChannelKeys.addAll(FavoriteChannels.load(preferences));
+                renderChannels();
+                if (!channels.isEmpty()) {
+                    ((SvaApplication) getApplication()).guideReminders().reconcile(channels, hiddenChannelKeys);
+                }
                 if (settingsScreen != null) {
                     settingsScreen.resetDrafts();
+                    settingsScreen.channelsChanged = true;
+                    if (settingsScreen.channelAdapter != null) {
+                        settingsScreen.channelAdapter.refresh();
+                    }
                 }
                 Toast.makeText(this, "Backup restored.", Toast.LENGTH_SHORT).show();
                 recreate();
@@ -487,6 +501,15 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         screenActive = true;
+        Set<String> freshHidden = HiddenChannels.load(preferences);
+        Set<String> freshFavorites = FavoriteChannels.load(preferences);
+        if (!freshHidden.equals(hiddenChannelKeys) || !freshFavorites.equals(favoriteChannelKeys)) {
+            hiddenChannelKeys.clear();
+            hiddenChannelKeys.addAll(freshHidden);
+            favoriteChannelKeys.clear();
+            favoriteChannelKeys.addAll(freshFavorites);
+            renderChannels();
+        }
         scheduleScreensaverIdle();
         maybeRefreshLiveData();
         scheduleLiveRefreshCheck();
@@ -572,6 +595,9 @@ public final class MainActivity extends Activity {
                 openPendingReminder();
                 if (!cached.isEmpty()) status.setVisibility(View.GONE);
                 scheduleLiveRefreshCheck();
+                if (settingsScreen != null && settingsScreen.channelAdapter != null) {
+                    settingsScreen.channelAdapter.refresh();
+                }
             });
         });
     }
@@ -623,6 +649,8 @@ public final class MainActivity extends Activity {
         scene.addView(browsingShade, new FrameLayout.LayoutParams(-1, -1));
         LinearLayout tabShell = new LinearLayout(this);
         tabShell.setOrientation(LinearLayout.VERTICAL);
+        tabShell.setClipChildren(false);
+        tabShell.setClipToPadding(false);
         scene.addView(tabShell, new FrameLayout.LayoutParams(-1, -1));
         LinearLayout navigation = new LinearLayout(this);
         navigation.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
@@ -773,6 +801,8 @@ public final class MainActivity extends Activity {
         addTopIcon(systemShortcuts, "Android Settings", R.drawable.ic_android_settings, this::openAndroidSettings);
         addTopIcon(systemShortcuts, "Launcher Settings", R.drawable.ic_launcher_settings, this::showSettings);
         FrameLayout viewport = new FrameLayout(this);
+        viewport.setClipChildren(false);
+        viewport.setClipToPadding(false);
         tabShell.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
         tabPages[TAB_HOME] = page;
         viewport.addView(page, new FrameLayout.LayoutParams(-1, -1));
@@ -997,6 +1027,36 @@ public final class MainActivity extends Activity {
 
         applyWallpaper();
 
+        if (liveContent.getChildCount() > 0) liveContent.getChildAt(0).setVisibility(View.GONE);
+        LinearLayout liveHeading = new LinearLayout(this);
+        liveHeading.setOrientation(LinearLayout.HORIZONTAL);
+        liveHeading.setGravity(Gravity.CENTER_VERTICAL);
+        liveHeading.setClipChildren(false);
+        liveHeading.setClipToPadding(false);
+        guideSection = liveHeading;
+        LinearLayout titleGroup = new LinearLayout(this);
+        titleGroup.setOrientation(LinearLayout.VERTICAL);
+        titleGroup.setGravity(Gravity.CENTER_VERTICAL);
+        TextView liveTitle = label("Live TV", 32, LiquidTheme.text(this), true);
+        liveTitle.setTypeface(LiquidTheme.font(this));
+        titleGroup.addView(liveTitle);
+        guideEmpty = label("Explore the schedule, see what's on now, and set reminders.", 13, MUTED, false);
+        titleGroup.addView(guideEmpty);
+        liveHeading.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
+
+        guideToggle = actionButton("Open TV guide  →");
+        guideToggle.setContentDescription("Open full-screen TV guide");
+        guideToggle.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
+        guideToggle.setOnClickListener(view -> openTvGuide());
+        linkTabEntry(TAB_TV, guideToggle);
+        LinearLayout.LayoutParams guideToggleParams = new LinearLayout.LayoutParams(dp(195), dp(44));
+        guideToggleParams.setMargins(dp(4), dp(2), dp(4), dp(2));
+        liveHeading.addView(guideToggle, guideToggleParams);
+
+        LinearLayout.LayoutParams liveHeadingParams = new LinearLayout.LayoutParams(-1, -2);
+        liveHeadingParams.bottomMargin = dp(4);
+        liveContent.addView(liveHeading, liveHeadingParams);
+
         channelRows = new LinearLayout(this);
         channelRows.setOrientation(LinearLayout.VERTICAL);
         channelRows.setClipChildren(false);
@@ -1004,7 +1064,7 @@ public final class MainActivity extends Activity {
         liveContent.addView(channelRows, new LinearLayout.LayoutParams(-1, -2));
         channelCategoryScroll = new HorizontalScrollView(this);
         channelCategoryScroll.setHorizontalScrollBarEnabled(false);
-        channelCategoryScroll.setClipChildren(true);
+        channelCategoryScroll.setClipChildren(false);
         channelCategoryScroll.setClipToPadding(false);
         channelCategoryScroll.setPadding(dp(4), dp(4), dp(4), dp(4));
         channelCategoryTabs = new LinearLayout(this);
@@ -1013,7 +1073,7 @@ public final class MainActivity extends Activity {
         channelCategoryTabs.setClipChildren(false);
         channelCategoryTabs.setClipToPadding(false);
         channelCategoryScroll.addView(channelCategoryTabs, new HorizontalScrollView.LayoutParams(-2, -1));
-        channelRows.addView(channelCategoryScroll, new LinearLayout.LayoutParams(-1, dp(58)));
+        channelRows.addView(channelCategoryScroll, new LinearLayout.LayoutParams(-1, dp(50)));
         channelsEmpty = label("Add a playlist in Settings to browse live TV.", 15, MUTED, false);
         channelsEmpty.setPadding(0, dp(16), 0, dp(20));
         status = label("Add an M3U and optional XMLTV URL in Settings to get started.", 15, MUTED, false);
@@ -1059,24 +1119,6 @@ public final class MainActivity extends Activity {
 
         buildEventsTab();
 
-        guideSection = new LinearLayout(this);
-        guideSection.setOrientation(LinearLayout.VERTICAL);
-        guideSection.setClipChildren(false);
-        guideSection.setClipToPadding(false);
-        LinearLayout.LayoutParams guideParams = new LinearLayout.LayoutParams(-1, -2);
-        guideParams.topMargin = dp(20);
-        liveContent.addView(guideSection, guideParams);
-        guideToggle = actionButton("Open TV guide  →");
-        guideToggle.setContentDescription("Open full-screen TV guide");
-        guideToggle.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
-        guideToggle.setOnClickListener(view -> openTvGuide());
-        LinearLayout.LayoutParams guideToggleParams = new LinearLayout.LayoutParams(dp(260), dp(52));
-        guideToggleParams.setMargins(dp(4), dp(4), dp(4), dp(4));
-        guideSection.addView(guideToggle, guideToggleParams);
-        linkTabEntry(TAB_TV, guideToggle);
-        guideEmpty = label("Explore the schedule, see what's on now, and set reminders.", 14, MUTED, false);
-        guideEmpty.setPadding(dp(4), dp(12), 0, dp(8));
-        guideSection.addView(guideEmpty, new LinearLayout.LayoutParams(-1, -2));
         renderGuide();
         selectTab(activeTab, false);
     }
@@ -1091,11 +1133,14 @@ public final class MainActivity extends Activity {
         page.setFillViewport(true);
         page.setVerticalScrollBarEnabled(false);
         page.setBackgroundColor(Color.TRANSPARENT);
+        page.setClipChildren(false);
         page.setClipToPadding(false);
         page.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(72), dp(54), dp(72), dp(34));
+        int topPad = tab == TAB_TV ? dp(24) : dp(54);
+        int bottomPad = tab == TAB_TV ? dp(20) : dp(34);
+        content.setPadding(dp(72), topPad, dp(72), bottomPad);
         content.setClipChildren(false);
         content.setClipToPadding(false);
         TextView title = label(TAB_TITLES[tab], 42, LiquidTheme.text(this), true);
@@ -1127,6 +1172,18 @@ public final class MainActivity extends Activity {
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER || event.getKeyCode() == KeyEvent.KEYCODE_ENTER || event.getKeyCode() == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                event.startTracking();
+            }
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_STAR || event.getKeyCode() == KeyEvent.KEYCODE_BOOKMARK
+                    || event.getKeyCode() == KeyEvent.KEYCODE_PROG_YELLOW || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_Y) {
+                View focused = getCurrentFocus();
+                if (focused != null && focused.performLongClick()) return true;
+            }
+        }
         if (event.getAction() == KeyEvent.ACTION_DOWN && isDpadDirection(event.getKeyCode())
                 && tabsInitialized && settingsScreen == null) {
             View focused = getCurrentFocus();
@@ -1135,6 +1192,13 @@ public final class MainActivity extends Activity {
                     && handleCalendarDirection(focused, direction)) return true;
             if (focused != null && tabRow != null && isWithinPage(focused, tabRow)) {
                 if (direction == View.FOCUS_UP) {
+                    if (activeTab == TAB_TV) {
+                        ChannelRow channelRow = channelRowMap.get(selectedChannelCategory);
+                        if (channelRow != null && channelRow.requestFocus()) return true;
+                        Button categoryTab = channelTabMap.get(selectedChannelCategory);
+                        if (categoryTab != null && categoryTab.requestFocus()) return true;
+                        if (guideToggle != null && guideToggle.requestFocus()) return true;
+                    }
                     View entry = tabEntryFocus[activeTab];
                     if (entry != null && entry.isShown() && entry.isEnabled() && entry.requestFocus()) return true;
                     return true;
@@ -1167,11 +1231,33 @@ public final class MainActivity extends Activity {
             }
             View page = tabPages[activeTab];
             if (focused != null && page != null && isWithinPage(focused, page)) {
-                if (activeTab == TAB_TV && direction == View.FOCUS_DOWN && guideToggle != null
-                        && guideToggle.isShown() && guideToggle.isEnabled()) {
+                if (activeTab == TAB_TV) {
+                    if (focused == guideToggle && direction == View.FOCUS_DOWN) {
+                        Button categoryTab = channelTabMap.get(selectedChannelCategory);
+                        if (categoryTab == null && channelCategoryTabs != null && channelCategoryTabs.getChildCount() > 0)
+                            categoryTab = (Button) channelCategoryTabs.getChildAt(0);
+                        if (categoryTab != null && categoryTab.requestFocus()) return true;
+                    }
+                    if (channelCategoryTabs != null && isWithinPage(focused, channelCategoryTabs)) {
+                        if (direction == View.FOCUS_UP) {
+                            if (guideToggle != null && guideToggle.requestFocus()) return true;
+                        } else if (direction == View.FOCUS_DOWN) {
+                            ChannelRow channelRow = channelRowMap.get(selectedChannelCategory);
+                            if (channelRow != null && channelRow.requestFocus()) return true;
+                        }
+                    }
                     ChannelRow channelRow = channelRowMap.get(selectedChannelCategory);
-                    if (channelRow != null && isWithinPage(focused, channelRow.container)
-                            && guideToggle.requestFocus()) return true;
+                    if (channelRow != null && isWithinPage(focused, channelRow.container)) {
+                        if (direction == View.FOCUS_UP) {
+                            Button categoryTab = channelTabMap.get(selectedChannelCategory);
+                            if (categoryTab == null && channelCategoryTabs != null && channelCategoryTabs.getChildCount() > 0)
+                                categoryTab = (Button) channelCategoryTabs.getChildAt(0);
+                            if (categoryTab != null && categoryTab.requestFocus()) return true;
+                        } else if (direction == View.FOCUS_DOWN) {
+                            Button destination = navigationButton(TAB_TV);
+                            if (destination != null && destination.requestFocus()) return true;
+                        }
+                    }
                 }
                 View next = focused.focusSearch(direction);
                 if (next != null && next.isFocusable() && next.isEnabled()
@@ -1199,6 +1285,14 @@ public final class MainActivity extends Activity {
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    @Override public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            View focused = getCurrentFocus();
+            if (focused != null && focused.performLongClick()) return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
     }
 
     private View calendarDateView(LocalDate day) {
@@ -3371,9 +3465,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private void renderChannels() {
         if (channelRows == null) return;
         IptvRepository.refreshProgrammeDisplay(channels, System.currentTimeMillis());
+        List<IptvRepository.Channel> favorites = FavoriteChannels.filterFavorites(channels, hiddenChannelKeys, favoriteChannelKeys);
         LinkedHashMap<String, List<IptvRepository.Channel>> grouped = new LinkedHashMap<>();
+        if (!favorites.isEmpty()) {
+            grouped.put(FavoriteChannels.CATEGORY_FAVORITES, favorites);
+        }
         for (IptvRepository.Channel channel : channels) {
-            if (hiddenChannelKeys.contains(channel.stableKey())) continue;
+            if (HiddenChannels.isHidden(hiddenChannelKeys, channel)) continue;
             String category = channel.group.trim().isEmpty() ? "Uncategorized" : channel.group.trim();
             grouped.computeIfAbsent(category, ignored -> new ArrayList<>()).add(channel);
         }
@@ -3401,11 +3499,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             channelCategoryTabs.removeAllViews();
             renderedCategories = nextCategories;
             if (!renderedCategories.contains(selectedChannelCategory)) selectedChannelCategory = renderedCategories.get(0);
-            channelRows.addView(channelCategoryScroll, new LinearLayout.LayoutParams(-1, dp(58)));
+            channelRows.addView(channelCategoryScroll, new LinearLayout.LayoutParams(-1, dp(50)));
             ChannelRow row = createChannelRow();
             channelRowMap.put(selectedChannelCategory, row);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
-            params.setMargins(0, dp(4), 0, dp(14));
+            params.setMargins(0, dp(4), 0, dp(6));
             channelRows.addView(row.container, params);
             for (String category : renderedCategories) {
                 Button tab = createChannelCategoryTab(category);
@@ -3420,9 +3518,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (!renderedCategories.contains(selectedChannelCategory)) selectedChannelCategory = renderedCategories.get(0);
         for (Map.Entry<String, List<IptvRepository.Channel>> category : grouped.entrySet()) {
             Button tab = channelTabMap.get(category.getKey());
-            if (tab != null) tab.setText(category.getKey() + "  ·  " + category.getValue().size());
+            String prefix = FavoriteChannels.CATEGORY_FAVORITES.equals(category.getKey()) ? "★ " : "";
+            if (tab != null) tab.setText(prefix + category.getKey() + "  ·  " + category.getValue().size());
             ChannelRow row = channelRowMap.get(selectedChannelCategory);
-            if (row != null && category.getKey().equals(selectedChannelCategory)) row.adapter.setChannels(category.getValue());
+            if (row != null && category.getKey().equals(selectedChannelCategory)) row.adapter.setChannels(category.getValue(), favoriteChannelKeys);
         }
         updateChannelCategoryTabStyles();
         renderGuide();
@@ -3440,7 +3539,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private Button createChannelCategoryTab(String category) {
-        Button tab = actionButton(category);
+        String label = FavoriteChannels.CATEGORY_FAVORITES.equals(category) ? "★ " + category : category;
+        Button tab = actionButton(label);
         tab.setTextSize(14);
         tab.setPadding(dp(18), 0, dp(18), 0);
         tab.setMinWidth(dp(72));
@@ -3460,16 +3560,19 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (row != null) {
             channelRowMap.clear();
             channelRowMap.put(selectedChannelCategory, row);
-            row.adapter.setChannels(channelsForCategory(category));
+            row.adapter.setChannels(channelsForCategory(category), favoriteChannelKeys);
         }
         renderGuide();
         channelCategoryScroll.smoothScrollTo(Math.max(0, view.getLeft() - dp(24)), 0);
     }
 
     private List<IptvRepository.Channel> channelsForCategory(String category) {
+        if (FavoriteChannels.CATEGORY_FAVORITES.equals(category)) {
+            return FavoriteChannels.filterFavorites(channels, hiddenChannelKeys, favoriteChannelKeys);
+        }
         ArrayList<IptvRepository.Channel> selected = new ArrayList<>();
         for (IptvRepository.Channel channel : channels) {
-            if (hiddenChannelKeys.contains(channel.stableKey())) continue;
+            if (HiddenChannels.isHidden(hiddenChannelKeys, channel)) continue;
             String channelCategory = channel.group.trim().isEmpty() ? "Uncategorized" : channel.group.trim();
             if (category.equals(channelCategory)) selected.add(channel);
         }
@@ -3506,10 +3609,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         list.setHasFixedSize(true);
         list.setItemViewCacheSize(4);
         list.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        ChannelAdapter adapter = new ChannelAdapter(this, logoLoader, glassBackdrop, this::playChannel);
+        ChannelAdapter adapter = new ChannelAdapter(this, logoLoader, glassBackdrop, this::playChannel, this::toggleFavoriteChannel);
         list.setAdapter(adapter);
-        container.addView(list, new LinearLayout.LayoutParams(-1, dp(238)));
-        return new ChannelRow(container, adapter);
+        container.addView(list, new LinearLayout.LayoutParams(-1, dp(250)));
+        return new ChannelRow(container, list, adapter);
     }
 
     private void loadBackgroundFolder(Uri treeUri, boolean userSelected) {
@@ -3838,16 +3941,40 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private static final class ChannelRow {
         final LinearLayout container;
+        final RecyclerView list;
         final ChannelAdapter adapter;
-        ChannelRow(LinearLayout container, ChannelAdapter adapter) {
+        ChannelRow(LinearLayout container, RecyclerView list, ChannelAdapter adapter) {
             this.container = container;
+            this.list = list;
             this.adapter = adapter;
+        }
+
+        boolean requestFocus() {
+            if (list != null) {
+                View focused = list.getFocusedChild();
+                if (focused != null && focused.requestFocus()) return true;
+                if (list.getChildCount() > 0) {
+                    View first = list.getChildAt(0);
+                    if (first != null && first.requestFocus()) return true;
+                }
+                if (list.requestFocus()) return true;
+            }
+            return container != null && container.requestFocus();
         }
     }
 
     @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
     private void playChannel(IptvRepository.Channel channel) {
         PlaybackLauncher.watch(this, channel, channels);
+    }
+
+    private boolean toggleFavoriteChannel(IptvRepository.Channel channel) {
+        if (channel == null) return false;
+        boolean added = FavoriteChannels.toggle(favoriteChannelKeys, channel);
+        FavoriteChannels.save(preferences, favoriteChannelKeys);
+        Toast.makeText(this, (added ? "Added to" : "Removed from") + " favourites: " + channel.name, Toast.LENGTH_SHORT).show();
+        renderChannels();
+        return true;
     }
 
     private void refreshChannels() {
@@ -4166,7 +4293,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             dialog.setOnDismissListener(ignored -> {
                 if (settingsScreen == this) settingsScreen = null;
                 if (appsChanged) renderApps();
-                if (channelsChanged) {
+                Set<String> freshHidden = HiddenChannels.load(preferences);
+                Set<String> freshFavorites = FavoriteChannels.load(preferences);
+                if (channelsChanged || !freshHidden.equals(hiddenChannelKeys) || !freshFavorites.equals(favoriteChannelKeys)) {
+                    hiddenChannelKeys.clear();
+                    hiddenChannelKeys.addAll(freshHidden);
+                    favoriteChannelKeys.clear();
+                    favoriteChannelKeys.addAll(freshFavorites);
                     renderChannels();
                     ((SvaApplication) getApplication()).guideReminders().reconcile(channels, hiddenChannelKeys);
                 }
@@ -4582,10 +4715,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void renderBackup(LinearLayout page) {
             LinearLayout form = scrollForm(page);
             addFormSectionHeader(form, "Create backup");
-            addFormHint(form, "Create a JSON backup of launcher settings, app and channel choices, IPTV and DRM details, and saved channels.");
+            addFormHint(form, "Create a JSON backup of launcher settings, app and channel choices, and IPTV details.");
             addFormButton(form, "Create backup file", v -> openBackupExportPicker());
             addFormSectionHeader(form, "Restore from backup");
-            addFormHint(form, "Restoring replaces the current launcher settings and saved channel cache. Keep backup files private.");
+            addFormHint(form, "Restoring replaces the current launcher settings and channel preferences. Keep backup files private.");
             addFormButton(form, "Restore from backup", v -> openBackupImportPicker());
         }
 
@@ -5262,7 +5395,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             if (settingsScreen == this && liveFeedback != null) liveFeedback.setText(message);
             if (settingsScreen == this && cacheSummary != null) cacheSummary.setText(cacheSummaryText());
             if (settingsScreen == this && guideSummary != null) guideSummary.setText(guideSummaryText());
-            if (settingsScreen == this && section == CHANNELS && channelAdapter != null) channelAdapter.setQuery(channelAdapter.query);
+            if (settingsScreen == this && section == CHANNELS && channelAdapter != null) channelAdapter.refresh();
         }
 
         private String cacheSummaryText() {
@@ -5286,7 +5419,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             EditText search = addInput(page, "Find a channel", "Search by channel name", "", false);
             search.setInputType(InputType.TYPE_CLASS_TEXT);
             TextView count = label("", 14, SettingsUi.muted(MainActivity.this), false);
-            page.addView(count, new LinearLayout.LayoutParams(-1, dp(30)));
+            LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(-1, -2);
+            countParams.bottomMargin = dp(8);
+            page.addView(count, countParams);
             RecyclerView list = new RecyclerView(MainActivity.this);
             list.setLayoutManager(new LinearLayoutManager(MainActivity.this));
             list.setClipChildren(true);
@@ -5341,22 +5476,38 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             ChannelSettingsAdapter(TextView count) { this.count = count; }
 
             void setQuery(String value) {
-                query = value.trim().toLowerCase(Locale.getDefault());
+                query = value == null ? "" : value.trim().toLowerCase(Locale.getDefault());
+                refresh();
+            }
+
+            void refresh() {
                 visible.clear();
                 for (IptvRepository.Channel channel : channels) {
                     if (query.isEmpty() || channel.name.toLowerCase(Locale.getDefault()).contains(query)) visible.add(channel);
                 }
-                count.setText(visible.size() + " of " + channels.size() + " channels · "
-                        + shownChannelCount() + " shown");
+                updateCountLabel();
                 notifyDataSetChanged();
             }
 
             private int shownChannelCount() {
                 int shown = 0;
                 for (IptvRepository.Channel channel : channels) {
-                    if (!hiddenChannelKeys.contains(channel.stableKey())) shown++;
+                    if (!HiddenChannels.isHidden(hiddenChannelKeys, channel)) shown++;
                 }
                 return shown;
+            }
+
+            private int favoriteChannelCount() {
+                int count = 0;
+                for (IptvRepository.Channel channel : channels) {
+                    if (favoriteChannelKeys.contains(channel.stableKey())) count++;
+                }
+                return count;
+            }
+
+            private void updateCountLabel() {
+                count.setText(visible.size() + " of " + channels.size() + " channels · "
+                        + shownChannelCount() + " shown · " + favoriteChannelCount() + " favourites\nPress OK to toggle visibility · Long-press to toggle favourite");
             }
 
             @Override public Holder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -5386,22 +5537,30 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
             @Override public void onBindViewHolder(Holder holder, int position) {
                 IptvRepository.Channel channel = visible.get(position);
-                holder.name.setText(channel.name);
+                boolean isFav = favoriteChannelKeys.contains(channel.stableKey());
+                holder.name.setText((isFav ? "★  " : "") + channel.name);
                 holder.group.setText(channel.group.isEmpty() ? "Uncategorized" : channel.group);
-                boolean shown = !hiddenChannelKeys.contains(channel.stableKey());
-                holder.state.setText(shown ? "Shown" : "Hidden");
+                boolean shown = !HiddenChannels.isHidden(hiddenChannelKeys, channel);
+                holder.state.setText((isFav ? "★ " : "") + (shown ? "Shown" : "Hidden"));
                 holder.state.setTextColor(shown ? SettingsUi.text(MainActivity.this)
                         : SettingsUi.muted(MainActivity.this));
                 holder.itemView.setOnClickListener(v -> {
-                    String key = channel.stableKey();
-                    if (hiddenChannelKeys.contains(key)) hiddenChannelKeys.remove(key);
-                    else hiddenChannelKeys.add(key);
-                    preferences.edit().putStringSet("hiddenChannels", new HashSet<>(hiddenChannelKeys)).apply();
+                    HiddenChannels.toggle(hiddenChannelKeys, channel);
+                    HiddenChannels.save(preferences, hiddenChannelKeys);
                     channelsChanged = true;
                     int current = holder.getBindingAdapterPosition();
                     if (current != RecyclerView.NO_POSITION) notifyItemChanged(current);
-                    count.setText(visible.size() + " of " + channels.size() + " channels · "
-                            + shownChannelCount() + " shown");
+                    updateCountLabel();
+                });
+                holder.itemView.setOnLongClickListener(v -> {
+                    boolean added = FavoriteChannels.toggle(favoriteChannelKeys, channel);
+                    FavoriteChannels.save(preferences, favoriteChannelKeys);
+                    channelsChanged = true;
+                    int current = holder.getBindingAdapterPosition();
+                    if (current != RecyclerView.NO_POSITION) notifyItemChanged(current);
+                    updateCountLabel();
+                    Toast.makeText(MainActivity.this, (added ? "Added to" : "Removed from") + " favourites: " + channel.name, Toast.LENGTH_SHORT).show();
+                    return true;
                 });
             }
 
@@ -5536,6 +5695,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 7410) {
+            Set<String> freshHidden = HiddenChannels.load(preferences);
+            Set<String> freshFavorites = FavoriteChannels.load(preferences);
+            if (!freshHidden.equals(hiddenChannelKeys) || !freshFavorites.equals(favoriteChannelKeys)) {
+                hiddenChannelKeys.clear();
+                hiddenChannelKeys.addAll(freshHidden);
+                favoriteChannelKeys.clear();
+                favoriteChannelKeys.addAll(freshFavorites);
+                renderChannels();
+            }
             if (guideToggle != null) guideToggle.post(() -> guideToggle.requestFocus());
             return;
         }

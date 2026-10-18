@@ -1,21 +1,24 @@
 package com.sva.launcher;
 
-import android.content.Context;
 import android.content.SharedPreferences;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.LinkedHashMap;
 
-/** Export/import for launcher configuration and the offline IPTV cache. */
+/** Export/import for launcher configuration. Raw channel caches and event schedules are omitted. */
 final class LauncherBackup {
     private static final int VERSION = 1;
     private static final Map<String, String> EXPECTED_TYPES = expectedTypes();
+    private static final Set<String> EXCLUDED_PREFERENCES = new HashSet<>(Arrays.asList(
+            "publicCalendarEvents"
+    ));
 
     private static Map<String, String> expectedTypes() {
         Map<String, String> types = new LinkedHashMap<>();
@@ -33,7 +36,7 @@ final class LauncherBackup {
                 + "googlePhotosAttemptedAt googlePhotosUpdatedAt publicCalendarAttemptedAt publicCalendarUpdatedAt "
                 + "screensaverCacheUpdatedAt weatherAttemptedAt weatherUpdatedAt weatherLatitude weatherLongitude "
                 + "scheduleSlideshowMs schedulePlaylistMs scheduleGuideMs scheduleCalendarMs scheduleGooglePhotosMs scheduleWeatherMs");
-        register(types, "string-set", "hiddenChannels");
+        register(types, "string-set", "hiddenChannels favoriteChannels");
         return types;
     }
 
@@ -43,6 +46,10 @@ final class LauncherBackup {
 
     private LauncherBackup() { }
 
+    static JSONObject create(SharedPreferences launcher, SharedPreferences iptv) throws Exception {
+        return create(launcher, iptv, null);
+    }
+
     static JSONObject create(SharedPreferences launcher, SharedPreferences iptv,
                              IptvRepository repository) throws Exception {
         JSONObject backup = new JSONObject();
@@ -51,8 +58,12 @@ final class LauncherBackup {
         backup.put("createdAt", System.currentTimeMillis());
         backup.put("launcher", encodePreferences(launcher.getAll()));
         backup.put("iptv", encodePreferences(iptv.getAll()));
-        backup.put("channels", repository.exportCachedChannels());
         return backup;
+    }
+
+    static void restore(JSONObject backup, SharedPreferences launcher,
+                        SharedPreferences iptv) throws Exception {
+        restore(backup, launcher, iptv, null);
     }
 
     static void restore(JSONObject backup, SharedPreferences launcher,
@@ -63,23 +74,21 @@ final class LauncherBackup {
         }
         JSONObject launcherValues = backup.optJSONObject("launcher");
         JSONObject iptvValues = backup.optJSONObject("iptv");
-        JSONArray channelValues = backup.optJSONArray("channels");
-        if (launcherValues == null || iptvValues == null || channelValues == null) {
-            throw new IllegalArgumentException("The backup file is missing launcher, IPTV, or channel data.");
+        if (launcherValues == null || iptvValues == null) {
+            throw new IllegalArgumentException("The backup file is missing launcher or IPTV data.");
         }
 
         Map<String, Object> restoredLauncher = decodePreferences(launcherValues);
         Map<String, Object> restoredIptv = decodePreferences(iptvValues);
-        // Keep refresh workers from overwriting the restored cache before its URLs are restored.
-        repository.restoreCachedChannels(channelValues, () -> {
-            replacePreferences(launcher, restoredLauncher);
-            replacePreferences(iptv, restoredIptv);
-        });
+        replacePreferences(launcher, restoredLauncher);
+        replacePreferences(iptv, restoredIptv);
     }
 
     private static JSONObject encodePreferences(Map<String, ?> values) throws Exception {
         JSONObject result = new JSONObject();
         for (Map.Entry<String, ?> entry : values.entrySet()) {
+            String key = entry.getKey();
+            if (EXCLUDED_PREFERENCES.contains(key)) continue;
             Object value = entry.getValue();
             JSONObject typed = new JSONObject();
             if (value instanceof String) {
@@ -112,6 +121,7 @@ final class LauncherBackup {
         Iterator<String> keys = encoded.keys();
         while (keys.hasNext()) {
             String key = keys.next();
+            if (EXCLUDED_PREFERENCES.contains(key)) continue;
             JSONObject typed = encoded.optJSONObject(key);
             if (key.trim().isEmpty() || typed == null || !typed.has("value")) {
                 throw new IllegalArgumentException("The backup contains an invalid preference.");

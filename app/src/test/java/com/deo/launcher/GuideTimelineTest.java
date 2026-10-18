@@ -66,4 +66,13 @@ public final class GuideTimelineTest {
         assertNull(GuideTimeline.current(empty, 100));
         assertNull(GuideTimeline.next(empty, 100));
     }
+    @Test public void hiddenChannelsFilteredFromTimelineChannels() {
+        IptvRepository.Channel shown = new IptvRepository.Channel("Shown", "https://example.test/1", "ts1", "General", "", "", "", Collections.emptyMap());
+        IptvRepository.Channel hidden = new IptvRepository.Channel("Hidden", "https://example.test/2", "ts2", "General", "", "", "", Collections.emptyMap());
+        List<IptvRepository.Channel> all = Arrays.asList(shown, hidden);
+        Set<String> hiddenKeys = Collections.singleton("id:ts2");
+        List<IptvRepository.Channel> visible = HiddenChannels.filterVisible(all, hiddenKeys);
+        assertEquals(1, visible.size());
+        assertEquals("Shown", visible.get(0).name);
+    }
 }

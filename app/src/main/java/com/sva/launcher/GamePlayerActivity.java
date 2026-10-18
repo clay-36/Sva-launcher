@@ -37,10 +37,15 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        BackNavigation.install(this, this::handleBack);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        repository = new GameRepository(this); game = repository.find(getIntent().getStringExtra("gameId"));
+        repository = new GameRepository(this);
+        String gameId = getIntent().getStringExtra("gameId");
+        if (gameId != null) game = repository.find(gameId);
+        if (game == null) {
+            java.util.List<GameRecord> games = repository.games();
+            if (!games.isEmpty()) game = games.get(0);
+        }
         if (game == null) { finish(); return; }
         assignControllers(); build(); requestAudio();
         ((InputManager) getSystemService(INPUT_SERVICE)).registerInputDeviceListener(this, null);
@@ -89,7 +94,20 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
         setContentView(root);
     }
 
-    private void showPause(String title) { menuVisible = true; pauseTitle.setText(title); pauseLayer.setVisibility(View.VISIBLE); session.pause(true); pauseLayer.post(() -> ((View)((android.view.ViewGroup)((android.view.ViewGroup)pauseLayer.getChildAt(0))).getChildAt(1)).requestFocus()); }
+    private void showPause(String title) {
+        menuVisible = true;
+        pauseTitle.setText(title);
+        pauseLayer.setVisibility(View.VISIBLE);
+        session.pause(true);
+        View panel = pauseLayer.getChildAt(0);
+        if (panel instanceof android.view.ViewGroup) {
+            View resumeBtn = ((android.view.ViewGroup) panel).getChildAt(1);
+            if (resumeBtn != null) {
+                resumeBtn.requestFocus();
+                pauseLayer.post(resumeBtn::requestFocus);
+            }
+        }
+    }
     private void hidePause() { menuVisible = false; pauseLayer.setVisibility(View.GONE); session.pause(false); }
 
     // Kept for Android <33; modern system Back uses BackNavigation.
@@ -97,10 +115,13 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
     @Override public void onBackPressed() { handleBack(); }
     private void handleBack() { if (game == null) { finish(); return; } if (menuVisible) hidePause(); else showPause(game.title); }
 
-    // Controller/TV Back events also carry press and repeat information used by the pause control.
     @android.annotation.SuppressLint("GestureBackNavigation")
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         if (menuVisible) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_BACK || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_MODE) {
+                if (event.getAction() == KeyEvent.ACTION_UP && event.getRepeatCount() == 0) hidePause();
+                return true;
+            }
             if (event.getAction() == KeyEvent.ACTION_DOWN && isDpadDirection(event.getKeyCode())) {
                 View focused = getCurrentFocus();
                 View next = focused == null ? null : focused.focusSearch(focusDirection(event.getKeyCode()));
@@ -123,6 +144,10 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
         Integer port = ports.get(event.getDeviceId());
         if (port == null) {
             int bit = remoteBitFor(event.getKeyCode());
+            if (bit == -2) {
+                if (event.getAction() == KeyEvent.ACTION_UP && event.getRepeatCount() == 0) showPause(game.title);
+                return true;
+            }
             if (bit < 0) return super.dispatchKeyEvent(event);
             boolean ok = bit == 8;
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
@@ -212,13 +237,20 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
             case KeyEvent.KEYCODE_DPAD_RIGHT: return 7;
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
-            case KeyEvent.KEYCODE_NUMPAD_ENTER: return 8; // NES A
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
+            case KeyEvent.KEYCODE_BUTTON_B:
+            case KeyEvent.KEYCODE_BUTTON_X: return 8; // NES A
             case KeyEvent.KEYCODE_MEDIA_REWIND:
-            case KeyEvent.KEYCODE_PROG_RED: return 0; // NES B
+            case KeyEvent.KEYCODE_PROG_RED:
+            case KeyEvent.KEYCODE_BUTTON_A:
+            case KeyEvent.KEYCODE_BUTTON_Y: return 0; // NES B
             case KeyEvent.KEYCODE_MENU:
             case KeyEvent.KEYCODE_SETTINGS:
-            case KeyEvent.KEYCODE_INFO: return 2; // Select
-            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: return 3; // Start
+            case KeyEvent.KEYCODE_INFO:
+            case KeyEvent.KEYCODE_BUTTON_SELECT: return 2; // Select
+            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+            case KeyEvent.KEYCODE_BUTTON_START: return 3; // Start
+            case KeyEvent.KEYCODE_BUTTON_MODE: return -2; // Pause
             default: return -1;
         }
     }

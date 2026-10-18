@@ -17,29 +17,45 @@ import androidx.recyclerview.widget.DiffUtil;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
     interface OnChannelClick { void onClick(IptvRepository.Channel channel); }
-
+    interface OnChannelLongClick { boolean onLongClick(IptvRepository.Channel channel); }
 
     private final Activity activity;
     private final GlassBackdrop backdrop;
     private final ChannelLogoLoader logos;
     private final OnChannelClick listener;
+    private final OnChannelLongClick longClickListener;
     private final List<IptvRepository.Channel> items = new ArrayList<>();
+    private final Set<String> renderedFavorites = new HashSet<>();
 
     ChannelAdapter(Activity activity, ChannelLogoLoader logos, GlassBackdrop backdrop, OnChannelClick listener) {
+        this(activity, logos, backdrop, listener, null);
+    }
+
+    ChannelAdapter(Activity activity, ChannelLogoLoader logos, GlassBackdrop backdrop,
+                   OnChannelClick listener, OnChannelLongClick longClickListener) {
         this.activity = activity;
         this.backdrop = backdrop;
         this.logos = logos;
         this.listener = listener;
+        this.longClickListener = longClickListener;
         setHasStableIds(false);
     }
 
     void setChannels(List<IptvRepository.Channel> channels) {
+        setChannels(channels, renderedFavorites);
+    }
+
+    void setChannels(List<IptvRepository.Channel> channels, Set<String> favorites) {
         List<IptvRepository.Channel> next = new ArrayList<>(channels);
-        if (hasSameContentsInOrder(next)) return;
+        Set<String> nextFavorites = favorites == null ? Collections.emptySet() : new HashSet<>(favorites);
+        if (hasSameContentsInOrder(next, nextFavorites)) return;
         DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffUtil.Callback() {
             @Override public int getOldListSize() { return items.size(); }
             @Override public int getNewListSize() { return next.size(); }
@@ -49,7 +65,10 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
             @Override public boolean areContentsTheSame(int oldPosition, int newPosition) {
                 IptvRepository.Channel oldChannel = items.get(oldPosition);
                 IptvRepository.Channel newChannel = next.get(newPosition);
-                return oldChannel.name.equals(newChannel.name)
+                boolean oldFav = renderedFavorites.contains(oldChannel.stableKey());
+                boolean newFav = nextFavorites.contains(newChannel.stableKey());
+                return oldFav == newFav
+                        && oldChannel.name.equals(newChannel.name)
                         && oldChannel.group.equals(newChannel.group)
                         && oldChannel.logoUrl.equals(newChannel.logoUrl)
                         && oldChannel.now.equals(newChannel.now)
@@ -64,6 +83,8 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         }, false);
         items.clear();
         items.addAll(next);
+        renderedFavorites.clear();
+        renderedFavorites.addAll(nextFavorites);
         diff.dispatchUpdatesTo(this);
     }
 
@@ -71,8 +92,9 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         if (!items.isEmpty()) notifyItemRangeChanged(0, items.size(), "programme-time");
     }
 
-    private boolean hasSameContentsInOrder(List<IptvRepository.Channel> next) {
+    private boolean hasSameContentsInOrder(List<IptvRepository.Channel> next, Set<String> nextFavorites) {
         if (items.size() != next.size()) return false;
+        if (!renderedFavorites.equals(nextFavorites)) return false;
         for (int i = 0; i < items.size(); i++) {
             IptvRepository.Channel oldChannel = items.get(i);
             IptvRepository.Channel newChannel = next.get(i);
@@ -125,6 +147,7 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         logoBackground.setCornerRadius(dp(14, density));
         logoBackground.setStroke(dp(1, density), LiquidTheme.border(activity));
         logoBox.setBackground(logoBackground);
+        logoBox.setClipToOutline(true);
         LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(-1, dp(92, density));
         logoParams.setMargins(0, 0, 0, dp(9, density));
         tile.addView(logoBox, logoParams);
@@ -141,6 +164,15 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         FrameLayout.LayoutParams imageParams = new FrameLayout.LayoutParams(-1, -1);
         imageParams.setMargins(dp(4, density), dp(4, density), dp(4, density), dp(4, density));
         logoBox.addView(image, imageParams);
+
+        TextView favBadge = new TextView(activity);
+        favBadge.setText("★");
+        favBadge.setTextSize(14);
+        favBadge.setTextColor(0xFFFFC107);
+        favBadge.setShadowLayer(dp(3, density), 0, 0, 0xAA000000);
+        FrameLayout.LayoutParams favParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        favParams.setMargins(0, dp(4, density), dp(6, density), 0);
+        logoBox.addView(favBadge, favParams);
 
         LinearLayout text = new LinearLayout(activity);
         text.setOrientation(LinearLayout.VERTICAL);
@@ -170,17 +202,25 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         next.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.addView(next);
 
-        return new Holder(tile, fallback, image, name, now, next);
+        return new Holder(tile, fallback, image, name, now, next, favBadge);
     }
 
     @Override public void onBindViewHolder(Holder holder, int position) {
         IptvRepository.Channel channel = items.get(position);
+        boolean isFav = renderedFavorites.contains(channel.stableKey());
         holder.name.setText(channel.name);
         holder.now.setText(channel.now.isEmpty() ? channel.group : "ON NOW  ·  " + channel.now);
         holder.next.setText(channel.next.isEmpty() ? "Select to watch" : "Next · " + channel.next);
         holder.fallback.setText(channel.name.isEmpty() ? "TV" : channel.name.substring(0, 1).toUpperCase(Locale.getDefault()));
         logos.load(channel.logoUrl, holder.logo, holder.fallback);
+        holder.favBadge.setVisibility(isFav ? View.VISIBLE : View.GONE);
+        holder.itemView.setContentDescription(channel.name + (isFav ? ", favourite" : "")
+                + (channel.now.isEmpty() ? "" : ", " + channel.now));
         holder.itemView.setOnClickListener(view -> listener.onClick(channel));
+        holder.itemView.setOnLongClickListener(view -> {
+            if (longClickListener != null) return longClickListener.onLongClick(channel);
+            return false;
+        });
     }
 
     @Override public int getItemCount() { return items.size(); }
@@ -192,15 +232,16 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
     private static int dp(int value, float density) { return Math.round(value * density); }
 
     static final class Holder extends RecyclerView.ViewHolder {
-        final TextView fallback, name, now, next;
+        final TextView fallback, name, now, next, favBadge;
         final ImageView logo;
-        Holder(View itemView, TextView fallback, ImageView logo, TextView name, TextView now, TextView next) {
+        Holder(View itemView, TextView fallback, ImageView logo, TextView name, TextView now, TextView next, TextView favBadge) {
             super(itemView);
             this.fallback = fallback;
             this.logo = logo;
             this.name = name;
             this.now = now;
             this.next = next;
+            this.favBadge = favBadge;
         }
     }
 }

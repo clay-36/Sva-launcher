@@ -28,7 +28,16 @@ public final class GameDetailActivity extends MotionActivity {
                 | android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
 
-    @Override protected void onResume() { super.onResume(); game = repository.find(id); if (game == null) { finish(); return; } render(); }
+    @Override protected void onResume() {
+        super.onResume();
+        if (id != null) game = repository.find(id);
+        if (game == null) {
+            java.util.List<GameRecord> games = repository.games();
+            if (!games.isEmpty()) { game = games.get(0); id = game.id; }
+        }
+        if (game == null) { finish(); return; }
+        render();
+    }
 
     private void render() {
         LinearLayout root = new LinearLayout(this); root.setGravity(Gravity.CENTER_VERTICAL);
