@@ -160,11 +160,15 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             assertEquals(-1, bar.indexOfChild(buttons[3]));
             assertTrue(prefs.getBoolean(keys[0], false)); assertTrue(prefs.getBoolean(keys[1], false));
             getInstrumentation().runOnMainSync(() -> {
-                try { ((View)field(activity, "homeCalendarCard")).performClick(); }
-                catch (Exception e) { throw new AssertionError(e); }
+                try {
+                    View homeCalendar = (View) field(activity, "homeCalendarCard");
+                    assertFalse("The Home calendar card is non-clickable", homeCalendar.isClickable());
+                    assertFalse("The Home calendar card is non-focusable", homeCalendar.isFocusable());
+                    homeCalendar.performClick();
+                } catch (Exception e) { throw new AssertionError(e); }
             });
             getInstrumentation().waitForIdleSync();
-            assertEquals("The Home calendar shortcut remains usable", 3, ((Integer)field(activity, "activeTab")).intValue());
+            assertEquals("The Home calendar card does not switch tabs", 0, ((Integer)field(activity, "activeTab")).intValue());
             // Rebuild from saved preferences, then show both tabs again using the settings controls.
             getInstrumentation().runOnMainSync(() -> {
                 try {

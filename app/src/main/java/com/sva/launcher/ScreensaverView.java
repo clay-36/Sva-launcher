@@ -19,7 +19,9 @@ final class ScreensaverView extends View {
     private final ScreensaverPhotoRepository photos;
     private final SharedPreferences prefs;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-    private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.text.TextPaint text = new android.text.TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private float gradientHeight = -1f;
+    private Shader gradientShader;
     private final List<String> urls = new ArrayList<>();
     private Bitmap current, previous;
     private final LinkedHashMap<String, Bitmap> photoWindow = new LinkedHashMap<>();
@@ -241,8 +243,12 @@ final class ScreensaverView extends View {
         canvas.restoreToCount(layer);
         boolean paperTheme = theme == 2 || theme == 7;
         if (theme == 0) {
-            paint.setShader(new LinearGradient(0, h * .7f, 0, h, Color.TRANSPARENT,
-                    0x99000000, Shader.TileMode.CLAMP));
+            if (gradientHeight != h || gradientShader == null) {
+                gradientHeight = h;
+                gradientShader = new LinearGradient(0, h * .7f, 0, h, Color.TRANSPARENT,
+                        0x99000000, Shader.TileMode.CLAMP);
+            }
+            paint.setShader(gradientShader);
             canvas.drawRect(0, h * .7f, w, h, paint); paint.setShader(null);
         }
         drawInformation(canvas, w, h, time, paperTheme);
@@ -296,7 +302,7 @@ final class ScreensaverView extends View {
         text.setTextSize(size);
         text.setColor(color);
         text.setTypeface(LiquidTheme.font(getContext()));
-        String fitted = android.text.TextUtils.ellipsize(value, new android.text.TextPaint(text),
+        String fitted = android.text.TextUtils.ellipsize(value, text,
                 Math.max(1, width), android.text.TextUtils.TruncateAt.END).toString();
         canvas.drawText(fitted, x, y, text);
     }

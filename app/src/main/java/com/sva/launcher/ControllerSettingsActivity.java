@@ -14,7 +14,7 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class ControllerSettingsActivity extends Activity {
+public final class ControllerSettingsActivity extends MotionActivity {
     private final List<InputDevice> controllers = new ArrayList<>();
     private InputDevice mappingDevice; private ControllerProfile mapping; private int step; private TextView prompt;
     private String focusedController;

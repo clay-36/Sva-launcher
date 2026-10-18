@@ -1,0 +1,7 @@
+<resources>
+    <item name="motion_state" type="id" />
+    <style name="SvaMotionDialog">
+        <item name="android:windowEnterAnimation">@anim/motion_enter</item>
+        <item name="android:windowExitAnimation">@anim/motion_exit</item>
+    </style>
+</resources>

@@ -44,6 +44,8 @@
             android:name=".GameLibraryActivity"
             android:exported="false"
             android:screenOrientation="landscape" />
+        <activity android:name=".GuideActivity" android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".PlaybackActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"

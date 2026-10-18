@@ -51,7 +51,7 @@ public final class PlaybackActivity extends Activity {
         @Override public void run() {
             boolean panelWasVisible = infoPanel != null && infoPanel.getVisibility() == View.VISIBLE;
             if (!updateProgrammeFromCache()) updateProgrammeProgress();
-            if (!panelWasVisible && infoPanel != null) infoPanel.setVisibility(View.GONE);
+            if (!panelWasVisible && infoPanel != null) { Motion.reset(infoPanel); infoPanel.setVisibility(View.GONE); }
         }
     };
 
@@ -155,7 +155,7 @@ public final class PlaybackActivity extends Activity {
     private void startPlayback(PlaybackRequest request) {
         activeDrmType = request.drmType;
         try {
-            infoPanel.setVisibility(View.VISIBLE);
+            Motion.show(infoPanel, false);
             message.setVisibility(View.VISIBLE);
             releasePlayer();
             player = IptvPlayback.create(this, request);
@@ -216,7 +216,7 @@ public final class PlaybackActivity extends Activity {
         currentChannelName = name;
         message.setText(name);
         message.setVisibility(View.VISIBLE);
-        infoPanel.setVisibility(View.VISIBLE);
+        Motion.show(infoPanel, false);
         programmeSchedule = item.optJSONArray("programmes");
         if (!updateProgrammeFromCache()) {
             updateProgramInfo(item.optString("now", ""), item.optLong("nowStartMs", 0),
@@ -230,6 +230,7 @@ public final class PlaybackActivity extends Activity {
                     item.optString("licenseUrl"), "", new LinkedHashMap<>(),
                     StreamOptions.jsonHeaders(item.optJSONObject("headers"))));
         }
+        if (player != null && player.getPlayerError() == null) Motion.reveal(infoPanel);
     }
 
     private void showError(String text) {
@@ -239,7 +240,7 @@ public final class PlaybackActivity extends Activity {
         if (programmeProgress != null) programmeProgress.setVisibility(View.GONE);
         if (programmeTimes != null) programmeTimes.setVisibility(View.GONE);
         if (nextProgramme != null) nextProgramme.setVisibility(View.GONE);
-        if (infoPanel != null) infoPanel.setVisibility(View.VISIBLE);
+        if (infoPanel != null) Motion.show(infoPanel, false);
         if (message != null) message.setVisibility(View.VISIBLE);
         if (message != null) message.setText(text);
     }
@@ -247,7 +248,7 @@ public final class PlaybackActivity extends Activity {
     private void hideMessageAfter(long delayMs) {
         if (hideMessage != null) handler.removeCallbacks(hideMessage);
         hideMessage = () -> {
-            if (infoPanel != null) infoPanel.setVisibility(View.GONE);
+            if (infoPanel != null) Motion.hide(infoPanel);
         };
         handler.postDelayed(hideMessage, delayMs);
     }
@@ -329,6 +330,7 @@ public final class PlaybackActivity extends Activity {
         if (hideMessage != null) handler.removeCallbacks(hideMessage);
         handler.removeCallbacks(programmeTick);
         releasePlayer();
+        Motion.cancelTree(infoPanel);
         super.onDestroy();
     }
 

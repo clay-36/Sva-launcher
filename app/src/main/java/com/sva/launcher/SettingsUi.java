@@ -42,7 +42,7 @@ final class SettingsUi {
         return states(c, selected, true);
     }
     private static Drawable states(Context c, boolean selected, boolean navigation) {
-        StateListDrawable d = new StateListDrawable();
+        StateListDrawable d = new Motion.States();
         d.addState(new int[]{android.R.attr.state_focused}, shape(c, raised(c), LiquidTheme.accent(c), 2, 12));
         d.addState(new int[]{android.R.attr.state_pressed}, shape(c, raised(c), LiquidTheme.accent(c), 2, 12));
         d.addState(new int[]{}, shape(c, selected ? raised(c) : navigation ? Color.TRANSPARENT : surface(c), Color.TRANSPARENT, 0, 12));
@@ -61,7 +61,7 @@ final class SettingsUi {
         b.setGravity(Gravity.CENTER_VERTICAL | Gravity.START); b.setMaxLines(2);
         b.setEllipsize(TextUtils.TruncateAt.END); b.setBackground(states(c, false));
         b.setFocusable(true); b.setFocusableInTouchMode(false); b.setOnFocusChangeListener(null);
-        b.setStateListAnimator(null); b.setElevation(0);
+        b.setElevation(0); Motion.interaction(b, true);
     }
     static Button action(Context c, String label, Runnable click) {
         Button b = new Button(c); styleButton(b); b.setText(label);
@@ -72,17 +72,18 @@ final class SettingsUi {
     }
     static void add(LinearLayout parent, View child) {
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
-        p.bottomMargin = dp(parent.getContext(), 6); parent.addView(child, p);
+        p.setMargins(dp(parent.getContext(), 8), dp(parent.getContext(), 3), dp(parent.getContext(), 8), dp(parent.getContext(), 5));
+        parent.addView(child, p);
     }
     static void heading(LinearLayout parent, String title) {
         TextView t = text(parent.getContext(), title, 18, false);
-        t.setPadding(dp(parent.getContext(), 2), dp(parent.getContext(), 20), 0, dp(parent.getContext(), 10));
+        t.setPadding(dp(parent.getContext(), 10), dp(parent.getContext(), 20), dp(parent.getContext(), 10), dp(parent.getContext(), 10));
         parent.addView(t);
     }
     static void hint(LinearLayout parent, String value) {
         TextView t = text(parent.getContext(), value, 14, true);
         t.setLineSpacing(dp(parent.getContext(), 3), 1);
-        t.setPadding(dp(parent.getContext(), 2), dp(parent.getContext(), 4), dp(parent.getContext(), 2), dp(parent.getContext(), 12));
+        t.setPadding(dp(parent.getContext(), 10), dp(parent.getContext(), 4), dp(parent.getContext(), 10), dp(parent.getContext(), 12));
         parent.addView(t);
     }
     static void styleInput(EditText field, boolean multiline) {
@@ -131,7 +132,7 @@ final class SettingsUi {
                         value.setText(options[which]); row.setContentDescription(title + ", " + options[which]);
                         save.accept(which); d.dismiss(); row.requestFocus();
                     }).setNegativeButton("Cancel", null).create();
-            dialog.setOnDismissListener(d -> row.requestFocus()); dialog.show();
+            dialog.setOnDismissListener(d -> row.requestFocus()); Motion.dialog(dialog); dialog.show();
             dialog.getListView().setSelection(current);
         });
         return row;
@@ -140,6 +141,7 @@ final class SettingsUi {
         LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(c, 18), dp(c, 14), dp(c, 18), dp(c, 14));
         row.setMinimumHeight(dp(c, 64)); row.setBackground(states(c, false));
+        Motion.interaction(row, true);
         row.setFocusable(true); row.setClickable(true); row.setDescendantFocusability(LinearLayout.FOCUS_BLOCK_DESCENDANTS);
         return row;
     }
@@ -147,8 +149,12 @@ final class SettingsUi {
         LinearLayout page = new LinearLayout(a); page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(dp(a, 40), dp(a, 24), dp(a, 40), dp(a, 24)); page.setBackgroundColor(background(a));
         LinearLayout header = new LinearLayout(a); header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setClipChildren(false); header.setClipToPadding(false);
         header.addView(text(a, title, 28, false), new LinearLayout.LayoutParams(0, -2, 1));
-        header.addView(action(a, "Back", back), new LinearLayout.LayoutParams(dp(a, 112), dp(a, 56)));
+        Button backButton = action(a, "Back", back);
+        LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(dp(a, 112), dp(a, 52));
+        backParams.setMargins(dp(a, 4), dp(a, 4), dp(a, 4), dp(a, 4));
+        header.addView(backButton, backParams);
         page.addView(header); hint(page, subtitle); return page;
     }
     static LinearLayout scroll(LinearLayout parent) {
@@ -156,7 +162,8 @@ final class SettingsUi {
         scroll.setClipToPadding(false); scroll.setVerticalScrollBarEnabled(false);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout content = new LinearLayout(parent.getContext()); content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(parent.getContext(), 2), dp(parent.getContext(), 2), dp(parent.getContext(), 2), dp(parent.getContext(), 8));
+        content.setClipChildren(false); content.setClipToPadding(false);
+        content.setPadding(dp(parent.getContext(), 8), dp(parent.getContext(), 2), dp(parent.getContext(), 8), dp(parent.getContext(), 8));
         scroll.addView(content); parent.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1)); return content;
     }
     /** Small code-drawn category marks replace font-dependent symbol glyphs. */

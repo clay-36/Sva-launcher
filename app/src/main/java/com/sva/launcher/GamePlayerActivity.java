@@ -67,14 +67,25 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
             @Override public void surfaceDestroyed(SurfaceHolder holder) { session.surface(null); session.pause(true); }
         });
         pauseLayer = new FrameLayout(this); pauseLayer.setBackgroundColor(0xd9041013); pauseLayer.setVisibility(View.GONE);
+        pauseLayer.setClipChildren(false); pauseLayer.setClipToPadding(false);
         LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL); panel.setGravity(Gravity.CENTER_HORIZONTAL);
+        panel.setClipChildren(false); panel.setClipToPadding(false);
         panel.setPadding(GameUi.dp(this, 36), GameUi.dp(this, 28), GameUi.dp(this, 36), GameUi.dp(this, 28));
         panel.setBackground(GameUi.shape(LiquidTheme.surface(this), LiquidTheme.accent(this), 2, 22));
         pauseTitle = GameUi.text(this, game.title, 26, true); pauseTitle.setGravity(Gravity.CENTER); panel.addView(pauseTitle, new LinearLayout.LayoutParams(GameUi.dp(this, 430), GameUi.dp(this, 58)));
-        Button resume = GameUi.button(this, "Resume"); resume.setOnClickListener(v -> hidePause()); panel.addView(resume, new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56)));
-        Button restart = GameUi.button(this, "Restart"); restart.setOnClickListener(v -> { session.reset(); hidePause(); }); LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56)); action.topMargin = GameUi.dp(this, 10); panel.addView(restart, action);
-        Button exit = GameUi.button(this, "Exit to Sva"); exit.setOnClickListener(v -> finish()); LinearLayout.LayoutParams exitParams = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56)); exitParams.topMargin = GameUi.dp(this, 10); panel.addView(exit, exitParams);
-        pauseLayer.addView(panel, new FrameLayout.LayoutParams(GameUi.dp(this, 510), GameUi.dp(this, 310), Gravity.CENTER)); root.addView(pauseLayer, new FrameLayout.LayoutParams(-1, -1));
+        Button resume = GameUi.button(this, "Resume"); resume.setOnClickListener(v -> hidePause());
+        LinearLayout.LayoutParams resumeParams = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56));
+        resumeParams.setMargins(GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4));
+        panel.addView(resume, resumeParams);
+        Button restart = GameUi.button(this, "Restart"); restart.setOnClickListener(v -> { session.reset(); hidePause(); });
+        LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56));
+        action.setMargins(GameUi.dp(this, 4), GameUi.dp(this, 10), GameUi.dp(this, 4), GameUi.dp(this, 4));
+        panel.addView(restart, action);
+        Button exit = GameUi.button(this, "Exit to Sva"); exit.setOnClickListener(v -> finish());
+        LinearLayout.LayoutParams exitParams = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56));
+        exitParams.setMargins(GameUi.dp(this, 4), GameUi.dp(this, 10), GameUi.dp(this, 4), GameUi.dp(this, 4));
+        panel.addView(exit, exitParams);
+        pauseLayer.addView(panel, new FrameLayout.LayoutParams(GameUi.dp(this, 510), -2, Gravity.CENTER)); root.addView(pauseLayer, new FrameLayout.LayoutParams(-1, -1));
         setContentView(root);
     }
 
@@ -230,6 +241,7 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
                 .setOnAudioFocusChangeListener(change -> {
                     if (!started) return;
                     runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed() || !started) return;
                         if (change <= 0) session.pause(true);
                         else if (!menuVisible) session.pause(false);
                     });
@@ -240,6 +252,7 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
     @Override protected void onPause() { if (started) session.pause(true); super.onPause(); }
     @Override protected void onResume() { super.onResume(); if (started && !menuVisible) session.pause(false); }
     @Override protected void onDestroy() {
+        started = false;
         ((InputManager) getSystemService(INPUT_SERVICE)).unregisterInputDeviceListener(this);
         if (focusRequest != null) audioManager.abandonAudioFocusRequest(focusRequest); session.stop(); super.onDestroy();
     }
