@@ -88,8 +88,32 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         diff.dispatchUpdatesTo(this);
     }
 
-    void refreshProgrammeLabels() {
-        if (!items.isEmpty()) notifyItemRangeChanged(0, items.size(), "programme-time");
+    void refreshVisibleProgrammeLabels(RecyclerView list) {
+        for (int i = 0; i < list.getChildCount(); i++) {
+            View child = list.getChildAt(i);
+            RecyclerView.ViewHolder rawHolder = list.getChildViewHolder(child);
+            if (!(rawHolder instanceof Holder)) continue;
+            int position = rawHolder.getBindingAdapterPosition();
+            if (position == RecyclerView.NO_POSITION || position >= items.size()) continue;
+            IptvRepository.Channel channel = items.get(position);
+            Holder holder = (Holder) rawHolder;
+            String now = channel.now.isEmpty() ? channel.group : "ON NOW  ·  " + channel.now;
+            String next = channel.next.isEmpty() ? "Select to watch" : "Next · " + channel.next;
+            boolean changed = false;
+            if (!now.contentEquals(holder.now.getText())) {
+                holder.now.setText(now);
+                changed = true;
+            }
+            if (!next.contentEquals(holder.next.getText())) {
+                holder.next.setText(next);
+                changed = true;
+            }
+            if (changed) {
+                boolean isFav = renderedFavorites.contains(channel.stableKey());
+                holder.itemView.setContentDescription(channel.name + (isFav ? ", favourite" : "")
+                        + (channel.now.isEmpty() ? "" : ", " + channel.now));
+            }
+        }
     }
 
     private boolean hasSameContentsInOrder(List<IptvRepository.Channel> next, Set<String> nextFavorites) {

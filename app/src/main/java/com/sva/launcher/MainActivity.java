@@ -524,11 +524,11 @@ public final class MainActivity extends Activity {
             @Override public void run() {
                 if (!screenActive) return;
                 updateNowPlaying();
-                handler.postDelayed(this, 2000);
+                handler.postDelayed(this, activeMediaController != null ? 1000 : 10000);
             }
         };
         handler.removeCallbacks(mediaTick);
-        handler.postDelayed(mediaTick, 2000);
+        handler.postDelayed(mediaTick, activeMediaController != null ? 1000 : 10000);
         if (root != null && !appsLoaded) renderApps();
         if (gameGrid != null) renderGames();
         if (settingsScreen == null && !backgroundPhotos.isEmpty()) {
@@ -3521,7 +3521,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             String prefix = FavoriteChannels.CATEGORY_FAVORITES.equals(category.getKey()) ? "★ " : "";
             if (tab != null) tab.setText(prefix + category.getKey() + "  ·  " + category.getValue().size());
             ChannelRow row = channelRowMap.get(selectedChannelCategory);
-            if (row != null && category.getKey().equals(selectedChannelCategory)) row.adapter.setChannels(category.getValue(), favoriteChannelKeys);
+            if (row != null && category.getKey().equals(selectedChannelCategory)) {
+                queueChannelRowUpdate(row, selectedChannelCategory, category.getValue());
+            }
         }
         updateChannelCategoryTabStyles();
         renderGuide();
@@ -3529,7 +3531,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void refreshCachedProgrammeDisplay() {
         IptvRepository.refreshProgrammeDisplay(channels, System.currentTimeMillis());
-        for (ChannelRow row : channelRowMap.values()) row.adapter.refreshProgrammeLabels();
+        for (ChannelRow row : channelRowMap.values()) {
+            row.list.post(() -> {
+                if (channelRowMap.containsValue(row)) row.adapter.refreshVisibleProgrammeLabels(row.list);
+            });
+        }
     }
 
     private void renderGuide() {
@@ -3560,10 +3566,22 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (row != null) {
             channelRowMap.clear();
             channelRowMap.put(selectedChannelCategory, row);
-            row.adapter.setChannels(channelsForCategory(category), favoriteChannelKeys);
+            queueChannelRowUpdate(row, category, channelsForCategory(category));
         }
         renderGuide();
         channelCategoryScroll.smoothScrollTo(Math.max(0, view.getLeft() - dp(24)), 0);
+    }
+
+    private void queueChannelRowUpdate(ChannelRow row, String category, List<IptvRepository.Channel> items) {
+        int generation = ++row.pendingUpdateGeneration;
+        List<IptvRepository.Channel> snapshot = new ArrayList<>(items);
+        Set<String> favorites = new HashSet<>(favoriteChannelKeys);
+        row.list.post(() -> {
+            if (row.pendingUpdateGeneration != generation
+                    || !category.equals(selectedChannelCategory)
+                    || channelRowMap.get(category) != row) return;
+            row.adapter.setChannels(snapshot, favorites);
+        });
     }
 
     private List<IptvRepository.Channel> channelsForCategory(String category) {
@@ -3943,6 +3961,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         final LinearLayout container;
         final RecyclerView list;
         final ChannelAdapter adapter;
+        int pendingUpdateGeneration;
         ChannelRow(LinearLayout container, RecyclerView list, ChannelAdapter adapter) {
             this.container = container;
             this.list = list;
@@ -5216,8 +5235,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void renderLive(LinearLayout page) {
             LinearLayout form = scrollForm(page);
             addFormSectionHeader(form, "Playlist & Guide URLs");
-            playlistField = addInput(form, "M3U playlist", "https://example.com/playlist.m3u", draftPlaylist, false);
-            guideField = addInput(form, "Programme guide · XML, XML.GZ or JSON", "https://www.epgschedule.com/data/index-lite.json", draftGuide, false);
+            playlistField = addInput(form, "M3U playlists · one URL per line", "https://example.com/playlist.m3u", draftPlaylist, true);
+            guideField = addInput(form, "Programme guides · one URL per line", "https://www.epgschedule.com/data/index-lite.json", draftGuide, true);
+            addFormHint(form, "Channels from all playlists are combined. Guide schedules from all sources are merged. Duplicate source URLs are ignored.");
             addFormHint(form, "XMLTV matches by tvg-id. JSON guides match channel IDs or a unique channel name. EPGSchedule times use India Standard Time.");
             addFormSectionHeader(form, "Cache & Guide status");
             cacheSummary = label(cacheSummaryText(), 14, SettingsUi.muted(MainActivity.this), false);

@@ -56,7 +56,7 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 - **Remote-first navigation** — focusing a top-level tab selects it immediately, with clear focus states throughout the UI.
 - **Personal home screen** — select and reorder app shortcuts; keep the clock, date, weather, Wi-Fi, tools, and settings close by.
 - **Photo backdrops** — use a single image, rotate a local folder, or connect a public Google Photos album.
-- **Live TV and guide** — load M3U/M3U8 playlists and optional XMLTV or XMLTV.GZ data, browse `group-title` categories, display `tvg-logo` artwork, and hide unwanted channels.
+- **Live TV and guide** — combine multiple M3U/M3U8 playlists and XMLTV, XMLTV.GZ, or JSON programme guides, browse `group-title` categories, display `tvg-logo` artwork, and hide unwanted channels.
 - **Integrated playback** — watch with Media3 ExoPlayer, move between channels with Up/Down, view programme progress, prefer Hindi audio when available, and configure global or per-channel Widevine settings.
 - **NES library** — import your own `.nes` files and launch them directly through the embedded Nestopia UE core, without a separate emulator menu.
 - **Events calendar** — connect a public Google Calendar iCal feed, see today's events, browse 12 months in either direction, and view selected-day details and lunar illumination.
@@ -92,7 +92,7 @@ You can also [build and install the APK from source](DEVELOPER.md).
    | --- | --- |
    | **Apps** | Choose and reorder installed app shortcuts. Without a saved selection, Sva shows up to eight apps. |
    | **Appearance** | Select a wallpaper, a local photo folder, or a public Google Photos album. |
-   | **Live TV** | Add an M3U/M3U8 playlist URL and, optionally, an XMLTV or XMLTV.GZ guide URL. |
+   | **Live TV** | Add one or more M3U/M3U8 playlist URLs and optional XMLTV, XMLTV.GZ, or JSON guide URLs, one per line. |
    | **Channels** | Search, hide, and restore channels from the loaded playlist. |
    | **YouTube** | Save video and playlist links as cards in the Saved tab. |
    | **Calendar** | Add a public Google Calendar iCal link for the Events tab. |

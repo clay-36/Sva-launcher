@@ -320,7 +320,9 @@ Before committing code:
 
 ## IPTV & DRM Stream Configuration
 
-Sva Launcher's IPTV playback engine supports M3U/M3U8 playlists with embedded stream metadata, custom HTTP request headers, and DRM license configuration.
+Sva Launcher's IPTV playback engine supports multiple M3U/M3U8 playlists and multiple XMLTV, XMLTV.GZ, or JSON programme guides. Enter one source URL per line in **Settings → Live TV**. Channels from playlists are combined, duplicate channel identities are skipped, and guide schedules are merged across sources. A failed source does not prevent successful sources from loading.
+
+Playlists support embedded stream metadata, custom HTTP request headers, and DRM license configuration.
 
 ### Widevine (DASH & FMP4/CMAF HLS)
 

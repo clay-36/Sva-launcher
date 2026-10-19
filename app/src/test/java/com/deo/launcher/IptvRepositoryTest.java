@@ -19,6 +19,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public final class IptvRepositoryTest {
+    @Test public void parsesMultipleSourceUrlsInOrderAndDropsBlanksAndDuplicates() {
+        assertEquals(java.util.Arrays.asList("https://one.test/list.m3u", "https://two.test/list.m3u"),
+                IptvRepository.sourceUrls("  https://one.test/list.m3u\r\n\nhttps://two.test/list.m3u\n"
+                        + "https://one.test/list.m3u  \n"));
+        assertTrue(IptvRepository.sourceUrls(" \r\n ").isEmpty());
+    }
+
     @Test public void parsesChannelLogoGroupAndIdentity() {
         List<IptvRepository.Channel> channels = IptvRepository.parseM3u(
                 "#EXTM3U\n" +

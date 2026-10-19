@@ -29,6 +29,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -125,6 +126,16 @@ final class IptvRepository {
 
     String playlistUrl() { return prefs.getString("playlist", ""); }
     String guideUrl() { return prefs.getString("guide", ""); }
+    static List<String> sourceUrls(String value) {
+        LinkedHashSet<String> sources = new LinkedHashSet<>();
+        if (value != null) {
+            for (String line : value.split("\\r?\\n")) {
+                String source = line.trim();
+                if (!source.isEmpty()) sources.add(source);
+            }
+        }
+        return new ArrayList<>(sources);
+    }
     String drmLicenseUrl() { return prefs.getString("drmLicenseUrl", ""); }
     String drmHeaderText() { return prefs.getString("drmHeaders", ""); }
     Map<String, String> drmHeaders() { return parseHeaders(drmHeaderText()); }
@@ -353,17 +364,35 @@ final class IptvRepository {
                 String message;
                 try {
                     String playlist = playlistUrl();
-                    if (playlist.isEmpty()) throw new IllegalStateException("Add an M3U playlist URL in Settings.");
+                    List<String> sources = sourceUrls(playlist);
+                    if (sources.isEmpty()) throw new IllegalStateException("Add one or more M3U playlist URLs in Settings.");
                     prefs.edit().putLong("channelsAttempted", System.currentTimeMillis()).apply();
-                    List<Channel> channels = downloadPlaylist(playlist);
+                    Map<String, Channel> combined = new LinkedHashMap<>();
+                    List<String> failures = new ArrayList<>();
+                    for (int i = 0; i < sources.size(); i++) {
+                        try {
+                            List<Channel> loadedSource = downloadPlaylist(sources.get(i));
+                            if (loadedSource.isEmpty()) {
+                                failures.add("Playlist " + (i + 1) + " was empty");
+                            } else {
+                                for (Channel channel : loadedSource) {
+                                    combined.putIfAbsent(cacheIdentity(channel), channel);
+                                }
+                            }
+                        } catch (Exception sourceError) {
+                            failures.add("Playlist " + (i + 1) + ": " + safeMessage(sourceError));
+                        }
+                    }
+                    List<Channel> channels = new ArrayList<>(combined.values());
                     if (channels.isEmpty()) {
                         loaded = cachedChannels();
                         message = loaded.isEmpty()
-                                ? "No channels found in the playlist."
-                                : "Playlist was empty. Keeping saved channels.";
+                                ? (failures.isEmpty() ? "No channels found in the playlists."
+                                : String.join("; ", failures))
+                                : "No channels loaded. Keeping saved channels. " + String.join("; ", failures);
                     } else if (!playlist.equals(playlistUrl())) {
                         loaded = cachedChannels();
-                        message = "Playlist URL changed during refresh. Refresh channels again.";
+                        message = "Playlist sources changed during refresh. Refresh channels again.";
                     } else {
                         preserveGuideData(channels, cachedChannels());
                         saveCache(channels);
@@ -372,7 +401,9 @@ final class IptvRepository {
                                 .putLong("channelsAttempted", completedAt)
                                 .putString("channelsCacheSource", playlist).apply();
                         loaded = channels;
-                        message = "Channels updated.";
+                        message = failures.isEmpty()
+                                ? "Channels updated from " + sources.size() + (sources.size() == 1 ? " playlist." : " playlists.")
+                                : "Loaded " + channels.size() + " channels; " + String.join("; ", failures) + ".";
                     }
                 } catch (Exception e) {
                     loaded = cachedChannels();
@@ -393,26 +424,48 @@ final class IptvRepository {
                 String message;
                 String guide = guideUrl();
                 try {
-                    if (guide.isEmpty()) throw new IllegalStateException("Add and save a programme guide URL in Settings.");
+                    List<String> sources = sourceUrls(guide);
+                    if (sources.isEmpty()) throw new IllegalStateException("Add and save one or more programme guide URLs in Settings.");
                     if (cached.isEmpty()) throw new IllegalStateException("Refresh channels first to load the programme guide.");
                     prefs.edit().putLong("guideAttempted", System.currentTimeMillis()).apply();
                     List<Channel> updated = copyChannels(cached);
-                    attachGuide(updated, guide);
+                    clearGuideData(updated);
+                    List<String> failures = new ArrayList<>();
+                    int succeeded = 0;
+                    for (int i = 0; i < sources.size(); i++) {
+                        List<Channel> sourceChannels = copyChannels(cached);
+                        clearGuideData(sourceChannels);
+                        try {
+                            attachGuide(sourceChannels, sources.get(i));
+                            mergeGuideData(sourceChannels, updated, System.currentTimeMillis());
+                            succeeded++;
+                        } catch (Exception sourceError) {
+                            failures.add("Guide " + (i + 1) + ": " + safeMessage(sourceError));
+                        }
+                    }
+                    if (succeeded == 0) {
+                        throw new IllegalStateException(failures.isEmpty()
+                                ? "No programme guide sources were loaded." : String.join("; ", failures));
+                    }
+                    refreshProgrammeDisplay(updated, System.currentTimeMillis());
                     if (!guide.equals(guideUrl())) {
                         prefs.edit().remove("guideUpdated").remove("guideAttempted").apply();
-                        throw new IllegalStateException("Programme guide URL changed during refresh. Refresh the guide again.");
+                        throw new IllegalStateException("Programme guide sources changed during refresh. Refresh the guide again.");
                     }
                     saveCache(updated);
                     long completedAt = System.currentTimeMillis();
                     prefs.edit().putLong("guideUpdated", completedAt).putLong("guideAttempted", completedAt)
                             .putString("guideCacheSource", guide).apply();
                     loaded = updated;
-                    message = "Programme guide updated.";
+                    message = failures.isEmpty()
+                            ? "Programme guide updated from " + succeeded + (succeeded == 1 ? " source." : " sources.")
+                            : "Guide updated from " + succeeded + " of " + sources.size() + " sources. "
+                            + String.join("; ", failures) + ".";
                 } catch (Exception e) {
                     loaded = cacheOrFallback(cachedChannels(), cached);
                     if (!guide.equals(guideUrl())) {
                         prefs.edit().remove("guideUpdated").remove("guideAttempted").apply();
-                        message = "Programme guide URL changed during refresh. Refresh the guide again.";
+                        message = "Programme guide sources changed during refresh. Refresh the guide again.";
                     } else {
                         message = loaded.isEmpty()
                                 ? safeMessage(e)
@@ -905,6 +958,18 @@ final class IptvRepository {
             to.programmes.clear();
             to.programmes.addAll(from.programmes);
         }
+    }
+
+    private static void mergeGuideData(List<Channel> source, List<Channel> destination, long now) {
+        int count = Math.min(source.size(), destination.size());
+        for (int i = 0; i < count; i++) {
+            Channel from = source.get(i);
+            Channel to = destination.get(i);
+            for (Programme programme : from.programmes) {
+                recordProgramme(to, programme.title, programme.startMs, programme.endMs, now);
+            }
+        }
+        refreshProgrammeDisplay(destination, now);
     }
 
     private static void addUnique(Map<String, Channel> index, java.util.Set<String> ambiguous,

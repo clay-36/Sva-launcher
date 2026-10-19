@@ -23,6 +23,7 @@ final class GlassDrawable extends Drawable {
     private LinearGradient specularShader;
     private LinearGradient rimShader;
     private float lastWidth = -1f, lastHeight = -1f;
+    private int lastX = Integer.MIN_VALUE, lastY = Integer.MIN_VALUE;
     private java.lang.ref.WeakReference<View> cachedView;
     private int alpha = 255;
 
@@ -155,6 +156,17 @@ final class GlassDrawable extends Drawable {
             canvas.drawRoundRect(rect, radius, radius, paint);
             paint.setShader(null);
         }
+    }
+
+    /** Redraw only when wallpaper motion changes this surface's mapped backdrop position. */
+    boolean updateBackdropPosition() {
+        View view = resolveView();
+        if (view == null || !view.isAttachedToWindow()) return false;
+        getStableLocation(view, location);
+        if (location[0] == lastX && location[1] == lastY) return false;
+        lastX = location[0];
+        lastY = location[1];
+        return true;
     }
 
     @Override public void getOutline(Outline outline) { outline.setRoundRect(getBounds(), radius); }

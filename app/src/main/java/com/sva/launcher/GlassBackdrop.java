@@ -76,7 +76,7 @@ final class GlassBackdrop {
         for (int i = surfaces.size() - 1; i >= 0; i--) {
             GlassDrawable drawable = surfaces.get(i).get();
             if (drawable == null) surfaces.remove(i);
-            else drawable.invalidateSelf();
+            else if (drawable.updateBackdropPosition()) drawable.invalidateSelf();
         }
     }
 
