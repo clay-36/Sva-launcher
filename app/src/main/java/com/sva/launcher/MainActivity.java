@@ -703,6 +703,25 @@ public final class MainActivity extends Activity {
             glyph.setBounds(0, 0, dp(21), dp(21));
             button.setCompoundDrawablesRelative(glyph, null, null, null);
             button.setCompoundDrawablePadding(dp(7));
+            GradientDrawable selectedPill = new GradientDrawable();
+            selectedPill.setColor(LiquidTheme.accent(this));
+            selectedPill.setCornerRadius(dp(24));
+            GradientDrawable focusedPill = new GradientDrawable();
+            focusedPill.setColor(LiquidTheme.accent(this));
+            focusedPill.setCornerRadius(dp(24));
+            focusedPill.setStroke(dp(2), light ? 0x66000000 : 0x66FFFFFF);
+            StateListDrawable tabStates = new Motion.States();
+            tabStates.addState(new int[]{android.R.attr.state_focused}, focusedPill);
+            tabStates.addState(new int[]{android.R.attr.state_selected}, selectedPill);
+            tabStates.addState(new int[]{}, new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            button.setBackground(tabStates);
+            button.setSelected(i == activeTab);
+            button.setTypeface(LiquidTheme.font(this));
+            int selectedTextColor = light ? Color.WHITE : 0xFF071417;
+            int unselectedTextColor = light ? 0xFF24403D : 0xD4FFFFFF;
+            button.setTextColor(new android.content.res.ColorStateList(
+                    new int[][]{new int[]{android.R.attr.state_selected}, new int[]{}},
+                    new int[]{selectedTextColor, unselectedTextColor}));
             button.setOnClickListener(v -> selectTab(tab, false));
             button.setOnFocusChangeListener((view, focused) -> {
                 LiquidTheme.animateContainedFocus(view, focused);
@@ -1436,6 +1455,7 @@ public final class MainActivity extends Activity {
         }
         final boolean keepNavigationFocus = navigatingTabs;
         boolean animatePage = tabsInitialized && activeTab != selectedTab;
+        final int previousTab = activeTab;
         View oldPage = tabPages[activeTab];
         if (tabsInitialized && oldPage != null && oldPage.getVisibility() == View.VISIBLE) {
             tabScroll[activeTab] = activeTab == TAB_HOME ? 0 : oldPage.getScrollY();
@@ -1452,26 +1472,12 @@ public final class MainActivity extends Activity {
                     tabPages[i].setVisibility(i == selectedTab ? View.VISIBLE : View.GONE);
                 }
                 if (tabButtons[i] != null) {
-                    boolean light = LiquidTheme.isLight(this);
+                    if (i != previousTab && i != selectedTab) continue;
                     boolean selected = i == selectedTab;
-                    int accentColor = LiquidTheme.accent(this);
-                    GradientDrawable selectedPill = new GradientDrawable();
-                    selectedPill.setColor(accentColor);
-                    selectedPill.setCornerRadius(dp(24));
-                    GradientDrawable focusedPill = new GradientDrawable();
-                    focusedPill.setColor(accentColor);
-                    focusedPill.setCornerRadius(dp(24));
-                    focusedPill.setStroke(dp(2), light ? 0x66000000 : 0x66FFFFFF);
-                    StateListDrawable states = new Motion.States();
-                    states.addState(new int[]{android.R.attr.state_focused}, focusedPill);
-                    states.addState(new int[]{}, selected
-                            ? selectedPill : new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
-                    tabButtons[i].setBackground(states);
-                    tabButtons[i].setTypeface(LiquidTheme.font(this));
-                    int selectedTextColor = light ? Color.WHITE : 0xFF071417;
-                    int unselectedTextColor = light ? 0xFF24403D : 0xD4FFFFFF;
-                    tabButtons[i].setTextColor(selected ? selectedTextColor : unselectedTextColor);
-                    navigationGlyphs[i].setGlyphColor(selected ? selectedTextColor : unselectedTextColor);
+                    tabButtons[i].setSelected(selected);
+                    navigationGlyphs[i].setGlyphColor(selected
+                            ? (LiquidTheme.isLight(this) ? Color.WHITE : 0xFF071417)
+                            : (LiquidTheme.isLight(this) ? 0xFF24403D : 0xD4FFFFFF));
                 }
             }
             if (!keepNavigationFocus && !focusTabButton) {
@@ -5963,7 +5969,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
         }
 
-        void setGlyphColor(int color) { glyphColor = color; invalidateSelf(); }
+        void setGlyphColor(int color) {
+            if (glyphColor == color) return;
+            glyphColor = color;
+            invalidateSelf();
+        }
 
         @Override public void draw(Canvas canvas) {
             Rect bounds = getBounds();
