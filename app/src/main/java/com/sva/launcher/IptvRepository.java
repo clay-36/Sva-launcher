@@ -960,7 +960,7 @@ final class IptvRepository {
         }
     }
 
-    private static void mergeGuideData(List<Channel> source, List<Channel> destination, long now) {
+    static void mergeGuideData(List<Channel> source, List<Channel> destination, long now) {
         int count = Math.min(source.size(), destination.size());
         for (int i = 0; i < count; i++) {
             Channel from = source.get(i);
