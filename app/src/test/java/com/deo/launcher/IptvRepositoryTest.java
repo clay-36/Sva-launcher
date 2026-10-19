@@ -316,6 +316,20 @@ public final class IptvRepositoryTest {
                 "https://old.test/list.m3u"));
     }
 
+    @Test public void cacheSourceMatchesMultiplePlaylistAndGuideUrls() {
+        String configuredPlaylists = "https://one.test/list.m3u\nhttps://two.test/list.m3u";
+        String cachedPlaylists = "https://one.test/list.m3u\nhttps://two.test/list.m3u";
+        assertTrue(IptvRepository.cacheMatchesSource(configuredPlaylists, cachedPlaylists));
+        assertFalse(IptvRepository.cacheMatchesSource(configuredPlaylists,
+                "https://one.test/list.m3u\nhttps://other.test/list.m3u"));
+
+        String configuredGuides = "https://one.test/guide.xml\n https://two.test/guide.json ";
+        assertTrue(IptvRepository.cacheMatchesSource(
+                configuredGuides, configuredGuides));
+        assertFalse(IptvRepository.cacheMatchesSource(configuredGuides,
+                "https://one.test/guide.xml\nhttps://other.test/guide.json"));
+    }
+
     @Test public void channelCacheUsesBackupWhenPrimaryIsMissingOrEmpty() {
         IptvRepository.Channel saved = channel("Saved channel", "saved.id");
         List<IptvRepository.Channel> backup = java.util.Collections.singletonList(saved);
@@ -333,6 +347,34 @@ public final class IptvRepositoryTest {
         assertEquals(1, recovered.size());
         assertFalse(visible == recovered.get(0));
         assertEquals("news.id", recovered.get(0).epgId);
+    }
+
+    @Test public void multipleGuideSourcesMergeProgrammesAndDeduplicateOverlappingSlots() throws Exception {
+        long now = ist("26-09-2026 10:15:00");
+        IptvRepository.Channel sourceOne = channel("Sports", "sports.one");
+        IptvRepository.Channel sourceTwo = channel("Sports", "sports.one");
+        IptvRepository.Channel combined = channel("Sports", "sports.one");
+
+        IptvRepository.applyJsonGuideEntries(java.util.Collections.singletonList(sourceOne),
+                java.util.Collections.singletonList(entry("matching_key", "sportsone", "channel", "Sports",
+                        "schedule", java.util.Collections.singletonList(
+                                programme("Morning Match", "26-09-2026 10:00:00", "26-09-2026 11:00:00")))), now);
+        IptvRepository.applyJsonGuideEntries(java.util.Collections.singletonList(sourceTwo),
+                java.util.Collections.singletonList(entry("matching_key", "sportsone", "channel", "Sports",
+                        "schedule", java.util.Arrays.asList(
+                                programme("Morning Match", "26-09-2026 10:00:00", "26-09-2026 11:00:00"),
+                                programme("Next Match", "26-09-2026 11:00:00", "26-09-2026 12:00:00")))), now);
+
+        IptvRepository.mergeGuideData(java.util.Collections.singletonList(sourceOne),
+                java.util.Collections.singletonList(combined), now);
+        IptvRepository.mergeGuideData(java.util.Collections.singletonList(sourceTwo),
+                java.util.Collections.singletonList(combined), now);
+
+        assertEquals(2, combined.programmes.size());
+        assertEquals("Morning Match", combined.programmes.get(0).title);
+        assertEquals("Next Match", combined.programmes.get(1).title);
+        assertEquals("Morning Match", combined.now);
+        assertEquals("Next Match", combined.next);
     }
 
     private static IptvRepository.Channel channel(String name, String id) {
