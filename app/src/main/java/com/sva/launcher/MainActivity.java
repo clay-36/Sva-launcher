@@ -1398,6 +1398,53 @@ public final class MainActivity extends Activity {
         return false;
     }
 
+    /**
+     * Finds the next focusable control inside a settings page by screen position.
+     *
+     * Why this exists: page content lives in a ScrollView, and focusSearch only considers
+     * views inside the viewport. Pressing DOWN on the last visible control therefore resolves
+     * to the navigation rail on the left (genuinely the closest focusable in that direction),
+     * the caller sees a target outside the page and swallows the key — the remote appears stuck.
+     *
+     * This walks the page subtree and picks by coordinates instead; ScrollView then scrolls
+     * the chosen view into sight once it takes focus.
+     */
+    private View geometricNextInPage(View from, View page, int direction) {
+        if (from == null || page == null) return null;
+        int[] origin = new int[2];
+        from.getLocationOnScreen(origin);
+        final int fromY = origin[1] + from.getHeight() / 2;
+        final int fromX = origin[0] + from.getWidth() / 2;
+        final int threshold = dp(4);
+        boolean vertical = direction == View.FOCUS_UP || direction == View.FOCUS_DOWN;
+        View best = null;
+        int bestDelta = Integer.MAX_VALUE, bestCross = Integer.MAX_VALUE;
+        java.util.ArrayList<View> stack = new java.util.ArrayList<>();
+        stack.add(page);
+        int[] loc = new int[2];
+        while (!stack.isEmpty()) {
+            View v = stack.remove(stack.size() - 1);
+            if (v != from && v != page && v.getVisibility() == View.VISIBLE
+                    && v.isFocusable() && v.isEnabled() && v.getWidth() > 0 && v.getHeight() > 0) {
+                v.getLocationOnScreen(loc);
+                int cy = loc[1] + v.getHeight() / 2;
+                int cx = loc[0] + v.getWidth() / 2;
+                int delta = vertical ? (direction == View.FOCUS_DOWN ? cy - fromY : fromY - cy)
+                        : (direction == View.FOCUS_RIGHT ? cx - fromX : fromX - cx);
+                if (delta > threshold) {
+                    int cross = vertical ? Math.abs(cx - fromX) : Math.abs(cy - fromY);
+                    if (delta < bestDelta || (delta == bestDelta && cross < bestCross)) {
+                        best = v; bestDelta = delta; bestCross = cross;
+                    }
+                }
+            }
+            if (v instanceof android.view.ViewGroup) {
+                android.view.ViewGroup group = (android.view.ViewGroup) v;
+                for (int i = 0; i < group.getChildCount(); i++) stack.add(group.getChildAt(i));
+            }
+        }
+        return best;
+    }
     private boolean isWithinPage(View child, View page) {
         for (View current = child; current != null; ) {
             if (current == page) return true;
@@ -4255,8 +4302,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 if (event.getAction() != KeyEvent.ACTION_DOWN || focused == null) return false;
                 if (!isDpadDirection(keyCode)) return false;
                 int direction = focusDirection(keyCode);
-                // The input keeps horizontal arrows for cursor movement and multiline navigation.
-                if (focused instanceof EditText) return false;
+                // Left/right stay with the caret, and so do up/down in a multi-line field.
+                // A single-line field must let up/down move focus, or focus never leaves it.
+                if (focused instanceof EditText) {
+                    boolean multiline = (((EditText) focused).getInputType()
+                            & android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
+                    if (multiline || direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT) {
+                        return false;
+                    }
+                }
                 if (rail != null && isWithinPage(focused, rail)) {
                     if (direction == View.FOCUS_UP && focused == tabs[NAV_ORDER[0]]) return true;
                     if (direction == View.FOCUS_RIGHT) {
@@ -4279,6 +4333,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     if (next != null && isWithinPage(next, detail)) {
                         if (next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
                         return true;
+                    }
+                    if (direction == View.FOCUS_DOWN || direction == View.FOCUS_UP) {
+                        View inside = geometricNextInPage(focused, detail, direction);
+                        if (inside != null && inside.requestFocus()) return true;
+                        // Nothing left above this control: go back to the rail rather than eat the key.
+                        if (direction == View.FOCUS_UP && tabs[section].requestFocus()) return true;
                     }
                     if (direction == View.FOCUS_LEFT && tabs[section].requestFocus()) return true;
                     if (direction == View.FOCUS_UP && !canScrollWithinPage(focused, detail, direction)) {
