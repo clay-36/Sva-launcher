@@ -59,7 +59,7 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 - **Live TV and guide** — combine multiple M3U/M3U8 playlists and XMLTV, XMLTV.GZ, or JSON programme guides, browse `group-title` categories, display `tvg-logo` artwork, and hide unwanted channels.
 - **Integrated playback** — watch with Media3 ExoPlayer, move between channels with Up/Down, view programme progress, prefer Hindi audio when available, and configure global or per-channel Widevine settings.
 - **NES library** — import your own `.nes` files and launch them directly through the embedded Nestopia UE core, without a separate emulator menu.
-- **Events calendar** — connect a public Google Calendar iCal feed, see today's events, browse 12 months in either direction, and view selected-day details and lunar illumination.
+- **Events calendar** — combine iCalendar feeds from Google Calendar, other providers, or local servers, see today's events, browse 12 months in either direction, and view selected-day details and lunar illumination.
 - **Saved videos** — create artwork-rich shortcuts for YouTube videos and playlists.
 - **Weather** — current conditions and a three-day forecast from Open-Meteo, using a chosen city or optional approximate device location.
 - **Configurable refresh schedules** — independently control updates for photos, playlists, programme data, calendars, and Google Photos.
@@ -95,11 +95,13 @@ You can also [build and install the APK from source](DEVELOPER.md).
    | **Live TV** | Add one or more M3U/M3U8 playlist URLs and optional XMLTV, XMLTV.GZ, or JSON guide URLs, one per line. |
    | **Channels** | Search, hide, and restore channels from the loaded playlist. |
    | **YouTube** | Save video and playlist links as cards in the Saved tab. |
-   | **Calendar** | Add a public Google Calendar iCal link for the Events tab. |
+   | **Calendar** | Add iCalendar feed URLs, one per line, for the Events tab. |
    | **Games** | Import `.nes` files and optionally remap connected gamepads. |
    | **Weather** | Search for a city or explicitly request approximate device location. |
    | **Schedules** | Set an independent refresh cadence for each network-backed source. |
    | **Navigation** | Show or hide Live TV, Games, and Events; choose the order of Live TV, Games, Events, and Saved. Home stays first, and hidden categories keep their place. |
+
+Calendar feeds must be readable without signing in. HTTPS and `webcal://` links are supported; HTTP is allowed for local/private hosts only (public HTTP links are upgraded to HTTPS). Duplicate feed URLs are ignored. If a feed cannot refresh, its previously cached events remain available while other feeds update. Calendar recurrence support covers common rules rather than every provider extension.
 
 The first time you browse local files, allow Sva storage access in Android settings. This lets its TV file browser find NES files, photos, and backups across local storage and USB drives.
 

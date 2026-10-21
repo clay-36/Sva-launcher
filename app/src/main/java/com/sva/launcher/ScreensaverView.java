@@ -94,8 +94,7 @@ final class ScreensaverView extends View {
                 current = photoWindow.get(currentKey);
                 artScene = makeScene();
                 changedAt = SystemClock.uptimeMillis();
-                status = hasSavedPhoto ? "" : album.isEmpty()
-                        ? "Add a Google Photos album in Screensaver settings" : "Loading your photographs…";
+                status = hasSavedPhoto || album.isEmpty() ? "" : "Loading your photographs…";
                 if (hasSavedPhoto) frame = 1;
                 if (!cached.isEmpty()) {
                     setUrls(cached);
@@ -270,32 +269,31 @@ final class ScreensaverView extends View {
             updateInformation(now);
         }
         float drift = (float) Math.sin(time / 35) * w * .008f;
-        float columnWidth = w * .9f / count;
-        float x = w * .05f + drift;
+        // Fixed slots keep each overlay anchored even when another overlay is off.
+        float columnWidth = w * .275f;
         int foreground = paperTheme ? 0xEE3D3931 : 0xEEF4F7F5;
         int secondary = paperTheme ? 0xCC3D3931 : 0xCCDCE4E1;
-        if (showClock) {
-            informationColumn(canvas, clockLabel,
-                    dateLabel,
-                    x, h, columnWidth, foreground, secondary);
-            x += columnWidth;
-        }
-        if (showWeather) {
-            informationColumn(canvas, weatherLabel, weatherDetail, x, h, columnWidth, foreground, secondary);
-            x += columnWidth;
-        }
-        if (showEvents) informationColumn(canvas, eventLabel, eventDetail, x, h, columnWidth, foreground, secondary);
+        if (showClock) informationColumn(canvas, clockLabel, dateLabel,
+                w * .05f + drift, h, columnWidth, Paint.Align.LEFT, foreground, secondary);
+        if (showWeather) informationColumn(canvas, weatherLabel, weatherDetail,
+                w * .5f + drift, h, columnWidth, Paint.Align.CENTER, foreground, secondary);
+        if (showEvents) informationColumn(canvas, eventLabel, eventDetail,
+                w * .95f + drift, h, columnWidth, Paint.Align.RIGHT, foreground, secondary);
     }
 
     private void informationColumn(Canvas canvas, String title, String detail, float x, float h,
-                                   float width, int foreground, int secondary) {
+                                   float width, Paint.Align alignment, int foreground, int secondary) {
+        float left = alignment == Paint.Align.RIGHT ? x - width
+                : alignment == Paint.Align.CENTER ? x - width / 2f : x;
+        Paint.Align previousAlignment = text.getTextAlign();
+        text.setTextAlign(alignment);
         canvas.save();
-        canvas.clipRect(x, h * .83f, x + width - getWidth() * .025f, h * (theme == 0 ? .935f : .96f));
-        // Ellipsize within each column so long locations and event titles remain separate.
-        float right = x + width - getWidth() * .025f;
-        informationText(canvas, title, x, h * (theme == 0 ? .885f : .9f), h * .033f, foreground, right - x);
-        informationText(canvas, detail, x, h * (theme == 0 ? .925f : .945f), h * .021f, secondary, right - x);
+        canvas.clipRect(left, h * .83f, left + width, h * (theme == 0 ? .935f : .96f));
+        // Ellipsize within fixed, separated slots so long labels cannot overlap.
+        informationText(canvas, title, x, h * (theme == 0 ? .885f : .9f), h * .033f, foreground, width);
+        informationText(canvas, detail, x, h * (theme == 0 ? .925f : .945f), h * .021f, secondary, width);
         canvas.restore();
+        text.setTextAlign(previousAlignment);
     }
 
     private void informationText(Canvas canvas, String value, float x, float y, float size, int color, float width) {

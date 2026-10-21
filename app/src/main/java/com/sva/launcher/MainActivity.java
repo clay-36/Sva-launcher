@@ -115,7 +115,7 @@ public final class MainActivity extends Activity {
     private static final String GOOGLE_PHOTOS_CACHE_IMAGES = "googlePhotosCacheImages";
     private static final String PHOTO_FOLDER_CACHE_URI = "photoFolderCacheUri";
     private static final String PHOTO_FOLDER_CACHE_IMAGES = "photoFolderCacheImages";
-    private static final int CALENDAR_CACHE_VERSION = 3;
+    private static final int CALENDAR_CACHE_VERSION = 4;
     private static final int PANEL = 0xF21B1B1B;
     private static final int PANEL_FOCUSED = 0xFF2A2A2A;
     private static final int MUTED = 0xFFB7B7B7;
@@ -817,6 +817,7 @@ public final class MainActivity extends Activity {
         systemShortcuts.setPadding(dp(3), dp(3), dp(3), dp(3));
         navbar.addView(systemShortcuts, new LinearLayout.LayoutParams(-2, dp(52)));
         addTopIcon(systemShortcuts, "Network", R.drawable.ic_network, this::openNetworkSettings);
+        addTopIcon(systemShortcuts, "TV Input", R.drawable.ic_tv_input, this::openTvInputs);
         addTopIcon(systemShortcuts, "Android Settings", R.drawable.ic_android_settings, this::openAndroidSettings);
         addTopIcon(systemShortcuts, "Launcher Settings", R.drawable.ic_launcher_settings, this::showSettings);
         FrameLayout viewport = new FrameLayout(this);
@@ -2711,21 +2712,35 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         return result.toString();
     }
 
-    private void saveCalendarEvents(List<PublicCalendarRepository.Event> events) {
-        JSONArray values = new JSONArray();
-        for (PublicCalendarRepository.Event event : events) {
-            JSONObject value = new JSONObject();
-            try {
-                value.put("title", event.title);
-                value.put("start", event.startMs);
-                value.put("end", event.endMs);
-                value.put("allDay", event.allDay);
-                values.put(value);
-            } catch (Exception ignored) { }
+    private CalendarFeedCache calendarFeedCache() {
+        try {
+            return CalendarFeedCache.load(preferences.getString(CalendarFeedCache.KEY, ""),
+                    preferences.getString("publicCalendarUrl", ""), preferences.getString("publicCalendarEvents", "[]"),
+                    preferences.getLong("publicCalendarUpdatedAt", 0L));
+        } catch (IllegalArgumentException invalidSavedUrls) {
+            return CalendarFeedCache.load("", "", "[]", 0L);
         }
-        preferences.edit().putString("publicCalendarEvents", values.toString())
-                .putLong("publicCalendarUpdatedAt", System.currentTimeMillis())
-                .putInt("publicCalendarCacheVersion", CALENDAR_CACHE_VERSION).apply();
+    }
+
+    private void saveCalendarCache(CalendarFeedCache cache, List<String> urls, boolean refreshed) {
+        try {
+            List<PublicCalendarRepository.Event> events = cache.merged(urls, System.currentTimeMillis());
+            android.content.SharedPreferences.Editor edit = preferences.edit()
+                    .putString(CalendarFeedCache.KEY, cache.encode())
+                    .putString("publicCalendarEvents", CalendarFeedCache.encodeEvents(events).toString())
+                    .putInt("publicCalendarCacheVersion", CALENDAR_CACHE_VERSION);
+            // Also invalidate the rendered month when sources are removed or reordered.
+            renderedCalendarStamp = -1;
+            if (refreshed) edit.putLong("publicCalendarUpdatedAt", System.currentTimeMillis());
+            edit.apply();
+            updateCalendarEventDisplay();
+        } catch (Exception failure) { throw new IllegalStateException("Could not save calendar cache.", failure); }
+    }
+
+    private void cancelCalendarRefresh() {
+        calendarRequestGeneration++;
+        calendarRefreshing = false;
+        calendarRefreshingUrl = "";
     }
 
     private void updateCalendarEventDisplay() {
@@ -2767,39 +2782,33 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void refreshPublicCalendar(String url, boolean manual) {
-        if (url.equals(calendarRefreshingUrl)) return;
+        if (url.isEmpty() || url.equals(calendarRefreshingUrl)) return;
+        final List<String> urls;
+        final CalendarFeedCache cache;
+        try {
+            urls = PublicCalendarRepository.normalizeUrls(url);
+            cache = calendarFeedCache();
+        } catch (IllegalArgumentException failure) {
+            if (settingsScreen != null) settingsScreen.onCalendarRefreshResult(failure.getMessage());
+            return;
+        }
+        if (urls.isEmpty()) return;
         calendarRefreshingUrl = url;
         calendarRefreshing = true;
         preferences.edit().putLong("publicCalendarAttemptedAt", System.currentTimeMillis())
                 .putInt("publicCalendarAttemptedVersion", CALENDAR_CACHE_VERSION).apply();
         int generation = ++calendarRequestGeneration;
         lifecycleWork.execute(calendarWorker, () -> {
-            String error = null;
-            List<PublicCalendarRepository.Event> events = null;
-            try {
-                String feed = PublicCalendarRepository.download(url);
-                events = PublicCalendarRepository.parse(feed, System.currentTimeMillis());
-            } catch (Exception failure) {
-                error = failure.getMessage() == null ? "Could not refresh this calendar." : failure.getMessage();
-            }
-            String resultError = error;
-            List<PublicCalendarRepository.Event> resultEvents = events;
+            CalendarFeedCache.RefreshResult result = cache.refresh(urls, System.currentTimeMillis(), PublicCalendarRepository::download);
             lifecycleWork.post(() -> {
                 if (generation != calendarRequestGeneration) return;
                 calendarRefreshing = false;
                 calendarRefreshingUrl = "";
                 if (isFinishing() || !url.equals(preferences.getString("publicCalendarUrl", ""))) return;
-                if (resultError == null && resultEvents != null) {
-                    saveCalendarEvents(resultEvents);
-                    updateCalendarEventDisplay();
-                    if (settingsScreen != null) settingsScreen.onCalendarRefreshResult(
-                            "Calendar refreshed · " + resultEvents.size() + " events cached.");
-                } else if (settingsScreen != null) {
-                    settingsScreen.onCalendarRefreshResult("Calendar refresh failed · " + resultError);
-                }
-                if (manual && resultError != null) {
-                    Toast.makeText(this, "Calendar refresh failed: " + resultError, Toast.LENGTH_LONG).show();
-                }
+                saveCalendarCache(cache, urls, result.succeeded > 0);
+                String message = result.message(cache.merged(urls, System.currentTimeMillis()).size());
+                if (settingsScreen != null) settingsScreen.onCalendarRefreshResult(message);
+                if (manual && !result.errors.isEmpty()) Toast.makeText(this, message, Toast.LENGTH_LONG).show();
                 scheduleCalendarRefresh();
             });
         });
@@ -3324,6 +3333,42 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 dp(compactNavigation ? 34 : 40), dp(compactNavigation ? 34 : 40));
         lp.setMargins(dp(2), 0, dp(2), 0);
         container.addView(icon, lp);
+    }
+
+    private void openTvInputs() {
+        List<android.media.tv.TvInputInfo> inputs = new ArrayList<>();
+        List<CharSequence> labels = new ArrayList<>();
+        try {
+            android.media.tv.TvInputManager manager = (android.media.tv.TvInputManager) getSystemService(TV_INPUT_SERVICE);
+            if (manager != null) for (android.media.tv.TvInputInfo input : manager.getTvInputList()) {
+                if (input.isHidden(this)) continue;
+                CharSequence name = input.loadCustomLabel(this);
+                if (TextUtils.isEmpty(name)) name = input.loadLabel(this);
+                inputs.add(input);
+                labels.add(TextUtils.isEmpty(name) ? "TV input" : name);
+            }
+        } catch (SecurityException unavailable) {
+            // Some TV manufacturers restrict input discovery to their system apps.
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(new android.view.ContextThemeWrapper(this,
+                LiquidTheme.alertDialogTheme(this))).setTitle("TV Input");
+        if (inputs.isEmpty()) {
+            builder.setMessage("No TV inputs are available to Sva on this device. Use the Input / Source button on your TV remote.")
+                    .setPositiveButton("OK", null);
+        } else {
+            builder.setItems(labels.toArray(new CharSequence[0]), (ignored, index) -> {
+                android.media.tv.TvInputInfo input = inputs.get(index);
+                Uri uri = input.isPassthroughInput()
+                        ? android.media.tv.TvContract.buildChannelUriForPassthroughInput(input.getId())
+                        : android.media.tv.TvContract.buildChannelsUriForInput(input.getId());
+                try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
+                catch (android.content.ActivityNotFoundException | SecurityException unavailable) {
+                    Toast.makeText(this, "This TV cannot open that source from Sva. Use the Input / Source button on your TV remote.", Toast.LENGTH_LONG).show();
+                }
+            }).setNegativeButton("Cancel", null);
+        }
+        AlertDialog dialog = builder.create();
+        Motion.dialog(dialog); dialog.show(); styleDialog(dialog);
     }
 
     private void openNetworkSettings() {
@@ -4114,7 +4159,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 "Time and date on Home", "Default Widevine license settings",
                 "Open Sva when the TV Home button opens its built-in launcher",
                 "Save or restore launcher settings and channels", "Save videos and playlists in Saved",
-                "Show events from a public Google Calendar", "Choose when content updates automatically",
+                "Show events from iCalendar feeds", "Choose when content updates automatically",
                 "Import and manage your local NES library", "Current conditions and a three-day forecast",
                 "Choose which categories appear and their order"
         };
@@ -4280,8 +4325,27 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 if (event.getAction() != KeyEvent.ACTION_DOWN || focused == null) return false;
                 if (!isDpadDirection(keyCode)) return false;
                 int direction = focusDirection(keyCode);
-                // The input keeps horizontal arrows for cursor movement and multiline navigation.
-                if (focused instanceof EditText) return false;
+                // Keep cursor movement within an input, but let the remote leave
+                // its first/last line even when Android's text editor consumes arrows.
+                if (focused instanceof EditText) {
+                    EditText input = (EditText) focused;
+                    android.text.Layout layout = input.getLayout();
+                    int cursor = direction == View.FOCUS_UP
+                            ? Math.min(input.getSelectionStart(), input.getSelectionEnd())
+                            : Math.max(input.getSelectionStart(), input.getSelectionEnd());
+                    if (layout != null && cursor >= 0
+                            && (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN)) {
+                        int line = layout.getLineForOffset(cursor);
+                        boolean boundary = direction == View.FOCUS_UP ? line == 0
+                                : line == layout.getLineCount() - 1;
+                        if (boundary) {
+                            View next = input.focusSearch(direction);
+                            if (next != null && isWithinPage(next, detail) && next != input
+                                    && next.requestFocus()) return true;
+                        }
+                    }
+                    return false;
+                }
                 if (rail != null && isWithinPage(focused, rail)) {
                     if (direction == View.FOCUS_UP && focused == tabs[NAV_ORDER[0]]) return true;
                     if (direction == View.FOCUS_RIGHT) {
@@ -4297,6 +4361,34 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     return true;
                 }
                 if (isWithinPage(focused, detail)) {
+                    if (direction == View.FOCUS_UP && focused.getParent() instanceof LinearLayout
+                            && "settings-save-actions".equals(((View) focused.getParent()).getTag())) {
+                        ViewGroup page = (ViewGroup) focused.getParent().getParent();
+                        for (int i = 0; i < page.getChildCount(); i++) {
+                            if (!(page.getChildAt(i) instanceof ScrollView)) continue;
+                            ArrayList<View> controls = page.getChildAt(i).getFocusables(View.FOCUS_BACKWARD);
+                            for (int j = controls.size() - 1; j >= 0; j--) {
+                                View control = controls.get(j);
+                                if (!(control instanceof ScrollView) && control.isEnabled()
+                                        && control.requestFocus()) return true;
+                            }
+                        }
+                    }
+                    // Traverse horizontal actions before returning to the section rail.
+                    if ((direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT)
+                            && focused.getParent() instanceof LinearLayout
+                            && ("settings-save-actions".equals(((View) focused.getParent()).getTag())
+                            || "settings-app-actions".equals(((View) focused.getParent()).getTag()))) {
+                        LinearLayout actions = (LinearLayout) focused.getParent();
+                        int step = direction == View.FOCUS_LEFT ? -1 : 1;
+                        for (int index = actions.indexOfChild(focused) + step;
+                             index >= 0 && index < actions.getChildCount(); index += step) {
+                            View target = actions.getChildAt(index);
+                            if (target.getVisibility() == View.VISIBLE && target.isEnabled()
+                                    && target.isFocusable() && target.requestFocus()) return true;
+                        }
+                        if (direction == View.FOCUS_RIGHT) return true;
+                    }
                     if (direction == View.FOCUS_LEFT && !(focused instanceof EditText)) {
                         tabs[section].requestFocus(); return true;
                     }
@@ -4720,13 +4812,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     : "✕ Sva launcher override is currently disabled.");
             addFormHint(form, "Some TVs keep their built-in launcher as Home even when another launcher is selected. Enable Sva Launcher in Android Accessibility settings to reopen Sva whenever the TV opens its built-in launcher.");
             addFormSectionHeader(form, "Settings shortcuts");
-            addFormButton(form, "Open Accessibility settings", v -> {
-                try {
-                    startActivity(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
-                } catch (Exception e) {
-                    Toast.makeText(MainActivity.this, "Could not open Accessibility settings.", Toast.LENGTH_LONG).show();
-                }
-            });
+            TextView accessibilityFeedback = SettingsUi.text(MainActivity.this, "", 14, true);
+            accessibilityFeedback.setTag("accessibility-shortcut-feedback");
+            accessibilityFeedback.setVisibility(View.GONE);
+            addFormButton(form, "Open Accessibility settings", v -> AccessibilitySettingsShortcut.open(
+                    action -> startActivity(new Intent(action)), accessibilityFeedback));
+            SettingsUi.add(form, accessibilityFeedback);
             addFormButton(form, "Try setting Sva as the Home app", v -> {
                 try {
                     startActivity(new Intent("android.settings.HOME_SETTINGS"));
@@ -5027,9 +5118,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderCalendarSettings(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Calendar feed");
-            addFormHint(form, "Add a public Google Calendar iCal address (Google Calendar → Settings → Integrate calendar → Public address in iCal format). Events appear in the Events tab.");
-            calendarUrlField = addInput(form, "Public calendar iCal URL", "https://calendar.google.com/calendar/ical/…/public/basic.ics", draftCalendarUrl, false);
+            addFormSectionHeader(form, "Calendar feeds");
+            addFormHint(form, "Add iCalendar feed URLs, one per line. Google Calendar, published calendars, and local calendar servers are supported. Feeds must be readable without signing in. Events are combined in the Events tab.");
+            calendarUrlField = addInput(form, "Calendar feeds · one URL per line", "https://example.com/calendar.ics", draftCalendarUrl, true);
             calendarSummary = label(calendarSummaryText(), 14, SettingsUi.muted(MainActivity.this), false);
             calendarSummary.setPadding(dp(14), dp(8), dp(14), dp(8));
             calendarSummary.setBackground(roundedShape(SettingsUi.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 10));
@@ -5038,45 +5129,46 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             form.addView(calendarSummary, csParams);
             addFormSectionHeader(form, "Actions");
             addFormButton(form, "Save calendar and refresh", view -> {
-                String entered = calendarUrlField == null ? draftCalendarUrl : calendarUrlField.getText().toString().trim();
-                if (entered.isEmpty()) {
+                String entered = calendarUrlField == null ? draftCalendarUrl : calendarUrlField.getText().toString();
+                final List<String> urls;
+                try { urls = PublicCalendarRepository.normalizeUrls(entered); }
+                catch (IllegalArgumentException failure) {
+                    if (calendarFeedback != null) calendarFeedback.setText(failure.getMessage());
+                    return;
+                }
+                String normalized = String.join("\n", urls);
+                CalendarFeedCache cache = calendarFeedCache();
+                cancelCalendarRefresh();
+                cache.retain(urls);
+                if (urls.isEmpty()) {
                     preferences.edit().remove("publicCalendarUrl").remove("publicCalendarEvents")
-                            .remove("publicCalendarUpdatedAt").remove("publicCalendarAttemptedAt")
+                            .remove(CalendarFeedCache.KEY).remove("publicCalendarUpdatedAt").remove("publicCalendarAttemptedAt")
                             .remove("publicCalendarCacheVersion").remove("publicCalendarAttemptedVersion").apply();
+                    renderedCalendarStamp = -1;
                     draftCalendarUrl = "";
                     if (calendarUrlField != null) calendarUrlField.setText("");
-                    if (calendarFeedback != null) calendarFeedback.setText("Calendar removed.");
+                    if (calendarFeedback != null) calendarFeedback.setText("Calendars removed.");
                     updateCalendarEventDisplay();
+                    scheduleCalendarRefresh();
                     if (calendarSummary != null) calendarSummary.setText(calendarSummaryText());
                     return;
                 }
-                String normalized = PublicCalendarRepository.normalizeUrl(entered);
-                if (normalized == null) {
-                    if (calendarFeedback != null) calendarFeedback.setText("Use a public Google Calendar iCal URL from Integrate calendar.");
-                    return;
-                }
-                String previous = preferences.getString("publicCalendarUrl", "");
-                if (!normalized.equals(previous)) {
-                    preferences.edit().putString("publicCalendarUrl", normalized)
-                            .putString("publicCalendarEvents", "[]").remove("publicCalendarUpdatedAt")
-                            .remove("publicCalendarAttemptedAt").remove("publicCalendarCacheVersion")
-                            .remove("publicCalendarAttemptedVersion").apply();
-                    updateCalendarEventDisplay();
-                }
+                preferences.edit().putString("publicCalendarUrl", normalized).apply();
+                saveCalendarCache(cache, urls, false);
                 draftCalendarUrl = normalized;
                 if (calendarUrlField != null) calendarUrlField.setText(normalized);
-                if (calendarFeedback != null) calendarFeedback.setText("Refreshing public calendar…");
+                if (calendarFeedback != null) calendarFeedback.setText("Refreshing calendar feeds…");
                 if (calendarSummary != null) calendarSummary.setText(calendarSummaryText());
                 refreshPublicCalendar(normalized, true);
             });
             addFormButton(form, "Refresh saved calendar now", view -> {
-                String entered = calendarUrlField == null ? draftCalendarUrl : calendarUrlField.getText().toString().trim();
+                String entered = calendarUrlField == null ? draftCalendarUrl : calendarUrlField.getText().toString();
                 if (!entered.equals(preferences.getString("publicCalendarUrl", ""))) {
-                    if (calendarFeedback != null) calendarFeedback.setText("Save the calendar URL before refreshing.");
+                    if (calendarFeedback != null) calendarFeedback.setText("Save the calendar feeds before refreshing.");
                 } else if (entered.isEmpty()) {
-                    if (calendarFeedback != null) calendarFeedback.setText("Add a public calendar URL first.");
+                    if (calendarFeedback != null) calendarFeedback.setText("Add a calendar feed first.");
                 } else {
-                    if (calendarFeedback != null) calendarFeedback.setText("Refreshing public calendar…");
+                    if (calendarFeedback != null) calendarFeedback.setText("Refreshing calendar feeds…");
                     refreshPublicCalendar(entered, true);
                 }
             });
@@ -5094,7 +5186,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             String updated = updatedAt == 0L ? "Not refreshed yet"
                     : "Updated " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
                     .format(new Date(updatedAt));
-            return "Public calendar cache · " + events.length() + " events · " + updated;
+            int sources;
+            try { sources = PublicCalendarRepository.normalizeUrls(preferences.getString("publicCalendarUrl", "")).size(); }
+            catch (IllegalArgumentException invalidSavedUrls) { return "Calendar feeds need correcting · " + events.length() + " cached events"; }
+            return "Calendar cache · " + sources + " sources · " + events.length() + " events · " + updated;
         }
 
         void onCalendarRefreshResult(String message) {
@@ -5209,6 +5304,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void addSaveActions(LinearLayout page, View.OnClickListener save,
                                     View.OnClickListener discard, View.OnClickListener refresh) {
             LinearLayout actions = new LinearLayout(MainActivity.this);
+            actions.setTag("settings-save-actions");
             actions.setClipChildren(false);
             actions.setClipToPadding(false);
             LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
@@ -5235,6 +5331,24 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 LinearLayout.LayoutParams refreshParams = new LinearLayout.LayoutParams(0, -2, 1);
                 refreshParams.setMargins(dp(6), dp(3), dp(2), dp(3));
                 actions.addView(refreshButton, refreshParams);
+            }
+            // Geometry can prefer the sidebar or the current editor when the
+            // form scrolls. Give vertical remote navigation a stable route.
+            ArrayList<View> controls = new ArrayList<>();
+            for (int i = 0; i < page.getChildCount(); i++) {
+                View child = page.getChildAt(i);
+                if (!(child instanceof ScrollView)) continue;
+                for (View control : child.getFocusables(View.FOCUS_FORWARD)) {
+                    if (!(control instanceof ScrollView) && control.isEnabled()) controls.add(control);
+                }
+            }
+            controls.add(saveButton);
+            for (View control : controls) {
+                if (control.getId() == View.NO_ID) control.setId(View.generateViewId());
+            }
+            for (int i = 1; i < controls.size(); i++) {
+                controls.get(i - 1).setNextFocusDownId(controls.get(i).getId());
+                controls.get(i).setNextFocusUpId(controls.get(i - 1).getId());
             }
         }
 
@@ -5654,6 +5768,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
             @Override public Holder onCreateViewHolder(ViewGroup parent, int viewType) {
                 LinearLayout row = new LinearLayout(MainActivity.this);
+                row.setTag("settings-app-actions");
                 row.setGravity(Gravity.CENTER_VERTICAL);
                 row.setClipChildren(false);
                 row.setClipToPadding(false);

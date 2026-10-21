@@ -100,7 +100,7 @@ public final class ScreensaverLifecycleTest extends InstrumentationTestCase {
         create(3, "editorial");
         Bitmap output = Bitmap.createBitmap(1280,720,Bitmap.Config.ARGB_8888);
         try {
-            for (int theme = 1; theme <= 8; theme++) {
+            for (int theme = 0; theme <= 8; theme++) {
                 final int selected = theme;
                 for (int mask = 0; mask < 8; mask++) {
                     prefs.edit().putBoolean(ScreensaverPreferences.CLOCK,(mask&1)!=0)
@@ -110,10 +110,20 @@ public final class ScreensaverLifecycleTest extends InstrumentationTestCase {
                         try {
                             Field field = ScreensaverView.class.getDeclaredField("theme");
                             field.setAccessible(true); field.setInt(view,selected);
+                            Field changed = ScreensaverView.class.getDeclaredField("changedAt");
+                            changed.setAccessible(true); changed.setLong(view, SystemClock.uptimeMillis() - 3000L);
                             view.draw(new Canvas(output));
                         } catch (Exception e) { throw new RuntimeException(e); }
                     });
                     assertEquals(255,Color.alpha(output.getPixel(0,0)));
+                    if (mask == 7) {
+                        java.io.File directory = new java.io.File(getInstrumentation().getTargetContext().getCacheDir(), "screensaver-overlay-qa");
+                        assertTrue(directory.isDirectory() || directory.mkdirs());
+                        try (java.io.FileOutputStream file = new java.io.FileOutputStream(new java.io.File(directory,
+                                ScreensaverPreferences.THEMES[theme] + ".png"))) {
+                            assertTrue(output.compress(Bitmap.CompressFormat.PNG, 100, file));
+                        }
+                    }
                 }
             }
         } finally { output.recycle(); shutdown(); }

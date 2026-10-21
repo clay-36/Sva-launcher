@@ -120,6 +120,24 @@ public final class LauncherBackupTest {
         assertEquals("https://test.m3u", iptv.getString("playlist", ""));
     }
 
+    @Test public void multipleCalendarUrlsRoundTripButBothCachesAreExcluded() throws Exception {
+        String urls = "https://example.com/a.ics\nhttp://192.168.1.20:8080/b.ics";
+        FakeSharedPreferences original = new FakeSharedPreferences();
+        original.edit().putString("publicCalendarUrl", urls)
+                .putString("publicCalendarEvents", "[]").putString(CalendarFeedCache.KEY, "{cached}").commit();
+        JSONObject backup = LauncherBackup.create(original, new FakeSharedPreferences());
+        JSONObject launcherValues = backup.getJSONObject("launcher");
+        assertTrue(!launcherValues.has("publicCalendarEvents"));
+        assertTrue(!launcherValues.has(CalendarFeedCache.KEY));
+        // Ignore cached source snapshots even in backups made by another version.
+        launcherValues.put(CalendarFeedCache.KEY, new JSONObject().put("type", "string").put("value", "{cached}"));
+        FakeSharedPreferences restored = new FakeSharedPreferences();
+        LauncherBackup.restore(backup, restored, new FakeSharedPreferences());
+        assertEquals(urls, restored.getString("publicCalendarUrl", ""));
+        assertTrue(!restored.contains(CalendarFeedCache.KEY));
+        assertTrue(!restored.contains("publicCalendarEvents"));
+    }
+
     private static final class FakeSharedPreferences implements android.content.SharedPreferences {
         private final Map<String, Object> data = new java.util.HashMap<>();
 

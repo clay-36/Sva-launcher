@@ -3,6 +3,8 @@ package com.sva.launcher;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +39,7 @@ final class PublicCalendarRepository {
 
     private PublicCalendarRepository() { }
 
+    /** No DNS here: normalization is also called from the settings UI. */
     static String normalizeUrl(String raw) {
         if (raw == null) return null;
         String value = raw.trim();
@@ -45,43 +48,132 @@ final class PublicCalendarRepository {
             URI uri = URI.create(value);
             String scheme = uri.getScheme(), host = uri.getHost();
             if (scheme == null || host == null || uri.getUserInfo() != null
-                    || !("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme))) return null;
-            String hostValue = host.toLowerCase(Locale.ROOT);
-            if (!hostValue.equals("google.com") && !hostValue.endsWith(".google.com")
-                    && !hostValue.equals("googleusercontent.com") && !hostValue.endsWith(".googleusercontent.com")) return null;
-            if (uri.getPath() == null || !uri.getPath().toLowerCase(Locale.ROOT).contains("/calendar/ical/")) return null;
-            return "https".equalsIgnoreCase(scheme) ? uri.toString()
-                    : new URI("https", uri.getUserInfo(), host, uri.getPort(), uri.getPath(), uri.getQuery(), uri.getFragment()).toString();
+                    || !("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme))
+                    || uri.getPort() > 65535 || uri.getPort() == 0) return null;
+            host = host.toLowerCase(Locale.ROOT);
+            scheme = scheme.toLowerCase(Locale.ROOT);
+            if ("http".equals(scheme) && !isLocalHost(host)) scheme = "https";
+            int port = uri.getPort();
+            if ((port == 443 && "https".equals(scheme))
+                    || (port == 80 && "http".equalsIgnoreCase(uri.getScheme()))) port = -1;
+            String path = uri.getRawPath();
+            return scheme + "://" + host + (port < 0 ? "" : ":" + port)
+                    + (path == null || path.isEmpty() ? "/" : path)
+                    + (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery());
         } catch (Exception ignored) { return null; }
     }
 
-    static String download(String publicUrl) throws Exception {
-        HttpURLConnection connection = null;
+    static List<String> normalizeUrls(String raw) {
+        java.util.LinkedHashSet<String> urls = new java.util.LinkedHashSet<>();
+        String[] lines = (raw == null ? "" : raw).split("\\R", -1);
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].trim().isEmpty()) continue;
+            String url = normalizeUrl(lines[i]);
+            if (url == null) throw new IllegalArgumentException("Line " + (i + 1)
+                    + ": use an HTTPS calendar URL or an HTTP URL on your local network.");
+            urls.add(url);
+        }
+        return new ArrayList<>(urls);
+    }
+
+    static boolean isLocalAddress(InetAddress address) {
+        byte[] bytes = address.getAddress();
+        return address.isLoopbackAddress() || address.isLinkLocalAddress() || address.isSiteLocalAddress()
+                || (bytes.length == 16 && (bytes[0] & 0xfe) == 0xfc);
+    }
+
+    private static boolean isLocalHost(String host) {
+        String plain = host.replace("[", "").replace("]", "");
+        if (plain.equals("localhost") || plain.endsWith(".local")) return true;
         try {
-            connection = (HttpURLConnection) new URL(publicUrl).openConnection();
-            connection.setConnectTimeout(12000);
-            connection.setReadTimeout(20000);
-            connection.setInstanceFollowRedirects(true);
-            connection.setRequestProperty("Accept", "text/calendar, text/plain;q=0.9, */*;q=0.5");
-            connection.setRequestProperty("User-Agent", "SvaLauncher/1.0 (Android TV)");
-            int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) throw new IllegalStateException("Calendar feed returned HTTP " + status + ".");
-            try (InputStream input = connection.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                byte[] buffer = new byte[8192];
-                int total = 0, count;
-                while ((count = input.read(buffer)) != -1) {
-                    total += count;
-                    if (total > MAX_FEED_BYTES) throw new IllegalArgumentException("Calendar feed is larger than 6 MB.");
-                    output.write(buffer, 0, count);
-                }
-                String feed = new String(output.toByteArray(), StandardCharsets.UTF_8);
-                if (!feed.contains("BEGIN:VCALENDAR") || !feed.contains("END:VCALENDAR")) {
-                    throw new IllegalArgumentException("This link did not return a public iCalendar feed.");
-                }
-                return feed;
+            // Only numeric literals may be resolved on the UI thread.
+            if (plain.contains(":") && plain.matches("[0-9a-fA-F:]+"))
+                return isLocalAddress(InetAddress.getByName(plain));
+            String[] parts = plain.split("\\.", -1);
+            if (parts.length != 4) return false;
+            byte[] bytes = new byte[4];
+            for (int i = 0; i < 4; i++) {
+                if (!parts[i].matches("0|[1-9][0-9]{0,2}")) return false;
+                int octet = Integer.parseInt(parts[i]);
+                if (octet > 255) return false;
+                bytes[i] = (byte) octet;
             }
-        } finally {
-            if (connection != null) connection.disconnect();
+            return isLocalAddress(InetAddress.getByAddress(bytes));
+        } catch (Exception ignored) { return false; }
+    }
+
+    interface ConnectionFactory { HttpURLConnection open(URL url) throws Exception; }
+    interface Resolver { InetAddress[] resolve(String host) throws Exception; }
+
+    static String download(String publicUrl) throws Exception {
+        return download(publicUrl, url -> (HttpURLConnection) url.openConnection(), InetAddress::getAllByName);
+    }
+
+    static String redirectUrl(String from, String location) throws IOException {
+        try {
+            URI destination = URI.create(from).resolve(location);
+            String normalized = normalizeUrl(destination.toString());
+            if (normalized == null) throw new IOException();
+            if ("https".equalsIgnoreCase(URI.create(from).getScheme())
+                    && "http".equalsIgnoreCase(destination.getScheme()))
+                throw new IOException();
+            return normalized;
+        } catch (Exception failure) { throw new IOException("Calendar redirect is not allowed."); }
+    }
+
+    static String download(String publicUrl, ConnectionFactory factory, Resolver resolver) throws Exception {
+        String current = normalizeUrl(publicUrl);
+        if (current == null) throw new IOException("Invalid calendar URL.");
+        for (int redirects = 0; ; redirects++) {
+            URL target = new URL(current);
+            String originalHost = target.getHost();
+            if ("http".equals(target.getProtocol())) {
+                InetAddress[] addresses = resolver.resolve(originalHost.replace("[", "").replace("]", ""));
+                if (addresses.length == 0) throw new IOException("Local calendar host could not be resolved.");
+                for (InetAddress address : addresses) {
+                    if (!isLocalAddress(address)) throw new IOException("HTTP calendars must stay on your local network.");
+                }
+                // Connect to the checked address, avoiding a second DNS resolution.
+                target = new URL("http", addresses[0].getHostAddress(), target.getPort(), target.getFile());
+            }
+            HttpURLConnection connection = null;
+            try {
+                connection = factory.open(target);
+                connection.setConnectTimeout(12000);
+                connection.setReadTimeout(20000);
+                connection.setInstanceFollowRedirects(false);
+                if ("http".equals(target.getProtocol())) {
+                    int port = target.getPort();
+                    connection.setRequestProperty("Host", originalHost + (port == -1 || port == 80 ? "" : ":" + port));
+                }
+                connection.setRequestProperty("Accept", "text/calendar, text/plain;q=0.9, */*;q=0.5");
+                connection.setRequestProperty("User-Agent", "SvaLauncher/1.0 (Android TV)");
+                int status = connection.getResponseCode();
+                if (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
+                    String location = connection.getHeaderField("Location");
+                    if (redirects >= 5 || location == null || location.trim().isEmpty())
+                        throw new IOException("Calendar redirect limit exceeded or destination missing.");
+                    current = redirectUrl(current, location);
+                    continue;
+                }
+                if (status < 200 || status >= 300) throw new IOException("Calendar feed returned HTTP " + status + ".");
+                try (InputStream input = connection.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                    byte[] buffer = new byte[8192];
+                    int total = 0, count;
+                    while ((count = input.read(buffer)) != -1) {
+                        total += count;
+                        if (total > MAX_FEED_BYTES) throw new IOException("Calendar feed is larger than 6 MB.");
+                        output.write(buffer, 0, count);
+                    }
+                    String feed = new String(output.toByteArray(), StandardCharsets.UTF_8);
+                    String upper = feed.toUpperCase(Locale.ROOT);
+                    if (!upper.contains("BEGIN:VCALENDAR") || !upper.contains("END:VCALENDAR"))
+                        throw new IOException("This link did not return an iCalendar feed.");
+                    return feed;
+                }
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
         }
     }
 
@@ -140,11 +232,20 @@ final class PublicCalendarRepository {
             ZonedDateTime end = endProperty == null ? (allDay ? start.plusDays(1) : start.plusHours(1)) : parseDate(endProperty);
             if (!end.isAfter(start)) return;
             Duration duration = Duration.between(start.toInstant(), end.toInstant());
+            int firstEvent = output.size();
             Property recurrence = properties.get("RRULE");
             if (recurrence == null) {
                 addIfRelevant(title, start, end, allDay, nowMs, output);
             } else {
                 expand(title, start, duration, allDay, recurrence.value, nowMs, output);
+            }
+            String uid = unescape(value(properties, "UID"));
+            Property recurrenceId = properties.get("RECURRENCE-ID");
+            for (int i = firstEvent; i < output.size(); i++) {
+                Event event = output.get(i);
+                String instance = recurrenceId != null ? Long.toString(parseDate(recurrenceId).toInstant().toEpochMilli())
+                        : recurrence != null ? Long.toString(event.startMs) : "";
+                output.set(i, new Event(event.title, event.startMs, event.endMs, event.allDay, uid, instance));
             }
         } catch (Exception ignored) { }
     }
@@ -287,13 +388,18 @@ final class PublicCalendarRepository {
     }
 
     static final class Event {
-        final String title;
+        final String title, uid, instance;
         final long startMs, endMs;
         final boolean allDay;
         Event(String title, long startMs, long endMs) {
             this(title, startMs, endMs, false);
         }
         Event(String title, long startMs, long endMs, boolean allDay) {
+            this(title, startMs, endMs, allDay, "", "");
+        }
+        Event(String title, long startMs, long endMs, boolean allDay, String uid, String instance) {
+            this.uid = uid;
+            this.instance = instance;
             this.title = title;
             this.startMs = startMs;
             this.endMs = endMs;

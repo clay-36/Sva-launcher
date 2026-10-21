@@ -14,7 +14,7 @@ public final class PublicCalendarRepositoryTest {
     @Test public void normalizesWebcalPublicGoogleCalendarLink() {
         assertEquals("https://calendar.google.com/calendar/ical/demo%40group.calendar.google.com/public/basic.ics",
                 PublicCalendarRepository.normalizeUrl("webcal://calendar.google.com/calendar/ical/demo%40group.calendar.google.com/public/basic.ics"));
-        assertNull(PublicCalendarRepository.normalizeUrl("https://example.com/calendar.ics"));
+        assertEquals("https://example.com/calendar.ics", PublicCalendarRepository.normalizeUrl("https://example.com/calendar.ics"));
     }
 
     @Test public void parsesCurrentEventAndUnescapesTitle() {

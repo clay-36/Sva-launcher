@@ -18,10 +18,9 @@ checks. Device tests and hardware checks still need to be run separately.
 
 ## Download CI builds
 
-The **Android build and checks** workflow runs on pushes and pull requests, and
-can also be started from **Actions → Android build and checks → Run workflow**.
-For manual runs, choose **Build output**: `apk`, `aab`, or `both` (the default).
-Push and pull-request runs build both formats. Tests and lint run for every choice.
+The **Android build and checks** workflow is manual-only. Start it from
+**Actions → Android build and checks → Run workflow**, then choose **Build output**:
+`apk`, `aab`, or `both` (the default). Tests and lint run for every choice.
 After a successful run, download the selected artifacts from the run's summary page:
 
 | Artifact | Contents |
