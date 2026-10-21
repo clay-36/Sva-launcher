@@ -69,4 +69,85 @@ public final class HomeUiTest extends InstrumentationTestCase {
             }
         } finally { getInstrumentation().runOnMainSync(activity::finish); }
     }
+    public void testTvInputIconBesideNetworkAndRemoteNavigationInBothThemes() throws Exception {
+        Context context = getInstrumentation().getTargetContext();
+        SharedPreferences prefs = context.getSharedPreferences("launcher", 0);
+        String previous = prefs.getString(LiquidTheme.PREF_MODE, null);
+        try {
+            for (String theme : new String[]{LiquidTheme.DARK, LiquidTheme.LIGHT}) {
+                prefs.edit().putString(LiquidTheme.PREF_MODE, theme).commit();
+                MainActivity activity = startHome();
+                try {
+                    LinearLayout shortcuts = shortcuts(activity);
+                    assertEquals(4, shortcuts.getChildCount());
+                    View network = shortcuts.getChildAt(0), input = shortcuts.getChildAt(1);
+                    assertEquals("Network", network.getContentDescription().toString());
+                    assertEquals("TV Input", input.getContentDescription().toString());
+                    assertNotNull(((android.widget.ImageView)input).getDrawable());
+                    getInstrumentation().runOnMainSync(network::requestFocus);
+                    getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
+                    getInstrumentation().waitForIdleSync();
+                    assertTrue("Right from Wi-Fi must reach TV Input", input.hasFocus());
+                    getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
+                    getInstrumentation().waitForIdleSync();
+                    assertTrue(shortcuts.getChildAt(2).hasFocus());
+                    getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
+                    getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
+                    getInstrumentation().waitForIdleSync();
+                    assertTrue("Left must return through TV Input to Wi-Fi", network.hasFocus());
+                    android.graphics.Rect bounds = new android.graphics.Rect();
+                    assertTrue(input.getGlobalVisibleRect(bounds));
+                    assertEquals("Icon must fit the navigation dock", input.getWidth(), bounds.width());
+                    assertEquals(input.getHeight(), bounds.height());
+                } finally { getInstrumentation().runOnMainSync(activity::finish); getInstrumentation().waitForIdleSync(); }
+            }
+        } finally {
+            if (previous == null) prefs.edit().remove(LiquidTheme.PREF_MODE).commit();
+            else prefs.edit().putString(LiquidTheme.PREF_MODE, previous).commit();
+        }
+    }
+
+    public void testTvInputRemoteActivationShowsSourcesOrHelpfulEmptyState() throws Exception {
+        MainActivity activity = startHome();
+        try {
+            getInstrumentation().runOnMainSync(shortcuts(activity).getChildAt(1)::requestFocus);
+            getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER);
+            getInstrumentation().waitForIdleSync();
+            android.view.accessibility.AccessibilityNodeInfo root = null;
+            for (int i = 0; i < 100; i++) {
+                root = getInstrumentation().getUiAutomation().getRootInActiveWindow();
+                if (root != null && !root.findAccessibilityNodeInfosByText("TV Input").isEmpty()) break;
+                SystemClock.sleep(50);
+            }
+            assertNotNull(root);
+            assertFalse("OK must open TV Input", root.findAccessibilityNodeInfosByText("TV Input").isEmpty());
+            android.media.tv.TvInputManager manager = (android.media.tv.TvInputManager)activity.getSystemService(Context.TV_INPUT_SERVICE);
+            boolean hasInputs = false;
+            if (manager != null) for (android.media.tv.TvInputInfo input : manager.getTvInputList()) {
+                if (!input.isHidden(activity)) hasInputs = true;
+            }
+            if (!hasInputs) assertFalse("Devices without HDMI inputs need clear instructions",
+                    root.findAccessibilityNodeInfosByText("No TV inputs are available to Sva").isEmpty());
+            getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
+            getInstrumentation().waitForIdleSync();
+            assertTrue("Dismissing input selection must return focus to its icon", shortcuts(activity).getChildAt(1).hasFocus());
+        } finally { getInstrumentation().runOnMainSync(activity::finish); }
+    }
+
+    private MainActivity startHome() throws Exception {
+        MainActivity activity = (MainActivity)getInstrumentation().startActivitySync(new Intent(
+                getInstrumentation().getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        getInstrumentation().setInTouchMode(false);
+        for (int i = 0; i < 100 && !activity.hasWindowFocus(); i++) {
+            SystemClock.sleep(50); getInstrumentation().waitForIdleSync();
+        }
+        assertTrue("Home window must receive remote input", activity.hasWindowFocus());
+        return activity;
+    }
+
+    private LinearLayout shortcuts(MainActivity activity) throws Exception {
+        Field field = MainActivity.class.getDeclaredField("systemShortcuts"); field.setAccessible(true);
+        return (LinearLayout)field.get(activity);
+    }
+
 }
