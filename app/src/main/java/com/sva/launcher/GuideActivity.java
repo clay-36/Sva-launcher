@@ -104,19 +104,19 @@ public final class GuideActivity extends MotionActivity {
         setContentView(page);
         toolbar = new LinearLayout(this); toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.setClipChildren(false); toolbar.setClipToPadding(false);
-        backButton = button("‹", "Back to Live TV"); backButton.setOnClickListener(v -> finish());
+        backButton = button((getResources().getConfiguration().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL ? "›" : "‹"), AppLanguage.get(R.string.ui_back_to_live_tv)); backButton.setOnClickListener(v -> finish());
         LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(dp(48), dp(42));
         backParams.setMargins(dp(2), dp(2), dp(2), dp(2));
         toolbar.addView(backButton, backParams);
-        TextView heading = text("TV guide", 26, LiquidTheme.text(this));
+        TextView heading = text(AppLanguage.get(R.string.ui_tv_guide_046eb4e), 26, LiquidTheme.text(this));
         LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(0, -2, 1);
-        headingParams.leftMargin = dp(16); toolbar.addView(heading, headingParams);
-        categoryButton = button("All channels  ▾", "Choose channel category");
+        headingParams.setMarginStart(dp(16)); toolbar.addView(heading, headingParams);
+        categoryButton = button(AppLanguage.get(R.string.ui_all_channels_318a2aa), AppLanguage.get(R.string.ui_choose_channel_category));
         categoryButton.setOnClickListener(v -> chooseCategory());
         LinearLayout.LayoutParams categoryParams = new LinearLayout.LayoutParams(dp(190), dp(42));
         categoryParams.setMargins(dp(4), dp(2), dp(4), dp(2));
         toolbar.addView(categoryButton, categoryParams);
-        nowButton = button("Now", "Return to current programme"); nowButton.setOnClickListener(v -> jumpNow());
+        nowButton = button(AppLanguage.get(R.string.ui_now_e3b8204), AppLanguage.get(R.string.ui_return_to_current_programme)); nowButton.setOnClickListener(v -> jumpNow());
         LinearLayout.LayoutParams nowParams = new LinearLayout.LayoutParams(dp(76), dp(42));
         nowParams.setMargins(dp(10), dp(2), dp(4), dp(2));
         toolbar.addView(nowButton, nowParams);
@@ -127,9 +127,9 @@ public final class GuideActivity extends MotionActivity {
         LinearLayout detail = new LinearLayout(this); details = detail; detail.setOrientation(LinearLayout.VERTICAL);
         detail.setPadding(dp(20), dp(10), dp(20), dp(10));
         detail.setBackground(shape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 16));
-        metadata = text("YOUR TV SCHEDULE", 11, LiquidTheme.accent(this)); metadata.setSingleLine(true);
+        metadata = text(AppLanguage.get(R.string.ui_your_tv_schedule), 11, LiquidTheme.accent(this)); metadata.setSingleLine(true);
         detail.addView(metadata, new LinearLayout.LayoutParams(-1, dp(19)));
-        title = text("Loading your channels…", 23, LiquidTheme.text(this)); title.setSingleLine(true);
+        title = text(AppLanguage.get(R.string.ui_loading_your_channels), 23, LiquidTheme.text(this)); title.setSingleLine(true);
         detail.addView(title, new LinearLayout.LayoutParams(-1, dp(33)));
         LinearLayout lower = new LinearLayout(this); lower.setGravity(Gravity.CENTER_VERTICAL);
         actionHint = text("", 12, LiquidTheme.secondaryText(this)); actionHint.setSingleLine(true);
@@ -141,7 +141,8 @@ public final class GuideActivity extends MotionActivity {
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, dp(104));
         detailParams.setMargins(0, dp(8), 0, dp(12)); page.addView(detail, detailParams);
 
-        ruler = new Ruler(); page.addView(ruler, new LinearLayout.LayoutParams(-1, dp(34)));
+        ruler = new Ruler();
+        ruler.setLayoutDirection(View.LAYOUT_DIRECTION_LTR); page.addView(ruler, new LinearLayout.LayoutParams(-1, dp(34)));
         FrameLayout grid = new FrameLayout(this);
         grid.setBackground(shape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 14));
         list = new GuideList(); list.setLayoutManager(new LinearLayoutManager(this));
@@ -149,10 +150,10 @@ public final class GuideActivity extends MotionActivity {
         list.setPadding(dp(4), dp(4), dp(4), dp(4)); list.setClipToPadding(false);
         list.setFocusable(false);
         adapter = new Rows(); list.setAdapter(adapter); grid.addView(list, new FrameLayout.LayoutParams(-1, -1));
-        empty = text("Loading channels…", 17, LiquidTheme.secondaryText(this)); empty.setGravity(Gravity.CENTER);
+        empty = text(AppLanguage.get(R.string.ui_loading_channels), 17, LiquidTheme.secondaryText(this)); empty.setGravity(Gravity.CENTER);
         grid.addView(empty, new FrameLayout.LayoutParams(-1, -1));
         page.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView help = text("↑↓ Channels     ←→ Schedule     OK Watch / reminders     Back Live TV", 11, LiquidTheme.secondaryText(this));
+        TextView help = text(AppLanguage.get(R.string.ui_channels_schedule_ok_watch_reminders_back_live_tv), 11, LiquidTheme.secondaryText(this));
         help.setGravity(Gravity.CENTER_VERTICAL); page.addView(help, new LinearLayout.LayoutParams(-1, dp(28)));
     }
 
@@ -227,7 +228,7 @@ public final class GuideActivity extends MotionActivity {
         }
     }
 
-    private static String group(IptvRepository.Channel channel) { return channel.group.trim().isEmpty() ? "Uncategorized" : channel.group.trim(); }
+    private static String group(IptvRepository.Channel channel) { return channel.group.trim().isEmpty() ? AppLanguage.get(R.string.ui_uncategorized) : channel.group.trim(); }
     private static String key(IptvRepository.Channel channel) { return channel.stableKey() + "\n" + channel.streamUrl; }
     private void filter(boolean focusGrid) {
         slotCache.clear();
@@ -241,11 +242,11 @@ public final class GuideActivity extends MotionActivity {
         selectedRow = 0;
         for (int i = 0; i < channels.size(); i++) if (key(channels.get(i)).equals(selectedKey)) { selectedRow = i; break; }
         if (!channels.isEmpty()) selectedKey = key(channels.get(selectedRow));
-        String label = category == null ? "All channels" : (FavoriteChannels.CATEGORY_FAVORITES.equals(category) ? "★ " + category : category);
+        String label = category == null ? AppLanguage.get(R.string.ui_all_channels) : (FavoriteChannels.CATEGORY_FAVORITES.equals(category) ? "★ " + AppLanguage.category(category) : category);
         categoryButton.setText(label + "  ▾");
-        categoryButton.setContentDescription("Category: " + label);
+        categoryButton.setContentDescription(AppLanguage.get(R.string.ui_category_1_s, label));
         empty.setVisibility(channels.isEmpty() ? View.VISIBLE : View.GONE);
-        empty.setText("No visible channels. Add a playlist or restore hidden channels in Settings.");
+        empty.setText(AppLanguage.get(R.string.ui_no_visible_channels_add_a_playlist_or_restore_hidden_channels_in));
         list.setVisibility(channels.isEmpty() ? View.GONE : View.VISIBLE);
         adapter.notifyDataSetChanged(); ruler.invalidate(); updateDetails();
         if (focusGrid && !channels.isEmpty()) focusSelection();
@@ -254,16 +255,16 @@ public final class GuideActivity extends MotionActivity {
 
     private void chooseCategory() {
         List<String> labels = new ArrayList<>();
-        labels.add("All channels");
+        labels.add(AppLanguage.get(R.string.ui_all_channels));
         for (String cat : categories) {
-            labels.add(FavoriteChannels.CATEGORY_FAVORITES.equals(cat) ? "★ " + cat : cat);
+            labels.add(FavoriteChannels.CATEGORY_FAVORITES.equals(cat) ? "★ " + AppLanguage.category(cat) : cat);
         }
         int checked = category == null ? 0 : categories.indexOf(category) + 1;
         AlertDialog dialog = new AlertDialog.Builder(new ContextThemeWrapper(this, LiquidTheme.alertDialogTheme(this)))
-                .setTitle("Channel category").setSingleChoiceItems(labels.toArray(new String[0]), checked, (d, which) -> {
+                .setTitle(AppLanguage.get(R.string.ui_channel_category)).setSingleChoiceItems(labels.toArray(new String[0]), checked, (d, which) -> {
                     category = which == 0 ? null : categories.get(which - 1); selectedKey = null;
                     channelFocused = false; d.dismiss(); filter(true); Motion.reveal(list);
-                }).setNegativeButton("Cancel", null).create();
+                }).setNegativeButton(AppLanguage.get(R.string.ui_cancel), null).create();
         showDialog(dialog);
     }
 
@@ -461,21 +462,21 @@ public final class GuideActivity extends MotionActivity {
     }
     private void updateDetailsContent() {
         if (channels.isEmpty()) {
-            title.setText(loaded ? "Your guide is ready when you are" : "Loading your channels…");
-            metadata.setText("TV GUIDE"); actionHint.setText("Configure Live TV sources in Settings"); progress.setVisibility(View.GONE); return;
+            title.setText(loaded ? AppLanguage.get(R.string.ui_your_guide_is_ready_when_you_are) : AppLanguage.get(R.string.ui_loading_your_channels));
+            metadata.setText(AppLanguage.get(R.string.ui_tv_guide)); actionHint.setText(AppLanguage.get(R.string.ui_configure_live_tv_sources_in_settings)); progress.setVisibility(View.GONE); return;
         }
         IptvRepository.Channel channel = channels.get(selectedRow);
         GuideTimeline.Slot slot = selectedSlot(); IptvRepository.Programme p = channelFocused ? null : slot.programme;
         long now = System.currentTimeMillis();
         if (p == null) {
-            metadata.setText(channel.name + "  ·  " + (channelFocused ? "LIVE TV" : "SCHEDULE UNAVAILABLE"));
-            title.setText(channelFocused ? channel.name : "No programme information");
-            actionHint.setText("Press OK to watch this channel"); progress.setVisibility(View.GONE);
+            metadata.setText(channel.name + "  ·  " + (channelFocused ? AppLanguage.get(R.string.ui_live_tv_f5e30a7) : AppLanguage.get(R.string.ui_schedule_unavailable)));
+            title.setText(channelFocused ? channel.name : AppLanguage.get(R.string.ui_no_programme_information));
+            actionHint.setText(AppLanguage.get(R.string.ui_press_ok_to_watch_this_channel)); progress.setVisibility(View.GONE);
         } else {
             boolean live = p.startMs <= now && p.endMs > now;
-            metadata.setText((live ? "● LIVE NOW" : p.endMs <= now ? "ENDED" : "UPCOMING") + "  ·  " + channel.name);
+            metadata.setText((live ? AppLanguage.get(R.string.ui_live_now) : p.endMs <= now ? AppLanguage.get(R.string.ui_ended) : AppLanguage.get(R.string.ui_upcoming)) + "  ·  " + channel.name);
             title.setText(p.title);
-            actionHint.setText(range(p) + (p.startMs <= now ? "  ·  OK to watch channel" : reminded(channel, p) ? "  ·  Reminder set" : "  ·  OK for reminders"));
+            actionHint.setText(range(p) + (p.startMs <= now ? AppLanguage.get(R.string.ui_ok_to_watch_channel) : reminded(channel, p) ? AppLanguage.get(R.string.ui_reminder_set) : AppLanguage.get(R.string.ui_ok_for_reminders)));
             progress.setVisibility(live ? View.VISIBLE : View.GONE);
             if (live) progress.setProgress((int)Math.max(0, Math.min(1000, (now - p.startMs) * 1000 / Math.max(1, p.endMs - p.startMs))));
         }
@@ -487,13 +488,13 @@ public final class GuideActivity extends MotionActivity {
         if (p == null || p.startMs <= System.currentTimeMillis()) { PlaybackLauncher.watch(this, channel, all); return; }
         boolean saved = reminded(channel, p);
         AlertDialog dialog = new AlertDialog.Builder(new ContextThemeWrapper(this, LiquidTheme.alertDialogTheme(this)))
-                .setTitle(p.title).setMessage(channel.name + "\n" + range(p) + "\n\nReminders appear five minutes before the show while Sva is open.")
-                .setPositiveButton(saved ? "Remove reminder" : "Remind me", (d, which) -> {
+                .setTitle(p.title).setMessage(AppLanguage.get(R.string.ui_1_s_2_s_reminders_appear_five_minutes_before_the_show_while_sva, channel.name, range(p)))
+                .setPositiveButton(saved ? AppLanguage.get(R.string.ui_remove_reminder) : AppLanguage.get(R.string.ui_remind_me), (d, which) -> {
                     if (saved) reminders.remove(reminder(channel, p));
-                    else if (!reminders.add(reminder(channel, p))) Toast.makeText(this, "This programme has already started.", Toast.LENGTH_SHORT).show();
+                    else if (!reminders.add(reminder(channel, p))) Toast.makeText(this, AppLanguage.get(R.string.ui_this_programme_has_already_started), Toast.LENGTH_SHORT).show();
                     updateDetails(); refreshBadges();
-                }).setNeutralButton("Watch channel", (d, which) -> PlaybackLauncher.watch(this, channel, all))
-                .setNegativeButton("Cancel", null).create();
+                }).setNeutralButton(AppLanguage.get(R.string.ui_watch_channel), (d, which) -> PlaybackLauncher.watch(this, channel, all))
+                .setNegativeButton(AppLanguage.get(R.string.ui_cancel), null).create();
         showDialog(dialog);
     }
     private void showDialog(AlertDialog dialog) {
@@ -531,10 +532,11 @@ public final class GuideActivity extends MotionActivity {
         Row() {
             super(new LinearLayout(GuideActivity.this));
             LinearLayout row = (LinearLayout)itemView;
+            row.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
             row.setClipChildren(false); row.setClipToPadding(false);
             row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(dp(2), dp(3), dp(2), dp(3));
             row.setLayoutParams(new RecyclerView.LayoutParams(-1, dp(64)));
-            channel = new LinearLayout(GuideActivity.this); channel.setGravity(Gravity.CENTER_VERTICAL);
+            channel = new LinearLayout(GuideActivity.this); channel.setLayoutDirection(getResources().getConfiguration().getLayoutDirection()); channel.setGravity(Gravity.CENTER_VERTICAL);
             channel.setPadding(dp(8), dp(4), dp(8), dp(4)); style(channel);
             FrameLayout logoBox = new FrameLayout(GuideActivity.this);
             logoBox.setBackground(shape(LiquidTheme.raisedSurface(GuideActivity.this), 0, 0, 9));
@@ -551,10 +553,10 @@ public final class GuideActivity extends MotionActivity {
             IptvRepository.Channel c = channels.get(position);
             boolean isFav = favoriteKeys.contains(c.stableKey());
             name.setText((isFav ? "★ " : "") + c.name);
-            fallback.setText(c.name.isEmpty() ? "TV" : c.name.substring(0, 1).toUpperCase(Locale.getDefault()));
+            fallback.setText(c.name.isEmpty() ? "TV" : c.name.substring(0, 1).toUpperCase(AppLanguage.locale()));
             logos.load(c.logoUrl, logo, fallback);
             configure(channel, new Target(position, null));
-            channel.setContentDescription("Watch " + c.name + (isFav ? ", favourite" : ""));
+            channel.setContentDescription(AppLanguage.get(R.string.ui_watch_1_s_2_s, c.name, (isFav ? AppLanguage.get(R.string.ui_favourite) : "")));
             int childIndex = 0;
             for (GuideTimeline.Slot slot : slots(position)) {
                 if (slot.end <= renderFrom || slot.start >= renderTo) continue;
@@ -591,7 +593,7 @@ public final class GuideActivity extends MotionActivity {
                 IptvRepository.Channel c = channels.get(target.row);
                 boolean added = FavoriteChannels.toggle(favoriteKeys, c);
                 FavoriteChannels.save(getSharedPreferences("launcher", 0), favoriteKeys);
-                Toast.makeText(GuideActivity.this, (added ? "Added to" : "Removed from") + " favourites: " + c.name, Toast.LENGTH_SHORT).show();
+                Toast.makeText(GuideActivity.this, AppLanguage.get(added ? R.string.ui_favourite_added : R.string.ui_favourite_removed, AppLanguage.bidi(c.name)), Toast.LENGTH_SHORT).show();
                 updateFavoriteCategoryList();
                 adapter.notifyItemChanged(target.row);
                 if (FavoriteChannels.CATEGORY_FAVORITES.equals(category)) {
@@ -605,19 +607,18 @@ public final class GuideActivity extends MotionActivity {
     private void updateTile(TextView tile, Target target) {
         IptvRepository.Programme p = target.slot.programme;
         if (p == null) {
-            String label = tile.getMeasuredWidth() > 0 && tile.getMeasuredWidth() < dp(70) ? "" : "No schedule";
+            String label = tile.getMeasuredWidth() > 0 && tile.getMeasuredWidth() < dp(70) ? "" : AppLanguage.get(R.string.ui_no_schedule);
             if (!label.contentEquals(tile.getText())) tile.setText(label);
             tile.setTextColor(LiquidTheme.secondaryText(this));
-            tile.setContentDescription("Schedule unavailable on " + channels.get(target.row).name + ". Press OK to watch.");
+            tile.setContentDescription(AppLanguage.get(R.string.ui_schedule_unavailable_on_1_s_press_ok_to_watch, channels.get(target.row).name));
         } else {
             long now = System.currentTimeMillis();
             boolean live = p.startMs <= now && p.endMs > now;
-            String status = live ? "● LIVE" : reminded(channels.get(target.row), p) ? "◷ REMINDER" : time(p.startMs);
+            String status = live ? AppLanguage.get(R.string.ui_live) : reminded(channels.get(target.row), p) ? AppLanguage.get(R.string.ui_reminder) : time(p.startMs);
             int width = tile.getMeasuredWidth();
             String label = width > 0 && width < dp(48) ? "" : width > 0 && width < dp(100) ? p.title : status + "\n" + p.title;
             if (!label.contentEquals(tile.getText())) tile.setText(label);
-            tile.setContentDescription(p.title + " on " + channels.get(target.row).name + ", " + range(p)
-                    + (live ? ", live now. Press OK to watch." : ". Press OK for reminders."));
+            tile.setContentDescription(AppLanguage.get(R.string.ui_1_s_on_2_s_3_s_4_s, p.title, channels.get(target.row).name, range(p), (live ? AppLanguage.get(R.string.ui_live_now_press_ok_to_watch) : AppLanguage.get(R.string.ui_press_ok_for_reminders))));
         }
     }
     private final class Cells extends FrameLayout {
@@ -706,7 +707,7 @@ public final class GuideActivity extends MotionActivity {
         GradientDrawable drawable = new GradientDrawable(); drawable.setColor(color); drawable.setCornerRadius(dp(radius));
         if (width > 0) drawable.setStroke(dp(width), stroke); return drawable;
     }
-    private String date(long timestamp, String pattern) { return new SimpleDateFormat(pattern, Locale.getDefault()).format(new Date(timestamp)); }
+    private String date(long timestamp, String pattern) { return new SimpleDateFormat(pattern, AppLanguage.locale()).format(new Date(timestamp)); }
     private String time(long timestamp) { return date(timestamp, getSharedPreferences("launcher", 0).getBoolean("24h", false) ? "HH:mm" : "h:mm a"); }
     private int dp(int value) { return LiquidTheme.dp(this, value); }
 }

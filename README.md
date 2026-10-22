@@ -53,14 +53,15 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 
 ## Features
 
-- **Remote-first navigation** — focusing a top-level tab selects it immediately, with clear focus states throughout the UI.
+- **Remote-first navigation** — focusing a top-level tab selects it immediately, with clear focus states throughout the UI. Settings dialog supports seamless two-way D-pad navigation between categories and controls without remote focus traps.
+- **23 interface languages** (🇺🇸 🇬🇧 🇮🇳 🇪🇸 🇫🇷 🇸🇦 🇧🇷 🇨🇳 🇹🇼 🇩🇪 🇯🇵 🇰🇷 🇷🇺 🇮🇩 🇹🇷 🇧🇩 🇵🇰...) — follow the TV language or choose a language under **Settings → System → Language**, with offline translations and right-to-left layouts for Arabic and Urdu.
 - **Personal home screen** — select and reorder app shortcuts; keep the clock, date, weather, Wi-Fi, tools, and settings close by.
 - **Photo backdrops** — use a single image, rotate a local folder, or connect a public Google Photos album.
 - **Live TV and guide** — combine multiple M3U/M3U8 playlists and XMLTV, XMLTV.GZ, or JSON programme guides, browse `group-title` categories, display `tvg-logo` artwork, and hide unwanted channels.
 - **Integrated playback** — watch with Media3 ExoPlayer, move between channels with Up/Down, view programme progress, prefer Hindi audio when available, and configure global or per-channel Widevine settings.
 - **NES library** — import your own `.nes` files and launch them directly through the embedded Nestopia UE core, without a separate emulator menu.
 - **Events calendar** — combine iCalendar feeds from Google Calendar, other providers, or local servers, see today's events, browse 12 months in either direction, and view selected-day details and lunar illumination.
-- **Saved videos** — create artwork-rich shortcuts for YouTube videos and playlists.
+- **Saved videos** — create artwork-rich shortcuts for YouTube videos and playlists, with remote actions to edit title, artwork, or remove cards directly from settings.
 - **Weather** — current conditions and a three-day forecast from Open-Meteo, using a chosen city or optional approximate device location.
 - **Configurable refresh schedules** — independently control updates for photos, playlists, programme data, calendars, and Google Photos.
 - **Backup and restore** — export launcher preferences, app and channel choices, and IPTV/DRM configuration to JSON.
@@ -100,8 +101,28 @@ You can also [build and install the APK from source](DEVELOPER.md).
    | **Weather** | Search for a city or explicitly request approximate device location. |
    | **Schedules** | Set an independent refresh cadence for each network-backed source. |
    | **Navigation** | Show or hide Live TV, Games, and Events; choose the order of Live TV, Games, Events, and Saved. Home stays first, and hidden categories keep their place. |
+   | **Language** | Follow the TV language or choose a different language for Sva. The choice also applies to Sva Memories. |
 
 Calendar feeds must be readable without signing in. HTTPS and `webcal://` links are supported; HTTP is allowed for local/private hosts only (public HTTP links are upgraded to HTTPS). Duplicate feed URLs are ignored. If a feed cannot refresh, its previously cached events remain available while other feeds update. Calendar recurrence support covers common rules rather than every provider extension.
+
+Supported interface languages (23):
+
+| Flag | Language | Native Name | Code | Flag | Language | Native Name | Code |
+| :---: | :--- | :--- | :---: | :---: | :--- | :--- | :---: |
+| 🇺🇸 / 🇬🇧 | English | English | `en` | 🇷🇺 | Russian | Русский | `ru` |
+| 🇮🇳 | Hindi | हिन्दी | `hi` | 🇮🇩 | Indonesian | Bahasa Indonesia | `id` |
+| 🇪🇸 | Spanish | Español | `es` | 🇹🇷 | Turkish | Türkçe | `tr` |
+| 🇫🇷 | French | Français | `fr` | 🇧🇩 | Bengali | বাংলা | `bn` |
+| 🇸🇦 | Arabic | العربية | `ar` | 🇵🇰 | Urdu | اردو | `ur` |
+| 🇧🇷 | Portuguese | Português | `pt` | 🇮🇳 | Tamil | தமிழ் | `ta` |
+| 🇨🇳 | Chinese (Simplified) | 简体中文 | `zh-Hans` | 🇮🇳 | Telugu | తెలుగు | `te` |
+| 🇹🇼 | Chinese (Traditional) | 繁體中文 | `zh-Hant` | 🇮🇳 | Marathi | मराठी | `mr` |
+| 🇩🇪 | German | Deutsch | `de` | 🇮🇳 | Gujarati | ગુજરાતી | `gu` |
+| 🇯🇵 | Japanese | 日本語 | `ja` | 🇮🇳 | Kannada | ಕನ್ನಡ | `kn` |
+| 🇰🇷 | Korean | 한국어 | `ko` | 🇮🇳 | Malayalam | മലയാളം | `ml` |
+| 🇮🇳 | Punjabi | ਪੰਜਾਬੀ | `pa` | | | | |
+
+Unsupported TV languages fall back to English. Supplied content such as channel names, programme titles, and personal captions keeps its original language. Interface language does not change playback audio preferences.
 
 The first time you browse local files, allow Sva storage access in Android settings. This lets its TV file browser find NES files, photos, and backups across local storage and USB drives.
 

@@ -37,4 +37,8 @@ final class ControllerProfile {
         for (int i = 0; i < keys.length; i++) if (keys[i] == keyCode) return BITS[i];
         return -1;
     }
+
+    static String[] names() {
+        return new String[]{AppLanguage.get(R.string.ui_up), AppLanguage.get(R.string.ui_down), AppLanguage.get(R.string.ui_left), AppLanguage.get(R.string.ui_right), AppLanguage.get(R.string.ui_nes_b), AppLanguage.get(R.string.ui_nes_a), AppLanguage.get(R.string.ui_select), AppLanguage.get(R.string.ui_start), AppLanguage.get(R.string.ui_pause)};
+    }
 }

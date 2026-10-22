@@ -64,9 +64,12 @@ final class SettingsUi {
         b.setElevation(0); Motion.interaction(b, true);
     }
     static Button action(Context c, String label, Runnable click) {
+        return action(c, label, false, click);
+    }
+    static Button action(Context c, String label, boolean destructive, Runnable click) {
         Button b = new Button(c); styleButton(b); b.setText(label);
         if (click != null) b.setOnClickListener(v -> click.run());
-        if (label.startsWith("Remove") || label.startsWith("Clear") || label.startsWith("Discard"))
+        if (destructive)
             b.setTextColor(LiquidTheme.isLight(c) ? 0xFFAA2635 : 0xFFFFA8AB);
         return b;
     }
@@ -91,6 +94,11 @@ final class SettingsUi {
         field.setTextColor(text(c)); field.setHintTextColor(muted(c)); field.setBackground(states(c, false));
         field.setPadding(dp(c, 18), dp(c, 14), dp(c, 18), dp(c, 14));
         field.setMinHeight(dp(c, multiline ? 112 : 56));
+        int variation = field.getInputType() & android.text.InputType.TYPE_MASK_VARIATION;
+        if (multiline || variation == android.text.InputType.TYPE_TEXT_VARIATION_URI) {
+            field.setTextDirection(View.TEXT_DIRECTION_LTR);
+            field.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        }
     }
     static View toggle(Context c, String title, boolean checked, java.util.function.Consumer<Boolean> save) {
         LinearLayout row = row(c); TextView label = text(c, title, 16, false);
@@ -104,7 +112,7 @@ final class SettingsUi {
                 new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
                 new int[]{LiquidTheme.accent(c) & 0x66FFFFFF, muted(c) & 0x55FFFFFF}));
         row.addView(toggle, new LinearLayout.LayoutParams(-2, -2));
-        row.setContentDescription(title + ", " + (checked ? "On" : "Off"));
+        row.setContentDescription(AppLanguage.get(R.string.ui_label_state, title, checked ? AppLanguage.get(R.string.ui_on) : AppLanguage.get(R.string.ui_off)));
         row.setAccessibilityDelegate(new View.AccessibilityDelegate() {
             @Override public void onInitializeAccessibilityNodeInfo(View host, android.view.accessibility.AccessibilityNodeInfo info) {
                 super.onInitializeAccessibilityNodeInfo(host, info);
@@ -113,7 +121,7 @@ final class SettingsUi {
         });
         row.setOnClickListener(v -> {
             boolean next = !toggle.isChecked(); toggle.setChecked(next); save.accept(next);
-            row.setContentDescription(title + ", " + (next ? "On" : "Off"));
+            row.setContentDescription(AppLanguage.get(R.string.ui_label_state, title, next ? AppLanguage.get(R.string.ui_on) : AppLanguage.get(R.string.ui_off)));
         });
         return row;
     }
@@ -131,7 +139,7 @@ final class SettingsUi {
                     .setTitle(title).setSingleChoiceItems(options, current, (d, which) -> {
                         value.setText(options[which]); row.setContentDescription(title + ", " + options[which]);
                         save.accept(which); d.dismiss(); row.requestFocus();
-                    }).setNegativeButton("Cancel", null).create();
+                    }).setNegativeButton(AppLanguage.get(R.string.ui_cancel), null).create();
             dialog.setOnDismissListener(d -> row.requestFocus()); Motion.dialog(dialog); dialog.show();
             dialog.getListView().setSelection(current);
         });
@@ -151,7 +159,7 @@ final class SettingsUi {
         LinearLayout header = new LinearLayout(a); header.setGravity(Gravity.CENTER_VERTICAL);
         header.setClipChildren(false); header.setClipToPadding(false);
         header.addView(text(a, title, 28, false), new LinearLayout.LayoutParams(0, -2, 1));
-        Button backButton = action(a, "Back", back);
+        Button backButton = action(a, AppLanguage.get(R.string.ui_back), back);
         LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(dp(a, 112), dp(a, 52));
         backParams.setMargins(dp(a, 4), dp(a, 4), dp(a, 4), dp(a, 4));
         header.addView(backButton, backParams);
@@ -215,6 +223,11 @@ final class SettingsUi {
                             canvas.drawLine(12 + (float)Math.cos(angle) * 7, 12 + (float)Math.sin(angle) * 7,
                                     12 + (float)Math.cos(angle) * 10, 12 + (float)Math.sin(angle) * 10, p);
                         } break;
+                    case 14:
+                        canvas.drawCircle(12, 12, 9, p);
+                        canvas.drawOval(8, 3, 16, 21, p);
+                        canvas.drawLine(3, 12, 21, 12, p);
+                        break;
                 }
                 canvas.restore();
             }

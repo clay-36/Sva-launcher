@@ -97,8 +97,8 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
             if (position == RecyclerView.NO_POSITION || position >= items.size()) continue;
             IptvRepository.Channel channel = items.get(position);
             Holder holder = (Holder) rawHolder;
-            String now = channel.now.isEmpty() ? channel.group : "ON NOW  ·  " + channel.now;
-            String next = channel.next.isEmpty() ? "Select to watch" : "Next · " + channel.next;
+            String now = channel.now.isEmpty() ? channel.group : AppLanguage.get(R.string.ui_on_now_1_s, channel.now);
+            String next = channel.next.isEmpty() ? AppLanguage.get(R.string.ui_select_to_watch) : AppLanguage.get(R.string.ui_next_1_s, channel.next);
             boolean changed = false;
             if (!now.contentEquals(holder.now.getText())) {
                 holder.now.setText(now);
@@ -110,7 +110,7 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
             }
             if (changed) {
                 boolean isFav = renderedFavorites.contains(channel.stableKey());
-                holder.itemView.setContentDescription(channel.name + (isFav ? ", favourite" : "")
+                holder.itemView.setContentDescription(channel.name + (isFav ? AppLanguage.get(R.string.ui_favourite) : "")
                         + (channel.now.isEmpty() ? "" : ", " + channel.now));
             }
         }
@@ -233,12 +233,12 @@ final class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.Holder> {
         IptvRepository.Channel channel = items.get(position);
         boolean isFav = renderedFavorites.contains(channel.stableKey());
         holder.name.setText(channel.name);
-        holder.now.setText(channel.now.isEmpty() ? channel.group : "ON NOW  ·  " + channel.now);
-        holder.next.setText(channel.next.isEmpty() ? "Select to watch" : "Next · " + channel.next);
-        holder.fallback.setText(channel.name.isEmpty() ? "TV" : channel.name.substring(0, 1).toUpperCase(Locale.getDefault()));
+        holder.now.setText(channel.now.isEmpty() ? channel.group : AppLanguage.get(R.string.ui_on_now_1_s, channel.now));
+        holder.next.setText(channel.next.isEmpty() ? AppLanguage.get(R.string.ui_select_to_watch) : AppLanguage.get(R.string.ui_next_1_s, channel.next));
+        holder.fallback.setText(channel.name.isEmpty() ? "TV" : channel.name.substring(0, 1).toUpperCase(AppLanguage.locale()));
         logos.load(channel.logoUrl, holder.logo, holder.fallback);
         holder.favBadge.setVisibility(isFav ? View.VISIBLE : View.GONE);
-        holder.itemView.setContentDescription(channel.name + (isFav ? ", favourite" : "")
+        holder.itemView.setContentDescription(channel.name + (isFav ? AppLanguage.get(R.string.ui_favourite) : "")
                 + (channel.now.isEmpty() ? "" : ", " + channel.now));
         holder.itemView.setOnClickListener(view -> listener.onClick(channel));
         holder.itemView.setOnLongClickListener(view -> {

@@ -35,13 +35,13 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 @UnstableApi
-public final class PlaybackActivity extends Activity {
+public final class PlaybackActivity extends LocalizedActivity {
     private ExoPlayer player;
     private PlayerView playerView;
     private LinearLayout infoPanel;
     private TextView message, programmeTitle, programmeTimes, nextProgramme;
     private ProgressBar programmeProgress;
-    private String currentChannelName = "Channel";
+    private String currentChannelName = AppLanguage.get(R.string.ui_channel_879f0b1);
     private String currentProgramme = "";
     private String followingProgramme = "";
     private long programmeStartMs, programmeEndMs;
@@ -68,7 +68,7 @@ public final class PlaybackActivity extends Activity {
         try { playback = PlaybackSession.restore(this, getIntent()); }
         catch (Exception ignored) { playback = new Intent(); missingSession = true; }
         String name = playback.getStringExtra("name");
-        currentChannelName = name == null ? "Channel" : name;
+        currentChannelName = name == null ? AppLanguage.get(R.string.ui_channel_879f0b1) : name;
         String streamUrl = playback.getStringExtra("url");
         String licenseUrl = playback.getStringExtra("licenseUrl");
 
@@ -95,7 +95,7 @@ public final class PlaybackActivity extends Activity {
         boolean initialFavorite = activeChannel != null ? activeChannel.optBoolean("favorite", false)
                 : playback.getBooleanExtra("favorite", false);
         message = new TextView(this);
-        message.setText("Loading " + (initialFavorite ? "★ " : "") + currentChannelName + "…");
+        message.setText(AppLanguage.get(R.string.ui_loading_1_s_2_s, (initialFavorite ? "★ " : ""), currentChannelName));
         message.setTextColor(LiquidTheme.text(this));
         message.setTextSize(12);
         message.setLetterSpacing(.08f);
@@ -138,17 +138,17 @@ public final class PlaybackActivity extends Activity {
         }
 
         if (missingSession) {
-            showError("Playback session is unavailable. Go back and select the channel again.");
+            showError(AppLanguage.get(R.string.ui_playback_session_is_unavailable_go_back_and_select_the_channel_a));
             return;
         }
         String encodedRequest = playback.getStringExtra("playbackRequest");
         if (encodedRequest != null) {
             try { startPlayback(PlaybackRequest.fromJson(new JSONObject(encodedRequest))); }
-            catch (Exception ignored) { showError("Invalid channel playback configuration."); }
+            catch (Exception ignored) { showError(AppLanguage.get(R.string.ui_invalid_channel_playback_configuration)); }
             return;
         }
         if (streamUrl == null || streamUrl.trim().isEmpty()) {
-            showError("Missing channel stream URL.");
+            showError(AppLanguage.get(R.string.ui_missing_channel_stream_url));
             return;
         }
         Map<String, String> oldHeaders = new LinkedHashMap<>();
@@ -172,18 +172,17 @@ public final class PlaybackActivity extends Activity {
             player.addListener(new Player.Listener() {
                 @Override public void onPlaybackStateChanged(int playbackState) {
                     if (playbackState == Player.STATE_READY) {
-                        message.setText("Playing · Up/Down to change channel");
+                        message.setText(AppLanguage.get(R.string.ui_playing_up_down_to_change_channel));
                         hideMessageAfter(2000);
                     }
-                    else if (playbackState == Player.STATE_ENDED) message.setText("Stream ended · Back to return");
+                    else if (playbackState == Player.STATE_ENDED) message.setText(AppLanguage.get(R.string.ui_stream_ended_back_to_return));
                 }
 
                 @Override public void onPlayerError(PlaybackException error) {
                     if (!activeDrmType.isEmpty() || containsDrmFailure(error)) {
-                        showError(("clearkey".equals(activeDrmType) ? "ClearKey" : "Widevine")
-                                + " playback failed. Check the channel license settings and TV support.");
+                        showError(AppLanguage.get(R.string.ui_1_s_playback_failed_check_the_channel_license_settings_and_tv_su, ("clearkey".equals(activeDrmType) ? "ClearKey" : "Widevine")));
                     } else {
-                        showError("Could not play this channel. The stream or codec may not be supported by the TV.");
+                        showError(AppLanguage.get(R.string.ui_could_not_play_this_channel_the_stream_or_codec_may_not_be_suppo));
                     }
                 }
             });
@@ -191,10 +190,10 @@ public final class PlaybackActivity extends Activity {
             player.play();
         } catch (Exception e) {
             showError("clearkey".equals(activeDrmType)
-                    ? "Could not start ClearKey playback. Check the DASH format, keys or license URL."
+                    ? AppLanguage.get(R.string.ui_could_not_start_clearkey_playback_check_the_dash_format_keys_or)
                     : "widevine".equals(activeDrmType)
-                    ? "Could not start Widevine playback. Check the channel DRM settings."
-                    : "Could not start this stream. Check the stream URL and playlist options.");
+                    ? AppLanguage.get(R.string.ui_could_not_start_widevine_playback_check_the_channel_drm_settings)
+                    : AppLanguage.get(R.string.ui_could_not_start_this_stream_check_the_stream_url_and_playlist_op));
         }
     }
 
@@ -238,14 +237,14 @@ public final class PlaybackActivity extends Activity {
         message.setText((nowFav ? "★ " : "") + currentChannelName);
         Motion.show(infoPanel, false);
         hideMessageAfter(2500);
-        Toast.makeText(this, (nowFav ? "Added to" : "Removed from") + " favourites: " + currentChannelName, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, AppLanguage.get(nowFav ? R.string.ui_favourite_added : R.string.ui_favourite_removed, AppLanguage.bidi(currentChannelName)), Toast.LENGTH_SHORT).show();
     }
 
     private void changeChannel(int direction) {
         zapIndex = (zapIndex + direction + zapChannels.length()) % zapChannels.length();
         JSONObject item = zapChannels.optJSONObject(zapIndex);
         if (item == null) return;
-        String name = item.optString("name", "Channel");
+        String name = item.optString("name", AppLanguage.get(R.string.ui_channel_879f0b1));
         currentChannelName = name;
         boolean isFav = item.optBoolean("favorite", false);
         message.setText((isFav ? "★ " : "") + name);
@@ -299,7 +298,7 @@ public final class PlaybackActivity extends Activity {
         programmeTitle.setVisibility(hasTitle ? View.VISIBLE : View.GONE);
         programmeProgress.setVisibility(hasTiming ? View.VISIBLE : View.GONE);
         programmeTimes.setVisibility(hasTiming ? View.VISIBLE : View.GONE);
-        nextProgramme.setText(followingProgramme.isEmpty() ? "" : "Next · " + followingProgramme);
+        nextProgramme.setText(followingProgramme.isEmpty() ? "" : AppLanguage.get(R.string.ui_next_1_s, followingProgramme));
         nextProgramme.setVisibility(followingProgramme.isEmpty() ? View.GONE : View.VISIBLE);
         infoPanel.setVisibility(View.VISIBLE);
         updateProgrammeProgress();
@@ -347,9 +346,8 @@ public final class PlaybackActivity extends Activity {
         long elapsed = Math.max(0L, Math.min(duration, System.currentTimeMillis() - programmeStartMs));
         programmeProgress.setProgress((int) Math.min(1000L, elapsed * 1000L / duration));
         long minutesLeft = Math.max(0L, (programmeEndMs - System.currentTimeMillis() + 59999L) / 60000L);
-        java.text.DateFormat time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, Locale.getDefault());
-        programmeTimes.setText(time.format(new Date(programmeStartMs)) + " – " + time.format(new Date(programmeEndMs))
-                + " · " + minutesLeft + " min left");
+        java.text.DateFormat time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, AppLanguage.locale());
+        programmeTimes.setText(AppLanguage.get(R.string.programme_time_range, time.format(new Date(programmeStartMs)), time.format(new Date(programmeEndMs)), AppLanguage.quantity(R.plurals.minutes_left, (int)minutesLeft)));
     }
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }

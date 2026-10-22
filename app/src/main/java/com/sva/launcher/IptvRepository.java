@@ -321,14 +321,14 @@ final class IptvRepository {
     }
 
     void restoreCachedChannels(JSONArray array, Runnable onRestored) throws Exception {
-        if (array == null || array.length() > 50000) throw new IllegalArgumentException("Backup contains too many channels.");
+        if (array == null || array.length() > 50000) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_backup_contains_too_many_channels, "Backup contains too many channels."));
         ArrayList<Channel> restored = new ArrayList<>(array.length());
         for (int i = 0; i < array.length(); i++) {
             JSONObject value = array.optJSONObject(i);
-            if (value == null) throw new IllegalArgumentException("Backup contains an invalid channel entry.");
+            if (value == null) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_backup_contains_an_invalid_channel_entry, "Backup contains an invalid channel entry."));
             String name = value.optString("name", "").trim();
             String url = value.optString("url", "").trim();
-            if (name.isEmpty() || url.isEmpty()) throw new IllegalArgumentException("Backup contains a channel without a name or stream URL.");
+            if (name.isEmpty() || url.isEmpty()) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_backup_contains_a_channel_without_a_name_or_stream_url, "Backup contains a channel without a name or stream URL."));
             Map<String, String> headers = new LinkedHashMap<>();
             JSONObject headerObject = value.optJSONObject("drmHeaders");
             if (headerObject != null) {
@@ -365,7 +365,7 @@ final class IptvRepository {
                 try {
                     String playlist = playlistUrl();
                     List<String> sources = sourceUrls(playlist);
-                    if (sources.isEmpty()) throw new IllegalStateException("Add one or more M3U playlist URLs in Settings.");
+                    if (sources.isEmpty()) throw new IllegalStateException(AppLanguage.text(R.string.ui_add_one_or_more_m3u_playlist_urls_in_settings, "Add one or more M3U playlist URLs in Settings."));
                     prefs.edit().putLong("channelsAttempted", System.currentTimeMillis()).apply();
                     Map<String, Channel> combined = new LinkedHashMap<>();
                     List<String> failures = new ArrayList<>();
@@ -373,26 +373,26 @@ final class IptvRepository {
                         try {
                             List<Channel> loadedSource = downloadPlaylist(sources.get(i));
                             if (loadedSource.isEmpty()) {
-                                failures.add("Playlist " + (i + 1) + " was empty");
+                                failures.add(AppLanguage.text(R.string.ui_playlist_1_s_was_empty, "Playlist %1$s was empty", (i + 1)));
                             } else {
                                 for (Channel channel : loadedSource) {
                                     combined.putIfAbsent(cacheIdentity(channel), channel);
                                 }
                             }
                         } catch (Exception sourceError) {
-                            failures.add("Playlist " + (i + 1) + ": " + safeMessage(sourceError));
+                            failures.add(AppLanguage.text(R.string.ui_playlist_1_s_2_s, "Playlist %1$s: %2$s", (i + 1), safeMessage(sourceError)));
                         }
                     }
                     List<Channel> channels = new ArrayList<>(combined.values());
                     if (channels.isEmpty()) {
                         loaded = cachedChannels();
                         message = loaded.isEmpty()
-                                ? (failures.isEmpty() ? "No channels found in the playlists."
+                                ? (failures.isEmpty() ? AppLanguage.text(R.string.ui_no_channels_found_in_the_playlists, "No channels found in the playlists.")
                                 : String.join("; ", failures))
-                                : "No channels loaded. Keeping saved channels. " + String.join("; ", failures);
+                                : AppLanguage.text(R.string.ui_no_channels_loaded_keeping_saved_channels_1_s, "No channels loaded. Keeping saved channels. %1$s", String.join("; ", failures));
                     } else if (!playlist.equals(playlistUrl())) {
                         loaded = cachedChannels();
-                        message = "Playlist sources changed during refresh. Refresh channels again.";
+                        message = AppLanguage.text(R.string.ui_playlist_sources_changed_during_refresh_refresh_channels_again, "Playlist sources changed during refresh. Refresh channels again.");
                     } else {
                         preserveGuideData(channels, cachedChannels());
                         saveCache(channels);
@@ -402,14 +402,14 @@ final class IptvRepository {
                                 .putString("channelsCacheSource", playlist).apply();
                         loaded = channels;
                         message = failures.isEmpty()
-                                ? "Channels updated from " + sources.size() + (sources.size() == 1 ? " playlist." : " playlists.")
-                                : "Loaded " + channels.size() + " channels; " + String.join("; ", failures) + ".";
+                                ? AppLanguage.text(R.string.ui_refresh_playlist_success, "Channels updated from %1$s.", AppLanguage.quantity(R.plurals.playlist_count, sources.size(), "%1$d playlist", "%1$d playlists"))
+                                : AppLanguage.text(R.string.ui_loaded_1_s_channels_2_s, "Loaded %1$s channels; %2$s.", channels.size(), String.join("; ", failures));
                     }
                 } catch (Exception e) {
                     loaded = cachedChannels();
                     message = loaded.isEmpty()
-                            ? "Could not load playlist: " + safeMessage(e)
-                            : "Showing saved channels. Channel refresh failed: " + safeMessage(e);
+                            ? AppLanguage.text(R.string.ui_could_not_load_playlist_1_s, "Could not load playlist: %1$s", safeMessage(e))
+                            : AppLanguage.text(R.string.ui_showing_saved_channels_channel_refresh_failed_1_s, "Showing saved channels. Channel refresh failed: %1$s", safeMessage(e));
                 }
                 callback.onLoaded(loaded, message);
             }
@@ -425,8 +425,8 @@ final class IptvRepository {
                 String guide = guideUrl();
                 try {
                     List<String> sources = sourceUrls(guide);
-                    if (sources.isEmpty()) throw new IllegalStateException("Add and save one or more programme guide URLs in Settings.");
-                    if (cached.isEmpty()) throw new IllegalStateException("Refresh channels first to load the programme guide.");
+                    if (sources.isEmpty()) throw new IllegalStateException(AppLanguage.text(R.string.ui_add_and_save_one_or_more_programme_guide_urls_in_settings, "Add and save one or more programme guide URLs in Settings."));
+                    if (cached.isEmpty()) throw new IllegalStateException(AppLanguage.text(R.string.ui_refresh_channels_first_to_load_the_programme_guide, "Refresh channels first to load the programme guide."));
                     prefs.edit().putLong("guideAttempted", System.currentTimeMillis()).apply();
                     List<Channel> updated = copyChannels(cached);
                     clearGuideData(updated);
@@ -440,17 +440,17 @@ final class IptvRepository {
                             mergeGuideData(sourceChannels, updated, System.currentTimeMillis());
                             succeeded++;
                         } catch (Exception sourceError) {
-                            failures.add("Guide " + (i + 1) + ": " + safeMessage(sourceError));
+                            failures.add(AppLanguage.text(R.string.ui_guide_1_s_2_s, "Guide %1$s: %2$s", (i + 1), safeMessage(sourceError)));
                         }
                     }
                     if (succeeded == 0) {
                         throw new IllegalStateException(failures.isEmpty()
-                                ? "No programme guide sources were loaded." : String.join("; ", failures));
+                                ? AppLanguage.text(R.string.ui_no_programme_guide_sources_were_loaded, "No programme guide sources were loaded.") : String.join("; ", failures));
                     }
                     refreshProgrammeDisplay(updated, System.currentTimeMillis());
                     if (!guide.equals(guideUrl())) {
                         prefs.edit().remove("guideUpdated").remove("guideAttempted").apply();
-                        throw new IllegalStateException("Programme guide sources changed during refresh. Refresh the guide again.");
+                        throw new IllegalStateException(AppLanguage.text(R.string.ui_programme_guide_sources_changed_during_refresh_refresh_the_guide, "Programme guide sources changed during refresh. Refresh the guide again."));
                     }
                     saveCache(updated);
                     long completedAt = System.currentTimeMillis();
@@ -458,18 +458,17 @@ final class IptvRepository {
                             .putString("guideCacheSource", guide).apply();
                     loaded = updated;
                     message = failures.isEmpty()
-                            ? "Programme guide updated from " + succeeded + (succeeded == 1 ? " source." : " sources.")
-                            : "Guide updated from " + succeeded + " of " + sources.size() + " sources. "
-                            + String.join("; ", failures) + ".";
+                            ? AppLanguage.text(R.string.ui_refresh_guide_success, "Programme guide updated from %1$s.", AppLanguage.quantity(R.plurals.source_count, succeeded, "%1$d source", "%1$d sources"))
+                            : AppLanguage.text(R.string.ui_guide_updated_from_1_s_of_2_s_sources_3_s, "Guide updated from %1$s of %2$s sources. %3$s.", succeeded, sources.size(), String.join("; ", failures));
                 } catch (Exception e) {
                     loaded = cacheOrFallback(cachedChannels(), cached);
                     if (!guide.equals(guideUrl())) {
                         prefs.edit().remove("guideUpdated").remove("guideAttempted").apply();
-                        message = "Programme guide sources changed during refresh. Refresh the guide again.";
+                        message = AppLanguage.text(R.string.ui_programme_guide_sources_changed_during_refresh_refresh_the_guide, "Programme guide sources changed during refresh. Refresh the guide again.");
                     } else {
                         message = loaded.isEmpty()
                                 ? safeMessage(e)
-                                : "Showing saved channels. Guide refresh failed: " + safeMessage(e);
+                                : AppLanguage.text(R.string.ui_showing_saved_channels_guide_refresh_failed_1_s, "Showing saved channels. Guide refresh failed: %1$s", safeMessage(e));
                     }
                 }
                 callback.onLoaded(loaded, message);
@@ -545,7 +544,7 @@ final class IptvRepository {
         int code = connection.getResponseCode();
         if (code < 200 || code >= 300) {
             connection.disconnect();
-            throw new IllegalStateException("HTTP " + code);
+            throw new IllegalStateException(AppLanguage.text(R.string.ui_http_1_s, "HTTP %1$s", code));
         }
         return connection;
     }
@@ -554,7 +553,7 @@ final class IptvRepository {
         HttpURLConnection connection = openConnection(address);
         try {
             int length = connection.getContentLength();
-            if (length > MAX_PLAYLIST_BYTES) throw new IllegalStateException("Playlist is larger than 24 MB.");
+            if (length > MAX_PLAYLIST_BYTES) throw new IllegalStateException(AppLanguage.text(R.string.ui_playlist_is_larger_than_24_mb, "Playlist is larger than 24 MB."));
             try (InputStream stream = new ByteLimitInputStream(connection.getInputStream(), MAX_PLAYLIST_BYTES);
                  BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
                 return parseLines(reader);
@@ -574,7 +573,7 @@ final class IptvRepository {
         while ((line = reader.readLine()) != null) {
             line = line.trim();
             if (line.startsWith("#EXTINF")) {
-                if (name != null) throw new IllegalArgumentException("Playlist ended a channel entry before its stream URL.");
+                if (name != null) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_playlist_ended_a_channel_entry_before_its_stream_url, "Playlist ended a channel entry before its stream URL."));
                 int comma = extinfTitleSeparator(line);
                 name = comma >= 0 ? line.substring(comma + 1).trim() : attribute(line, "tvg-name");
                 id = attribute(line, "tvg-id"); group = attribute(line, "group-title"); logo = attribute(line, "tvg-logo");
@@ -622,7 +621,7 @@ final class IptvRepository {
                 vlcHeaders.clear(); kodiHeaders.clear();
             }
         }
-        if (name != null) throw new IllegalArgumentException("Playlist ended before the final channel stream URL.");
+        if (name != null) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_playlist_ended_before_the_final_channel_stream_url, "Playlist ended before the final channel stream URL."));
         return channels;
     }
 
@@ -651,7 +650,7 @@ final class IptvRepository {
         }
 
         private IllegalStateException tooLarge() {
-            return new IllegalStateException("Source exceeds the " + (limit / (1024 * 1024)) + " MB size limit.");
+            return new IllegalStateException(AppLanguage.text(R.string.ui_source_exceeds_the_1_s_mb_size_limit, "Source exceeds the %1$s MB size limit.", (limit / (1024 * 1024))));
         }
     }
 
@@ -721,7 +720,7 @@ final class IptvRepository {
                     && contentType.toLowerCase(Locale.US).contains("json"));
             if (json) {
                 int length = connection.getContentLength();
-                if (length > MAX_JSON_GUIDE_BYTES) throw new IllegalStateException("JSON guide is larger than 16 MB.");
+                if (length > MAX_JSON_GUIDE_BYTES) throw new IllegalStateException(AppLanguage.text(R.string.ui_json_guide_is_larger_than_16_mb, "JSON guide is larger than 16 MB."));
                 applyJsonGuide(channels, new JSONArray(readGuideJson(raw)), System.currentTimeMillis());
             } else {
                 attachXmlGuide(channels, guideStream(raw));
@@ -735,7 +734,7 @@ final class IptvRepository {
         int count;
         while ((count = input.read(buffer)) != -1) {
             if (output.size() + count > MAX_JSON_GUIDE_BYTES) {
-                throw new IllegalStateException("JSON guide is larger than 16 MB.");
+                throw new IllegalStateException(AppLanguage.text(R.string.ui_json_guide_is_larger_than_16_mb, "JSON guide is larger than 16 MB."));
             }
             output.write(buffer, 0, count);
         }
@@ -776,32 +775,32 @@ final class IptvRepository {
                 title = null;
             }
         }
-        if (matchedProgrammes == 0) throw new IllegalArgumentException("Guide contains no valid programmes matching playlist tvg-id values.");
+        if (matchedProgrammes == 0) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_guide_contains_no_valid_programmes_matching_playlist_tvg_id_valu, "Guide contains no valid programmes matching playlist tvg-id values."));
         refreshProgrammeDisplay(working, now);
-        if (!hasCurrentOrUpcomingProgramme(working)) throw new IllegalArgumentException("Guide has no current or upcoming programmes.");
+        if (!hasCurrentOrUpcomingProgramme(working)) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_guide_has_no_current_or_upcoming_programmes, "Guide has no current or upcoming programmes."));
         copyGuideData(working, channels);
     }
 
     static void applyJsonGuide(List<Channel> channels, JSONArray feed, long now) throws Exception {
-        if (feed == null || feed.length() == 0) throw new IllegalArgumentException("JSON guide contains no channels.");
+        if (feed == null || feed.length() == 0) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_json_guide_contains_no_channels, "JSON guide contains no channels."));
         GuideAccumulator accumulator = new GuideAccumulator(channels, now);
         for (int i = 0; i < feed.length(); i++) {
             JSONObject item = feed.optJSONObject(i);
             if (item == null) continue;
             accumulator.addJson(item);
         }
-        accumulator.finish("JSON guide contains no channel entries.",
-                "JSON guide contains no valid programmes matching playlist channel IDs or names.");
+        accumulator.finish(AppLanguage.text(R.string.ui_json_guide_contains_no_channel_entries, "JSON guide contains no channel entries."),
+                AppLanguage.text(R.string.ui_json_guide_contains_no_valid_programmes_matching_playlist_channe, "JSON guide contains no valid programmes matching playlist channel IDs or names."));
     }
 
     static void applyJsonGuideEntries(List<Channel> channels, List<Map<String, Object>> feed, long now) {
-        if (feed == null || feed.isEmpty()) throw new IllegalArgumentException("JSON guide contains no channel entries.");
+        if (feed == null || feed.isEmpty()) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_json_guide_contains_no_channel_entries, "JSON guide contains no channel entries."));
         GuideAccumulator accumulator = new GuideAccumulator(channels, now);
         for (Map<String, Object> item : feed) {
             accumulator.addMap(item);
         }
-        accumulator.finish("JSON guide contains no channel entries.",
-                "JSON guide contains no valid programmes matching playlist channel IDs or names.");
+        accumulator.finish(AppLanguage.text(R.string.ui_json_guide_contains_no_channel_entries, "JSON guide contains no channel entries."),
+                AppLanguage.text(R.string.ui_json_guide_contains_no_valid_programmes_matching_playlist_channe, "JSON guide contains no valid programmes matching playlist channel IDs or names."));
     }
 
     private static final class GuideAccumulator {
@@ -877,7 +876,7 @@ final class IptvRepository {
             if (channelEntries == 0) throw new IllegalArgumentException(noEntriesMessage);
             if (matchedProgrammes == 0) throw new IllegalArgumentException(noMatchesMessage);
             refreshProgrammeDisplay(working, now);
-            if (!hasCurrentOrUpcomingProgramme(working)) throw new IllegalArgumentException("JSON guide has no current or upcoming programmes.");
+            if (!hasCurrentOrUpcomingProgramme(working)) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_json_guide_has_no_current_or_upcoming_programmes, "JSON guide has no current or upcoming programmes."));
             copyGuideData(working, original);
         }
     }

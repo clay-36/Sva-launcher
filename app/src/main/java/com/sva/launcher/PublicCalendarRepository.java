@@ -37,6 +37,14 @@ final class PublicCalendarRepository {
     private static final long DISPLAY_LOOKAHEAD_MS = 400L * 24L * 60L * 60L * 1000L;
     private static final long DISPLAY_LOOKBACK_MS = 400L * 24L * 60L * 60L * 1000L;
 
+    static class HttpFeedException extends IOException {
+        final int status;
+        HttpFeedException(int status) {
+            super(AppLanguage.text(R.string.ui_calendar_feed_returned_http_1_s, "Calendar feed returned HTTP %1$s.", status));
+            this.status = status;
+        }
+    }
+
     private PublicCalendarRepository() { }
 
     /** No DNS here: normalization is also called from the settings UI. */
@@ -69,8 +77,7 @@ final class PublicCalendarRepository {
         for (int i = 0; i < lines.length; i++) {
             if (lines[i].trim().isEmpty()) continue;
             String url = normalizeUrl(lines[i]);
-            if (url == null) throw new IllegalArgumentException("Line " + (i + 1)
-                    + ": use an HTTPS calendar URL or an HTTP URL on your local network.");
+            if (url == null) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_line_1_s_use_an_https_calendar_url_or_an_http_url_on_your_local, "Line %1$s: use an HTTPS calendar URL or an HTTP URL on your local network.", (i + 1)));
             urls.add(url);
         }
         return new ArrayList<>(urls);
@@ -118,20 +125,20 @@ final class PublicCalendarRepository {
                     && "http".equalsIgnoreCase(destination.getScheme()))
                 throw new IOException();
             return normalized;
-        } catch (Exception failure) { throw new IOException("Calendar redirect is not allowed."); }
+        } catch (Exception failure) { throw new IOException(AppLanguage.text(R.string.ui_calendar_redirect_is_not_allowed, "Calendar redirect is not allowed.")); }
     }
 
     static String download(String publicUrl, ConnectionFactory factory, Resolver resolver) throws Exception {
         String current = normalizeUrl(publicUrl);
-        if (current == null) throw new IOException("Invalid calendar URL.");
+        if (current == null) throw new IOException(AppLanguage.text(R.string.ui_invalid_calendar_url, "Invalid calendar URL."));
         for (int redirects = 0; ; redirects++) {
             URL target = new URL(current);
             String originalHost = target.getHost();
             if ("http".equals(target.getProtocol())) {
                 InetAddress[] addresses = resolver.resolve(originalHost.replace("[", "").replace("]", ""));
-                if (addresses.length == 0) throw new IOException("Local calendar host could not be resolved.");
+                if (addresses.length == 0) throw new IOException(AppLanguage.text(R.string.ui_local_calendar_host_could_not_be_resolved, "Local calendar host could not be resolved."));
                 for (InetAddress address : addresses) {
-                    if (!isLocalAddress(address)) throw new IOException("HTTP calendars must stay on your local network.");
+                    if (!isLocalAddress(address)) throw new IOException(AppLanguage.text(R.string.ui_http_calendars_must_stay_on_your_local_network, "HTTP calendars must stay on your local network."));
                 }
                 // Connect to the checked address, avoiding a second DNS resolution.
                 target = new URL("http", addresses[0].getHostAddress(), target.getPort(), target.getFile());
@@ -152,23 +159,23 @@ final class PublicCalendarRepository {
                 if (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
                     String location = connection.getHeaderField("Location");
                     if (redirects >= 5 || location == null || location.trim().isEmpty())
-                        throw new IOException("Calendar redirect limit exceeded or destination missing.");
+                        throw new IOException(AppLanguage.text(R.string.ui_calendar_redirect_limit_exceeded_or_destination_missing, "Calendar redirect limit exceeded or destination missing."));
                     current = redirectUrl(current, location);
                     continue;
                 }
-                if (status < 200 || status >= 300) throw new IOException("Calendar feed returned HTTP " + status + ".");
+                if (status < 200 || status >= 300) throw new HttpFeedException(status);
                 try (InputStream input = connection.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                     byte[] buffer = new byte[8192];
                     int total = 0, count;
                     while ((count = input.read(buffer)) != -1) {
                         total += count;
-                        if (total > MAX_FEED_BYTES) throw new IOException("Calendar feed is larger than 6 MB.");
+                        if (total > MAX_FEED_BYTES) throw new IOException(AppLanguage.text(R.string.ui_calendar_feed_is_larger_than_6_mb, "Calendar feed is larger than 6 MB."));
                         output.write(buffer, 0, count);
                     }
                     String feed = new String(output.toByteArray(), StandardCharsets.UTF_8);
                     String upper = feed.toUpperCase(Locale.ROOT);
                     if (!upper.contains("BEGIN:VCALENDAR") || !upper.contains("END:VCALENDAR"))
-                        throw new IOException("This link did not return an iCalendar feed.");
+                        throw new IOException(AppLanguage.text(R.string.ui_this_link_did_not_return_an_icalendar_feed, "This link did not return an iCalendar feed."));
                     return feed;
                 }
             } finally {

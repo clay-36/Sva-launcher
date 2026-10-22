@@ -14,6 +14,8 @@
     <application
         android:name=".SvaApplication"
         android:allowBackup="false"
+        android:supportsRtl="true"
+        android:localeConfig="@xml/locales_config"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
         android:banner="@drawable/sva_banner"
@@ -102,7 +104,7 @@
         <service
             android:name=".PlaybackListenerService"
             android:exported="true"
-            android:label="Sva Now Playing"
+            android:label="@string/now_playing_service_label"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

@@ -20,6 +20,8 @@ final class LiquidTheme {
 
     static Typeface font(Context context) {
         synchronized (LiquidTheme.class) {
+            if (!"en".equals(AppLanguage.locale().getLanguage()))
+                return Typeface.create("sans-serif-medium", Typeface.NORMAL);
             if (semiboldFont == null)
                 semiboldFont = context.getResources().getFont(R.font.manrope_semibold);
             return semiboldFont;

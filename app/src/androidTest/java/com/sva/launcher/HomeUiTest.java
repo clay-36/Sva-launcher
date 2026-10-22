@@ -13,6 +13,22 @@ import android.widget.LinearLayout;
 import java.lang.reflect.Field;
 
 public final class HomeUiTest extends InstrumentationTestCase {
+    private String previousLanguage;
+    @Override protected void setUp() throws Exception {
+        super.setUp();
+        Context context = getInstrumentation().getTargetContext();
+        previousLanguage = AppLanguage.selected(context);
+        getInstrumentation().runOnMainSync(() -> AppLanguage.select(context, "en"));
+        getInstrumentation().waitForIdleSync();
+    }
+    @Override protected void tearDown() throws Exception {
+        try {
+            Context context = getInstrumentation().getTargetContext();
+            getInstrumentation().runOnMainSync(() -> AppLanguage.select(context, previousLanguage));
+            getInstrumentation().waitForIdleSync();
+        } finally { super.tearDown(); }
+    }
+
     public void testMissingAppearanceUsesDarkEvenOnLightSystem() {
         Context context = getInstrumentation().getTargetContext();
         SharedPreferences prefs = context.getSharedPreferences("launcher", 0);
@@ -81,8 +97,8 @@ public final class HomeUiTest extends InstrumentationTestCase {
                     LinearLayout shortcuts = shortcuts(activity);
                     assertEquals(4, shortcuts.getChildCount());
                     View network = shortcuts.getChildAt(0), input = shortcuts.getChildAt(1);
-                    assertEquals("Network", network.getContentDescription().toString());
-                    assertEquals("TV Input", input.getContentDescription().toString());
+                    assertEquals(AppLanguage.get(R.string.ui_network), network.getContentDescription().toString());
+                    assertEquals(AppLanguage.get(R.string.ui_tv_input), input.getContentDescription().toString());
                     assertNotNull(((android.widget.ImageView)input).getDrawable());
                     getInstrumentation().runOnMainSync(network::requestFocus);
                     getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
@@ -116,11 +132,11 @@ public final class HomeUiTest extends InstrumentationTestCase {
             android.view.accessibility.AccessibilityNodeInfo root = null;
             for (int i = 0; i < 100; i++) {
                 root = getInstrumentation().getUiAutomation().getRootInActiveWindow();
-                if (root != null && !root.findAccessibilityNodeInfosByText("TV Input").isEmpty()) break;
+                if (root != null && !root.findAccessibilityNodeInfosByText(AppLanguage.get(R.string.ui_tv_input)).isEmpty()) break;
                 SystemClock.sleep(50);
             }
             assertNotNull(root);
-            assertFalse("OK must open TV Input", root.findAccessibilityNodeInfosByText("TV Input").isEmpty());
+            assertFalse("OK must open TV Input", root.findAccessibilityNodeInfosByText(AppLanguage.get(R.string.ui_tv_input)).isEmpty());
             android.media.tv.TvInputManager manager = (android.media.tv.TvInputManager)activity.getSystemService(Context.TV_INPUT_SERVICE);
             boolean hasInputs = false;
             if (manager != null) for (android.media.tv.TvInputInfo input : manager.getTvInputList()) {

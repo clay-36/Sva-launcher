@@ -24,6 +24,36 @@ This document provides architecture notes, build instructions, testing procedure
 
 Sva Launcher is designed specifically for **Android TV (API 26+)** with a remote-first interface. It deliberately minimizes heavy dependencies (avoiding complex Leanback fragments or Jetpack Compose overhead) to guarantee high-performance, fluid 60fps rendering even on low-cost TV chipsets (e.g., Amlogic, MediaTek, Realtek).
 
+### Interface localization
+
+`AppLanguage` resolves the 23 supported languages, formats display text, and caches
+the localized application context. Standard activities inherit `LocalizedActivity`
+(through `MotionActivity` where applicable); the DreamService wraps its own context.
+Android 13+ uses `LocaleManager` and the declared locale configuration to synchronize
+the in-app selector with Android settings. Older TVs store the override in launcher
+preferences. Configuration changes invalidate the cached context and recreate
+screens while preserving drafts and navigation. The language preference travels
+with JSON backups; the internal migration marker does not.
+
+Add user-facing text to `values/strings.xml` and each translated `strings.xml`.
+Use numbered placeholders and Android plurals for counts. Keep protocol values,
+URLs, date parsing patterns, preference keys, and supplied content out of translation
+resources. Domain helpers retain English diagnostic fallbacks for JVM tests through
+`AppLanguage.text`; visible Android text comes from resources. Use `AppLanguage.locale()`
+for display formatting and fixed locales for machine-readable formats.
+
+All translations are bundled, including in app bundles, so changing languages never
+requires a download. Initial translations were machine generated; native-speaker
+wording improvements are welcome. Portuguese uses Brazilian wording and Punjabi
+uses Gurmukhi. Chinese has separate Hans and Hant resources. Arabic and Urdu use
+mirrored layout and remote focus navigation; programme timelines retain chronological
+left-to-right coordinates and game controls retain their physical directions.
+
+Run `python3 scripts/check-localization.py` to verify coverage and placeholder
+contracts. `LanguageUiTest` verifies all language resources, plural formatting,
+representative screens, and draft preservation after a language change. It can save
+screenshots to the app cache with instrumentation argument `-e screenshots true`.
+
 ```
                       ┌──────────────────────────────────────┐
                       │             MainActivity             │

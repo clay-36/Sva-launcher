@@ -79,8 +79,7 @@ final class WeatherRepository {
     static List<Location> search(String query, Locale locale) throws Exception {
         String language = locale == null ? "en" : locale.getLanguage().toLowerCase(Locale.ROOT);
         if (language.length() != 2) language = "en";
-        String url = "https://geocoding-api.open-meteo.com/v1/search?count=5&format=json&language="
-                + language + "&name=" + URLEncoder.encode(query.trim(), "UTF-8");
+        String url = String.format(java.util.Locale.ROOT, "https://geocoding-api.open-meteo.com/v1/search?count=5&format=json&language=%1$s&name=%2$s", language, URLEncoder.encode(query.trim(), "UTF-8"));
         JSONObject root = new JSONObject(download(url));
         JSONArray results = root.optJSONArray("results");
         ArrayList<Location> locations = new ArrayList<>();
@@ -113,7 +112,7 @@ final class WeatherRepository {
         JSONArray highs = daily.getJSONArray("temperature_2m_max"), lows = daily.getJSONArray("temperature_2m_min");
         JSONArray rain = daily.optJSONArray("precipitation_probability_max");
         int count = Math.min(4, Math.min(Math.min(dates.length(), codes.length()), Math.min(highs.length(), lows.length())));
-        if (count < 2) throw new IllegalArgumentException("Forecast did not include upcoming days.");
+        if (count < 2) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_forecast_did_not_include_upcoming_days, "Forecast did not include upcoming days."));
         ArrayList<Day> days = new ArrayList<>();
         for (int i = 1; i < count; i++) days.add(new Day(dates.getString(i), codes.getInt(i),
                 lows.getDouble(i), highs.getDouble(i), rain == null ? 0 : rain.optInt(i, 0)));
@@ -131,15 +130,15 @@ final class WeatherRepository {
     }
 
     static String condition(int code) {
-        if (code == 0) return "Clear";
-        if (code <= 2) return "Partly cloudy";
-        if (code == 3) return "Overcast";
-        if (code == 45 || code == 48) return "Fog";
-        if (code >= 51 && code <= 57) return "Drizzle";
-        if ((code >= 61 && code <= 67) || code == 80 || code == 81 || code == 82) return "Rain";
-        if ((code >= 71 && code <= 77) || code == 85 || code == 86) return "Snow";
-        if (code >= 95) return "Thunderstorm";
-        return "Mixed weather";
+        if (code == 0) return AppLanguage.text(R.string.ui_clear, "Clear");
+        if (code <= 2) return AppLanguage.text(R.string.ui_partly_cloudy, "Partly cloudy");
+        if (code == 3) return AppLanguage.text(R.string.ui_overcast, "Overcast");
+        if (code == 45 || code == 48) return AppLanguage.text(R.string.ui_fog, "Fog");
+        if (code >= 51 && code <= 57) return AppLanguage.text(R.string.ui_drizzle, "Drizzle");
+        if ((code >= 61 && code <= 67) || code == 80 || code == 81 || code == 82) return AppLanguage.text(R.string.ui_rain, "Rain");
+        if ((code >= 71 && code <= 77) || code == 85 || code == 86) return AppLanguage.text(R.string.ui_snow, "Snow");
+        if (code >= 95) return AppLanguage.text(R.string.ui_thunderstorm, "Thunderstorm");
+        return AppLanguage.text(R.string.ui_mixed_weather, "Mixed weather");
     }
 
     static String symbol(int code, boolean day) {
@@ -160,12 +159,12 @@ final class WeatherRepository {
         connection.setRequestProperty("User-Agent", "SvaLauncher/1.0");
         try {
             int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) throw new IllegalStateException("Weather service returned " + status + ".");
-            if (connection.getContentLength() > 1024 * 1024) throw new IllegalStateException("Weather response was too large.");
+            if (status < 200 || status >= 300) throw new IllegalStateException(AppLanguage.text(R.string.ui_weather_service_returned_1_s, "Weather service returned %1$s.", status));
+            if (connection.getContentLength() > 1024 * 1024) throw new IllegalStateException(AppLanguage.text(R.string.ui_weather_response_was_too_large, "Weather response was too large."));
             try (InputStream input = connection.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192]; int read, total = 0;
                 while ((read = input.read(buffer)) != -1) {
-                    total += read; if (total > 1024 * 1024) throw new IllegalStateException("Weather response was too large.");
+                    total += read; if (total > 1024 * 1024) throw new IllegalStateException(AppLanguage.text(R.string.ui_weather_response_was_too_large, "Weather response was too large."));
                     output.write(buffer, 0, read);
                 }
                 return new String(output.toByteArray(), StandardCharsets.UTF_8);

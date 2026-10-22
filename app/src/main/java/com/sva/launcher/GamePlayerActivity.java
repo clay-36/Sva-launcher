@@ -25,7 +25,7 @@ import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public final class GamePlayerActivity extends Activity implements InputManager.InputDeviceListener {
+public final class GamePlayerActivity extends LocalizedActivity implements InputManager.InputDeviceListener {
     private final NestopiaSession session = new NestopiaSession();
     private final Map<Integer, Integer> ports = new LinkedHashMap<>();
     private final Map<Integer, ControllerProfile> profiles = new LinkedHashMap<>();
@@ -63,7 +63,7 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
                 if (!started) {
                     File rom = repository.romFile(game), save = repository.saveFile(game);
                     started = session.start(rom.getAbsolutePath(), save.getAbsolutePath(), getFilesDir().getAbsolutePath());
-                    if (!started) { Toast.makeText(GamePlayerActivity.this, "This game could not be started.", Toast.LENGTH_LONG).show(); finish(); return; }
+                    if (!started) { Toast.makeText(GamePlayerActivity.this, AppLanguage.get(R.string.ui_this_game_could_not_be_started), Toast.LENGTH_LONG).show(); finish(); return; }
                 }
                 session.surface(holder.getSurface());
                 session.pause(false);
@@ -78,15 +78,15 @@ public final class GamePlayerActivity extends Activity implements InputManager.I
         panel.setPadding(GameUi.dp(this, 36), GameUi.dp(this, 28), GameUi.dp(this, 36), GameUi.dp(this, 28));
         panel.setBackground(GameUi.shape(LiquidTheme.surface(this), LiquidTheme.accent(this), 2, 22));
         pauseTitle = GameUi.text(this, game.title, 26, true); pauseTitle.setGravity(Gravity.CENTER); panel.addView(pauseTitle, new LinearLayout.LayoutParams(GameUi.dp(this, 430), GameUi.dp(this, 58)));
-        Button resume = GameUi.button(this, "Resume"); resume.setOnClickListener(v -> hidePause());
+        Button resume = GameUi.button(this, AppLanguage.get(R.string.ui_resume)); resume.setOnClickListener(v -> hidePause());
         LinearLayout.LayoutParams resumeParams = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56));
         resumeParams.setMargins(GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4));
         panel.addView(resume, resumeParams);
-        Button restart = GameUi.button(this, "Restart"); restart.setOnClickListener(v -> { session.reset(); hidePause(); });
+        Button restart = GameUi.button(this, AppLanguage.get(R.string.ui_restart)); restart.setOnClickListener(v -> { session.reset(); hidePause(); });
         LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56));
         action.setMargins(GameUi.dp(this, 4), GameUi.dp(this, 10), GameUi.dp(this, 4), GameUi.dp(this, 4));
         panel.addView(restart, action);
-        Button exit = GameUi.button(this, "Exit to Sva"); exit.setOnClickListener(v -> finish());
+        Button exit = GameUi.button(this, AppLanguage.get(R.string.ui_exit_to_sva)); exit.setOnClickListener(v -> finish());
         LinearLayout.LayoutParams exitParams = new LinearLayout.LayoutParams(GameUi.dp(this, 300), GameUi.dp(this, 56));
         exitParams.setMargins(GameUi.dp(this, 4), GameUi.dp(this, 10), GameUi.dp(this, 4), GameUi.dp(this, 4));
         panel.addView(exit, exitParams);

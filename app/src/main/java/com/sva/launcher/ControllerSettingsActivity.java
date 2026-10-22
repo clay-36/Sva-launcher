@@ -27,14 +27,14 @@ public final class ControllerSettingsActivity extends MotionActivity {
             if ((device.getSources() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
                     || (device.getSources() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) controllers.add(device);
         }
-        LinearLayout shell = SettingsUi.page(this, "Game controllers", "Configure buttons for your connected gamepads", this::handleBack);
+        LinearLayout shell = SettingsUi.page(this, AppLanguage.get(R.string.ui_game_controllers), AppLanguage.get(R.string.ui_configure_buttons_for_your_connected_gamepads), this::handleBack);
         LinearLayout page = SettingsUi.scroll(shell);
-        SettingsUi.heading(page, "Connected controllers");
-        SettingsUi.hint(page, "Left-stick and directional-pad movement work automatically. Select a controller to remap its buttons.");
+        SettingsUi.heading(page, AppLanguage.get(R.string.ui_connected_controllers));
+        SettingsUi.hint(page, AppLanguage.get(R.string.ui_left_stick_and_directional_pad_movement_work_automatically_selec));
         Button preferred = null;
         if (controllers.isEmpty()) {
-            SettingsUi.heading(page, "No controller connected");
-            SettingsUi.hint(page, "Connect a gamepad by Bluetooth or USB, then choose Refresh.");
+            SettingsUi.heading(page, AppLanguage.get(R.string.ui_no_controller_connected));
+            SettingsUi.hint(page, AppLanguage.get(R.string.ui_connect_a_gamepad_by_bluetooth_or_usb_then_choose_refresh));
         }
         for (InputDevice device : controllers) {
             Button button = SettingsUi.action(this, device.getName(), () -> {
@@ -43,25 +43,25 @@ public final class ControllerSettingsActivity extends MotionActivity {
             SettingsUi.add(page, button);
             if (preferred == null || device.getDescriptor().equals(focusedController)) preferred = button;
         }
-        Button refresh = SettingsUi.action(this, "Refresh controllers", this::renderList);
+        Button refresh = SettingsUi.action(this, AppLanguage.get(R.string.ui_refresh_controllers), this::renderList);
         SettingsUi.add(page, refresh);
         setContentView(shell); (preferred == null ? refresh : preferred).requestFocus();
     }
 
     private void begin(InputDevice device) {
         mappingDevice = device; mapping = new ControllerProfile(); step = 0;
-        LinearLayout shell = SettingsUi.page(this, "Map controller", device.getName(), this::handleBack);
+        LinearLayout shell = SettingsUi.page(this, AppLanguage.get(R.string.ui_map_controller), device.getName(), this::handleBack);
         LinearLayout page = SettingsUi.scroll(shell);
-        SettingsUi.heading(page, "Button mapping");
+        SettingsUi.heading(page, AppLanguage.get(R.string.ui_button_mapping));
         prompt = SettingsUi.text(this, "", 28, false);
         prompt.setPadding(0, SettingsUi.dp(this, 32), 0, SettingsUi.dp(this, 32));
         page.addView(prompt);
-        SettingsUi.hint(page, "Press a button on the selected controller. Press Back to cancel without saving.");
+        SettingsUi.hint(page, AppLanguage.get(R.string.ui_press_a_button_on_the_selected_controller_press_back_to_cancel_w));
         setContentView(shell); updatePrompt();
     }
 
     private void updatePrompt() {
-        prompt.setText("Button " + (step + 1) + " of " + mapping.keys.length + "\n\n" + ControllerProfile.NAMES[step]);
+        prompt.setText(AppLanguage.get(R.string.ui_button_1_s_of_2_s_3_s, (step + 1), mapping.keys.length, ControllerProfile.names()[step]));
     }
 
     private void handleBack() {
@@ -81,8 +81,8 @@ public final class ControllerSettingsActivity extends MotionActivity {
         mapping.keys[step++] = event.getKeyCode();
         if (step < mapping.keys.length) updatePrompt();
         else {
-            try { mapping.save(this, mappingDevice); Toast.makeText(this, "Controller mapping saved.", Toast.LENGTH_SHORT).show(); }
-            catch (Exception e) { Toast.makeText(this, "Could not save mapping.", Toast.LENGTH_LONG).show(); }
+            try { mapping.save(this, mappingDevice); Toast.makeText(this, AppLanguage.get(R.string.ui_controller_mapping_saved), Toast.LENGTH_SHORT).show(); }
+            catch (Exception e) { Toast.makeText(this, AppLanguage.get(R.string.ui_could_not_save_mapping), Toast.LENGTH_LONG).show(); }
             mappingDevice = null; renderList();
         }
         return true;

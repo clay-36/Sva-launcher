@@ -44,6 +44,6 @@ final class PlaybackLauncher {
 
     static void watch(Activity activity, IptvRepository.Channel channel, List<IptvRepository.Channel> channels) {
         try { activity.startActivity(intent(activity, channel, channels)); }
-        catch (Exception ignored) { Toast.makeText(activity, "Could not open playback. Please try again.", Toast.LENGTH_LONG).show(); }
+        catch (Exception ignored) { Toast.makeText(activity, AppLanguage.get(R.string.ui_could_not_open_playback_please_try_again), Toast.LENGTH_LONG).show(); }
     }
 }

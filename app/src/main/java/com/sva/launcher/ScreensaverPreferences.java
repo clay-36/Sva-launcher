@@ -58,4 +58,12 @@ final class ScreensaverPreferences {
         for (int allowed : INTERVALS) if (allowed == seconds) return seconds;
         return 20;
     }
+
+    static String[] names() {
+        return new String[]{AppLanguage.get(R.string.ui_cinema), AppLanguage.get(R.string.ui_darkroom), AppLanguage.get(R.string.ui_editorial), AppLanguage.get(R.string.ui_floating_prints), AppLanguage.get(R.string.ui_monolith), AppLanguage.get(R.string.ui_prism), AppLanguage.get(R.string.ui_silhouette), AppLanguage.get(R.string.ui_travel_journal), AppLanguage.get(R.string.ui_photo_weave)};
+    }
+
+    static String[] descriptions() {
+        return new String[]{AppLanguage.get(R.string.ui_slow_camera_movement_soft_black_edge_shading_and_a_quiet_cinemat), AppLanguage.get(R.string.ui_an_amber_lit_contact_sheet_warm_photographs_and_a_passing_trace), AppLanguage.get(R.string.ui_an_oversized_photograph_ivory_margins_and_beautifully_set_person), AppLanguage.get(R.string.ui_album_photographs_drift_as_layered_paper_prints_against_colors_d), AppLanguage.get(R.string.ui_a_sculptural_floating_photograph_deep_image_inspired_color_and_q), AppLanguage.get(R.string.ui_translucent_planes_emerald_light_ribbons_and_a_luminous_photogra), AppLanguage.get(R.string.ui_monochrome_photography_revealed_through_broad_moving_vertical_pa), AppLanguage.get(R.string.ui_warm_textured_paper_photographic_keepsakes_and_delicate_route_li), AppLanguage.get(R.string.ui_different_album_photographs_woven_into_a_slowly_changing_asymmet)};
+    }
 }

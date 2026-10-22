@@ -96,9 +96,9 @@ import java.util.concurrent.Executors;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public final class MainActivity extends Activity {
+public final class MainActivity extends LocalizedActivity {
     private static final int TAB_HOME = 0, TAB_TV = 1, TAB_GAMES = 2, TAB_EVENTS = 3, TAB_SAVED = 4;
-    private static final String[] TAB_TITLES = {"Home", "Live TV", "Games", "Events", "Saved"};
+    private final String[] TAB_TITLES = {AppLanguage.get(R.string.ui_home), AppLanguage.get(R.string.ui_live_tv), AppLanguage.get(R.string.ui_games), AppLanguage.get(R.string.ui_events), AppLanguage.get(R.string.ui_saved)};
     private static final String PREF_HIDE_LIVE_TV = "hideLiveTvNavigation";
     private static final String PREF_HIDE_GAMES = "hideGamesNavigation";
     private static final String PREF_HIDE_EVENTS = "hideEventsNavigation";
@@ -304,7 +304,7 @@ public final class MainActivity extends Activity {
         };
         if (state != null && state.getBoolean("restoreSettings", false)) {
             settingsScreen = new SettingsScreen();
-            settingsScreen.section = Math.max(0, Math.min(13, state.getInt("restoreSettingsSection", SettingsScreen.APPEARANCE)));
+            settingsScreen.section = Math.max(0, Math.min(SettingsScreen.LANGUAGE, state.getInt("restoreSettingsSection", SettingsScreen.APPEARANCE)));
             settingsScreen.restoreDrafts(state);
             settingsScreen.show();
         }
@@ -365,7 +365,7 @@ public final class MainActivity extends Activity {
             matches++;
         }
         if (matches == 1) playChannel(fallback);
-        else Toast.makeText(this, "That reminder channel is no longer available.", Toast.LENGTH_LONG).show();
+        else Toast.makeText(this, AppLanguage.get(R.string.ui_that_reminder_channel_is_no_longer_available), Toast.LENGTH_LONG).show();
     }
 
     private void openGameLibrary() {
@@ -401,23 +401,24 @@ public final class MainActivity extends Activity {
     }
 
     private void exportBackup(Uri destination) {
-        Toast.makeText(this, "Creating launcher backup…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, AppLanguage.get(R.string.ui_creating_launcher_backup), Toast.LENGTH_SHORT).show();
         Thread worker = new Thread(() -> {
             String error = null;
             try {
+                AppLanguage.sync(MainActivity.this);
                 JSONObject backup = LauncherBackup.create(preferences,
                         getSharedPreferences("iptv", MODE_PRIVATE), iptv);
                 try (java.io.OutputStream output = getContentResolver().openOutputStream(destination, "w")) {
-                    if (output == null) throw new IllegalStateException("Could not write to that file.");
+                    if (output == null) throw new IllegalStateException(AppLanguage.get(R.string.ui_could_not_write_to_that_file));
                     output.write(backup.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     output.flush();
                 }
             } catch (Exception e) {
-                error = e.getMessage() == null ? "Could not create the backup." : e.getMessage();
+                error = e.getMessage() == null ? AppLanguage.get(R.string.ui_could_not_create_the_backup) : e.getMessage();
             }
             String result = error;
             lifecycleWork.post(() -> Toast.makeText(this,
-                    result == null ? "Backup saved." : "Backup failed: " + result,
+                    result == null ? AppLanguage.get(R.string.ui_backup_saved) : AppLanguage.get(R.string.ui_backup_failed_1_s, result),
                     result == null ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show());
         }, "launcher-backup-export");
         worker.setDaemon(true);
@@ -426,11 +427,11 @@ public final class MainActivity extends Activity {
 
     private void importBackup(Uri source) {
         restoringBackup = true;
-        Toast.makeText(this, "Restoring launcher backup…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, AppLanguage.get(R.string.ui_restoring_launcher_backup), Toast.LENGTH_SHORT).show();
         Thread worker = new Thread(() -> {
             String error = null;
             try (java.io.InputStream input = getContentResolver().openInputStream(source)) {
-                if (input == null) throw new IllegalStateException("Could not read that file.");
+                if (input == null) throw new IllegalStateException(AppLanguage.get(R.string.ui_could_not_read_that_file));
                 java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
                 byte[] buffer = new byte[8192];
                 int count;
@@ -438,21 +439,23 @@ public final class MainActivity extends Activity {
                 final int maxBytes = 64 * 1024 * 1024;
                 while ((count = input.read(buffer)) != -1) {
                     total += count;
-                    if (total > maxBytes) throw new IllegalArgumentException("Backup file is larger than 64 MB.");
+                    if (total > maxBytes) throw new IllegalArgumentException(AppLanguage.get(R.string.ui_backup_file_is_larger_than_64_mb));
                     bytes.write(buffer, 0, count);
                 }
                 JSONObject backup = new JSONObject(new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
                 LauncherBackup.restore(backup, preferences, getSharedPreferences("iptv", MODE_PRIVATE), iptv);
+
             } catch (Exception e) {
-                error = e.getMessage() == null ? "Could not restore that backup." : e.getMessage();
+                error = e.getMessage() == null ? AppLanguage.get(R.string.ui_could_not_restore_that_backup) : e.getMessage();
             }
             String result = error;
             lifecycleWork.post(() -> {
                 restoringBackup = false;
                 if (result != null) {
-                    Toast.makeText(this, "Restore failed: " + result, Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, AppLanguage.get(R.string.ui_restore_failed_1_s, result), Toast.LENGTH_LONG).show();
                     return;
                 }
+                AppLanguage.restored(MainActivity.this);
                 hiddenChannelKeys.clear();
                 hiddenChannelKeys.addAll(HiddenChannels.load(preferences));
                 favoriteChannelKeys.clear();
@@ -468,7 +471,7 @@ public final class MainActivity extends Activity {
                         settingsScreen.channelAdapter.refresh();
                     }
                 }
-                Toast.makeText(this, "Backup restored.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, AppLanguage.get(R.string.ui_backup_restored), Toast.LENGTH_SHORT).show();
                 recreate();
             });
         }, "launcher-backup-import");
@@ -757,10 +760,10 @@ public final class MainActivity extends Activity {
         timeStack.addView(timeLine, new LinearLayout.LayoutParams(-2, -2));
         date = label("", compactNavigation ? 11 : 13, light ? LiquidTheme.secondaryText(this) : 0xFFF5F7F7, false);
         date.setTypeface(LiquidTheme.font(this));
-        date.setLetterSpacing(.16f);
+        date.setLetterSpacing("en".equals(AppLanguage.locale().getLanguage()) ? .16f : 0f);
         date.setSingleLine(true);
         date.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams dateParams = new LinearLayout.LayoutParams(-2, -2);
+        LinearLayout.LayoutParams dateParams = new LinearLayout.LayoutParams(-1, -2);
         dateParams.topMargin = dp(2);
         timeStack.addView(date, 0, dateParams);
 
@@ -772,7 +775,7 @@ public final class MainActivity extends Activity {
         weatherPanel.setClipChildren(false);
         weatherPanel.setClipToPadding(false);
         weatherPanel.setPadding(0, 0, 0, 0);
-        weatherPanel.setContentDescription("Weather unavailable");
+        weatherPanel.setContentDescription(AppLanguage.get(R.string.ui_weather_unavailable));
         weatherSymbol = label("☀", compactNavigation ? 36 : 42, 0xFFFFBD38, true);
         weatherSymbol.setGravity(Gravity.CENTER);
         weatherPanel.addView(weatherSymbol, new LinearLayout.LayoutParams(dp(60), -1));
@@ -780,16 +783,16 @@ public final class MainActivity extends Activity {
         weatherCopy.setOrientation(LinearLayout.VERTICAL);
         weatherCopy.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams weatherCopyParams = new LinearLayout.LayoutParams(0, -2, 1);
-        weatherCopyParams.leftMargin = dp(6);
+        weatherCopyParams.setMarginStart(dp(6));
         weatherPanel.addView(weatherCopy, weatherCopyParams);
-        weatherTemperature = label("Add weather", 16, light ? LiquidTheme.text(this) : Color.WHITE, true);
+        weatherTemperature = label(AppLanguage.get(R.string.ui_add_weather), 16, light ? LiquidTheme.text(this) : Color.WHITE, true);
         weatherTemperature.setTypeface(Typeface.create(LiquidTheme.font(this), Typeface.BOLD));
         weatherTemperature.setTextColor(light ? LiquidTheme.text(this) : Color.WHITE);
         weatherTemperature.setIncludeFontPadding(false);
         weatherTemperature.setSingleLine(true);
         weatherTemperature.setMaxWidth(dp(weatherMaxWidth));
         weatherCopy.addView(weatherTemperature);
-        weatherCondition = label("Local conditions", 13, light ? LiquidTheme.secondaryText(this) : 0xFFCCD0D6, false);
+        weatherCondition = label(AppLanguage.get(R.string.ui_local_conditions), 13, light ? LiquidTheme.secondaryText(this) : 0xFFCCD0D6, false);
         weatherCondition.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         weatherCondition.setIncludeFontPadding(false);
         weatherCondition.setSingleLine(true);
@@ -816,10 +819,10 @@ public final class MainActivity extends Activity {
         systemShortcuts.setClipToPadding(false);
         systemShortcuts.setPadding(dp(3), dp(3), dp(3), dp(3));
         navbar.addView(systemShortcuts, new LinearLayout.LayoutParams(-2, dp(52)));
-        addTopIcon(systemShortcuts, "Network", R.drawable.ic_network, this::openNetworkSettings);
-        addTopIcon(systemShortcuts, "TV Input", R.drawable.ic_tv_input, this::openTvInputs);
-        addTopIcon(systemShortcuts, "Android Settings", R.drawable.ic_android_settings, this::openAndroidSettings);
-        addTopIcon(systemShortcuts, "Launcher Settings", R.drawable.ic_launcher_settings, this::showSettings);
+        addTopIcon(systemShortcuts, AppLanguage.get(R.string.ui_network), R.drawable.ic_network, this::openNetworkSettings);
+        addTopIcon(systemShortcuts, AppLanguage.get(R.string.ui_tv_input), R.drawable.ic_tv_input, this::openTvInputs);
+        addTopIcon(systemShortcuts, AppLanguage.get(R.string.ui_android_settings), R.drawable.ic_android_settings, this::openAndroidSettings);
+        addTopIcon(systemShortcuts, AppLanguage.get(R.string.ui_launcher_settings), R.drawable.ic_launcher_settings, this::showSettings);
         FrameLayout viewport = new FrameLayout(this);
         viewport.setClipChildren(false);
         viewport.setClipToPadding(false);
@@ -849,7 +852,7 @@ public final class MainActivity extends Activity {
         timeCard.setElevation(0);
         timeCard.setFocusable(false);
         timeCard.setClickable(false);
-        timeCard.addView(timeStack, new LinearLayout.LayoutParams(-2, -2));
+        timeCard.addView(timeStack, new LinearLayout.LayoutParams(-1, -2));
 
         // Top-Center: Event
         homeCalendarCard = new LinearLayout(this);
@@ -873,14 +876,14 @@ public final class MainActivity extends Activity {
         calendarCopy.setOrientation(LinearLayout.VERTICAL);
         calendarCopy.setGravity(Gravity.CENTER_VERTICAL);
         homeCalendarCard.addView(calendarCopy, new LinearLayout.LayoutParams(0, -2, 1));
-        homeCalendarEyebrow = label("UP NEXT", 10, light ? LiquidTheme.secondaryText(this) : 0xFFBEC4CD, false);
+        homeCalendarEyebrow = label(AppLanguage.get(R.string.ui_up_next), 10, light ? LiquidTheme.secondaryText(this) : 0xFFBEC4CD, false);
         calendarCopy.addView(homeCalendarEyebrow);
-        homeCalendarTitle = label("No events today", 16, light ? LiquidTheme.text(this) : Color.WHITE, true);
+        homeCalendarTitle = label(AppLanguage.get(R.string.ui_no_events_today), 16, light ? LiquidTheme.text(this) : Color.WHITE, true);
         homeCalendarTitle.setSingleLine(true);
         homeCalendarTitle.setMaxLines(1);
         homeCalendarTitle.setEllipsize(TextUtils.TruncateAt.END);
         calendarCopy.addView(homeCalendarTitle);
-        homeCalendarSubtitle = label("Open your calendar", 11, light ? LiquidTheme.secondaryText(this) : 0xFFBCCBD0, false);
+        homeCalendarSubtitle = label(AppLanguage.get(R.string.ui_open_your_calendar), 11, light ? LiquidTheme.secondaryText(this) : 0xFFBCCBD0, false);
         homeCalendarSubtitle.setSingleLine(true);
         homeCalendarSubtitle.setEllipsize(TextUtils.TruncateAt.END);
         calendarCopy.addView(homeCalendarSubtitle);
@@ -911,7 +914,7 @@ public final class MainActivity extends Activity {
         nowPlayingSection.setVisibility(View.GONE);
         nowPlayingSection.setClipChildren(false);
         nowPlayingSection.setClipToPadding(false);
-        TextView musicLabel = label("NOW PLAYING", 11, light ? LiquidTheme.accent(this) : 0xFF8BE4F5, true);
+        TextView musicLabel = label(AppLanguage.get(R.string.ui_now_playing_586fa7a), 11, light ? LiquidTheme.accent(this) : 0xFF8BE4F5, true);
         musicLabel.setLetterSpacing(.18f);
         LinearLayout.LayoutParams musicLabelParams = new LinearLayout.LayoutParams(-1, -2);
         musicLabelParams.topMargin = dp(10);
@@ -949,7 +952,7 @@ public final class MainActivity extends Activity {
         musicToggle = actionButton("Ⅱ");
         musicToggle.setTextColor(LiquidTheme.accent(this));
         musicToggle.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
-        musicToggle.setContentDescription("Pause playback");
+        musicToggle.setContentDescription(AppLanguage.get(R.string.ui_pause_playback));
         musicToggle.setOnClickListener(v -> toggleMediaPlayback());
         LinearLayout.LayoutParams musicToggleParams = new LinearLayout.LayoutParams(dp(36), dp(40));
         musicToggleParams.setMargins(dp(4), dp(2), dp(4), dp(2));
@@ -1025,7 +1028,7 @@ public final class MainActivity extends Activity {
         gamesHeading.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         gamesHeading.setClipChildren(false);
         gamesHeading.setClipToPadding(false);
-        Button seeAllGames = actionButton("Import games");
+        Button seeAllGames = actionButton(AppLanguage.get(R.string.ui_import_games));
         seeAllGames.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
         seeAllGames.setOnClickListener(v -> openGameLibrary());
         linkTabEntry(TAB_GAMES, seeAllGames);
@@ -1035,7 +1038,7 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams gamesHeadingParams = new LinearLayout.LayoutParams(-1, dp(56));
         gamesHeadingParams.topMargin = dp(14);
         gamesContent.addView(gamesHeading, gamesHeadingParams);
-        gamesEmpty = label("No games yet. Import your own .nes files to get started.", 17, MUTED, false);
+        gamesEmpty = label(AppLanguage.get(R.string.ui_no_games_yet_import_your_own_nes_files_to_get_started), 17, MUTED, false);
         gamesEmpty.setPadding(dp(8), dp(20), 0, dp(20));
         gamesContent.addView(gamesEmpty);
         gameGrid = new GridLayout(this);
@@ -1057,15 +1060,15 @@ public final class MainActivity extends Activity {
         LinearLayout titleGroup = new LinearLayout(this);
         titleGroup.setOrientation(LinearLayout.VERTICAL);
         titleGroup.setGravity(Gravity.CENTER_VERTICAL);
-        TextView liveTitle = label("Live TV", 32, LiquidTheme.text(this), true);
+        TextView liveTitle = label(AppLanguage.get(R.string.ui_live_tv), 32, LiquidTheme.text(this), true);
         liveTitle.setTypeface(LiquidTheme.font(this));
         titleGroup.addView(liveTitle);
-        guideEmpty = label("Explore the schedule, see what's on now, and set reminders.", 13, MUTED, false);
+        guideEmpty = label(AppLanguage.get(R.string.ui_explore_the_schedule_see_what_s_on_now_and_set_reminders), 13, MUTED, false);
         titleGroup.addView(guideEmpty);
         liveHeading.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
 
-        guideToggle = actionButton("Open TV guide  →");
-        guideToggle.setContentDescription("Open full-screen TV guide");
+        guideToggle = actionButton(AppLanguage.get(R.string.ui_open_tv_guide));
+        guideToggle.setContentDescription(AppLanguage.get(R.string.ui_open_full_screen_tv_guide));
         guideToggle.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
         guideToggle.setOnClickListener(view -> openTvGuide());
         linkTabEntry(TAB_TV, guideToggle);
@@ -1094,9 +1097,9 @@ public final class MainActivity extends Activity {
         channelCategoryTabs.setClipToPadding(false);
         channelCategoryScroll.addView(channelCategoryTabs, new HorizontalScrollView.LayoutParams(-2, -1));
         channelRows.addView(channelCategoryScroll, new LinearLayout.LayoutParams(-1, dp(50)));
-        channelsEmpty = label("Add a playlist in Settings to browse live TV.", 15, MUTED, false);
+        channelsEmpty = label(AppLanguage.get(R.string.ui_add_a_playlist_in_settings_to_browse_live_tv), 15, MUTED, false);
         channelsEmpty.setPadding(0, dp(16), 0, dp(20));
-        status = label("Add an M3U and optional XMLTV URL in Settings to get started.", 15, MUTED, false);
+        status = label(AppLanguage.get(R.string.ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started), 15, MUTED, false);
         status.setPadding(0, dp(12), 0, 0);
         liveContent.addView(status);
 
@@ -1108,7 +1111,7 @@ public final class MainActivity extends Activity {
         youtubeTitleRow.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         youtubeTitleRow.setClipChildren(false);
         youtubeTitleRow.setClipToPadding(false);
-        Button addYouTube = actionButton("Add shortcut");
+        Button addYouTube = actionButton(AppLanguage.get(R.string.ui_add_shortcut));
         addYouTube.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
         addYouTube.setOnClickListener(v -> openYouTubeSettings());
         linkTabEntry(TAB_SAVED, addYouTube);
@@ -1132,7 +1135,7 @@ public final class MainActivity extends Activity {
         youtubeScroll.addView(youtubeRow);
         youtubeSection.addView(youtubeScroll, new LinearLayout.LayoutParams(-1, dp(230)));
         savedContent.addView(youtubeSection, youtubeSectionParams);
-        youtubeEmpty = label("No saved YouTube shortcuts yet. Add a video or playlist in Settings.", 17, MUTED, false);
+        youtubeEmpty = label(AppLanguage.get(R.string.ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin), 17, MUTED, false);
         youtubeEmpty.setPadding(dp(8), dp(16), 0, dp(16));
         savedContent.addView(youtubeEmpty);
         renderYouTubeCards();
@@ -1226,7 +1229,7 @@ public final class MainActivity extends Activity {
                 if (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT) {
                     View next = focused.focusSearch(direction);
                     boolean tabSibling = next != null && isWithinPage(next, tabRow);
-                    boolean settingsEntry = direction == View.FOCUS_RIGHT && next != null
+                    boolean settingsEntry = direction == (isRtl() ? View.FOCUS_LEFT : View.FOCUS_RIGHT) && next != null
                             && isWithinPage(next, systemShortcuts);
                     if ((tabSibling || settingsEntry)
                             && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
@@ -1242,7 +1245,7 @@ public final class MainActivity extends Activity {
                 if (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT) {
                     View next = focused.focusSearch(direction);
                     boolean shortcutSibling = next != null && next.getParent() == systemShortcuts;
-                    boolean tabReturn = direction == View.FOCUS_LEFT && next != null
+                    boolean tabReturn = direction == (isRtl() ? View.FOCUS_RIGHT : View.FOCUS_LEFT) && next != null
                             && isWithinPage(next, tabRow);
                     if ((shortcutSibling || tabReturn)
                             && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
@@ -1334,6 +1337,7 @@ public final class MainActivity extends Activity {
             LocalDate day = (LocalDate) focused.getTag();
             int delta = direction == View.FOCUS_LEFT ? -1 : direction == View.FOCUS_RIGHT ? 1
                     : direction == View.FOCUS_UP ? -7 : 7;
+            if (isRtl() && (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT)) delta = -delta;
             LocalDate target = day.plusDays(delta);
             if (YearMonth.from(target).equals(displayedMonth)) {
                 focusCalendarDate(target);
@@ -1556,7 +1560,7 @@ public final class MainActivity extends Activity {
         Button backButton = actionButton("‹");
         backButton.setTextSize(30);
         alignCalendarArrow(backButton);
-        backButton.setContentDescription("Back to Home");
+        backButton.setContentDescription(AppLanguage.get(R.string.ui_back_to_home));
         backButton.setBackground(calendarGlassShape(
                 light ? LiquidTheme.surface(this) : 0xC91A1D26,
                 light ? LiquidTheme.border(this) : 0xAAFFFFFF, 28));
@@ -1565,7 +1569,7 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(dp(52), dp(52));
         backParams.setMargins(dp(2), dp(2), dp(14), dp(2));
         monthHeading.addView(backButton, backParams);
-        monthTitle = label("Calendar", 32, Color.WHITE, true);
+        monthTitle = label(AppLanguage.get(R.string.ui_calendar), 32, Color.WHITE, true);
         monthTitle.setTextColor(LiquidTheme.text(this));
         monthHeading.addView(monthTitle, new LinearLayout.LayoutParams(-2, -2));
         LinearLayout eventSummary = new LinearLayout(this);
@@ -1589,15 +1593,15 @@ public final class MainActivity extends Activity {
                 light ? LiquidTheme.surface(this) : 0xC91A1D26,
                 light ? LiquidTheme.border(this) : 0xAAFFFFFF, 30));
         monthHeading.addView(monthSwitcher, new LinearLayout.LayoutParams(dp(200), dp(52)));
-        previousMonthButton = actionButton("‹");
+        previousMonthButton = actionButton(isRtl() ? "›" : "‹");
         previousMonthButton.setTextSize(28);
         alignCalendarArrow(previousMonthButton);
-        previousMonthButton.setContentDescription("Previous month");
+        previousMonthButton.setContentDescription(AppLanguage.get(R.string.ui_previous_month));
         styleCalendarHeaderControl(previousMonthButton);
         LinearLayout.LayoutParams prevParams = new LinearLayout.LayoutParams(dp(46), dp(46));
         prevParams.setMargins(dp(3), dp(3), dp(1), dp(3));
         monthSwitcher.addView(previousMonthButton, prevParams);
-        Button todayButton = actionButton("Today");
+        Button todayButton = actionButton(AppLanguage.get(R.string.ui_today_24345a1));
         todayButton.setTextSize(14);
         styleCalendarHeaderControl(todayButton);
         todayButton.setOnClickListener(v -> {
@@ -1608,10 +1612,10 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams todayParams = new LinearLayout.LayoutParams(0, dp(46), 1);
         todayParams.setMargins(dp(1), dp(3), dp(1), dp(3));
         monthSwitcher.addView(todayButton, todayParams);
-        nextMonthButton = actionButton("›");
+        nextMonthButton = actionButton(isRtl() ? "‹" : "›");
         nextMonthButton.setTextSize(28);
         alignCalendarArrow(nextMonthButton);
-        nextMonthButton.setContentDescription("Next month");
+        nextMonthButton.setContentDescription(AppLanguage.get(R.string.ui_next_month));
         styleCalendarHeaderControl(nextMonthButton);
         nextMonthButton.setId(View.generateViewId());
         LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(dp(46), dp(46));
@@ -1665,7 +1669,7 @@ public final class MainActivity extends Activity {
         renderedMonth = displayedMonth;
         renderedToday = LocalDate.now();
         renderedCalendarStamp = preferences.getLong("publicCalendarUpdatedAt", 0L);
-        String monthName = displayedMonth.format(java.time.format.DateTimeFormatter.ofPattern("MMMM", Locale.getDefault()));
+        String monthName = displayedMonth.format(java.time.format.DateTimeFormatter.ofPattern("MMMM", AppLanguage.locale()));
         SpannableString headingText = new SpannableString(monthName + " " + displayedMonth.getYear());
         headingText.setSpan(new ForegroundColorSpan(light ? LiquidTheme.secondaryText(this) : 0xFFAFC6D2), monthName.length() + 1,
                 headingText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -1678,7 +1682,7 @@ public final class MainActivity extends Activity {
         int cellWidth = Math.max(58, (widthDp - 56) / 7);
         for (int i = 0; i < 7; i++) {
             DayOfWeek weekday = DayOfWeek.SUNDAY.plus(i);
-            TextView heading = label(weekday.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+            TextView heading = label(weekday.getDisplayName(TextStyle.SHORT, AppLanguage.locale()),
                     13, light ? LiquidTheme.secondaryText(this) : 0xFFC6D6DB, false);
             heading.setGravity(Gravity.CENTER);
             heading.setLetterSpacing(.1f);
@@ -1703,7 +1707,7 @@ public final class MainActivity extends Activity {
                         ? displayedMonth.minusMonths(1).lengthOfMonth() + dayNumber
                         : dayNumber - displayedMonth.lengthOfMonth()), 20,
                         light ? 0x554D6968 : 0xFF78818A, false);
-                overflow.setGravity(Gravity.TOP | Gravity.LEFT);
+                overflow.setGravity(Gravity.TOP | Gravity.START);
                 overflow.setPadding(dp(13), dp(8), 0, 0);
                 overflow.setBackgroundColor(Color.TRANSPARENT);
                 cell = overflow;
@@ -1719,7 +1723,7 @@ public final class MainActivity extends Activity {
                 dateButton.setId(View.generateViewId());
                 dateButton.setTag(day);
                 StringBuilder dayDescription = new StringBuilder(day.format(
-                        java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.getDefault())))
+                        java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", AppLanguage.locale())))
                         .append(". ");
                 for (PublicCalendarRepository.Event event : dayEvents)
                     dayDescription.append(". ").append(event.title);
@@ -1756,13 +1760,13 @@ public final class MainActivity extends Activity {
     private void updateCalendarHeader(LocalDate day) {
         if (calendarHeaderDate == null) return;
         calendarHeaderDate.setText(day.format(java.time.format.DateTimeFormatter.ofPattern(
-                "EEEE, d MMM", Locale.getDefault())).toUpperCase(Locale.getDefault()));
+                "EEEE, d MMM", AppLanguage.locale())).toUpperCase(AppLanguage.locale()));
         ArrayList<String> titles = new ArrayList<>();
         ZoneId zone = ZoneId.systemDefault();
         for (PublicCalendarRepository.Event event : cachedCalendarEvents()) {
             if (CalendarDates.includes(event, day, zone)) titles.add(event.title);
         }
-        calendarHeaderEvents.setText(titles.isEmpty() ? "No events planned" : TextUtils.join(" · ", titles));
+        calendarHeaderEvents.setText(titles.isEmpty() ? AppLanguage.get(R.string.ui_no_events_planned) : TextUtils.join(" · ", titles));
     }
 
     private void selectCalendarDay(LocalDate day) {
@@ -1870,19 +1874,19 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     calendarDetailDay.setText(
             selectedCalendarDay.getDayOfWeek().getDisplayName(
                     TextStyle.FULL,
-                    Locale.getDefault()
+                    AppLanguage.locale()
             )
             + "  ·  "
             + selectedCalendarDay.getMonth().getDisplayName(
                     TextStyle.FULL,
-                    Locale.getDefault()
+                    AppLanguage.locale()
             )
     );
 
     calendarDetailMoon.setText(moon.symbol);
-    calendarDetailMoonName.setText(moon.name);
+    calendarDetailMoonName.setText(moon.name.isEmpty() ? "" : AppLanguage.get("New moon".equals(moon.name) ? R.string.moon_new : R.string.moon_full));
     calendarDetailIllumination.setText(
-            "Lunar illumination  ·  " + moon.illumination + "%"
+            AppLanguage.get(R.string.ui_lunar_illumination_1_s, moon.illumination)
     );
 
     // ---------------------------------------------------------
@@ -1927,9 +1931,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         card.setBackground(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 15));
         card.addView(label(event.title, 17, LiquidTheme.text(this), true));
         DateFormat format = preferences.getBoolean("24h", false)
-                ? new java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
-                : new java.text.SimpleDateFormat("h:mm a", Locale.getDefault());
-        String timing = event.allDay ? "All day" : format.format(new Date(event.startMs))
+                ? new java.text.SimpleDateFormat("HH:mm", AppLanguage.locale())
+                : new java.text.SimpleDateFormat("h:mm a", AppLanguage.locale());
+        String timing = event.allDay ? AppLanguage.get(R.string.ui_all_day) : format.format(new Date(event.startMs))
                 + " – " + format.format(new Date(event.endMs));
         card.addView(label(timing, 13, LiquidTheme.secondaryText(this), false));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
@@ -2307,13 +2311,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         boolean twentyFour = preferences.getBoolean("24h", false);
         Date now = new Date();
         DateFormat time = android.text.format.DateFormat.getTimeFormat(this);
-        if (twentyFour) time = new java.text.SimpleDateFormat("HH:mm", Locale.getDefault());
-        else time = new java.text.SimpleDateFormat("h:mm a", Locale.getDefault());
+        if (twentyFour) time = new java.text.SimpleDateFormat("HH:mm", AppLanguage.locale());
+        else time = new java.text.SimpleDateFormat("h:mm a", AppLanguage.locale());
         String formattedTime = time.format(now);
         String period = "";
         int suffixStart = twentyFour ? -1 : formattedTime.lastIndexOf(' ');
         if (suffixStart >= 0) {
-            period = formattedTime.substring(suffixStart + 1).toUpperCase(Locale.getDefault());
+            period = formattedTime.substring(suffixStart + 1).toUpperCase(AppLanguage.locale());
             formattedTime = formattedTime.substring(0, suffixStart);
         }
         SpannableString styledTime = new SpannableString(formattedTime);
@@ -2329,7 +2333,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         clockDivider.setVisibility(View.GONE);
         date.setVisibility(preferences.getBoolean("showDate", true)
                 ? View.VISIBLE : View.GONE);
-        date.setText(new java.text.SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(now).toUpperCase(Locale.getDefault()));
+        date.setText(new java.text.SimpleDateFormat("EEE, dd MMM yyyy", AppLanguage.locale()).format(now).toUpperCase(AppLanguage.locale()));
     }
 
     private void updateNowPlaying() {
@@ -2375,7 +2379,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         String title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
         String artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
         musicTitle.setText(TextUtils.isEmpty(title) ? controller.getPackageName() : title);
-        musicArtist.setText(TextUtils.isEmpty(artist) ? "Playing on your TV" : artist);
+        musicArtist.setText(TextUtils.isEmpty(artist) ? AppLanguage.get(R.string.ui_playing_on_your_tv) : artist);
         android.graphics.Bitmap artwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
         if (artwork == null) artwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
         if (artwork != null) musicArtwork.setImageBitmap(artwork);
@@ -2390,7 +2394,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 ? (int) Math.min(1000, Math.max(0, position * 1000 / duration)) : 0);
         boolean playing = state.getState() == PlaybackState.STATE_PLAYING;
         musicToggle.setText(playing ? "Ⅱ" : "▶");
-        musicToggle.setContentDescription(playing ? "Pause playback" : "Resume playback");
+        musicToggle.setContentDescription(playing ? AppLanguage.get(R.string.ui_pause_playback) : AppLanguage.get(R.string.ui_resume_playback));
     }
 
     private void toggleMediaPlayback() {
@@ -2405,7 +2409,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         try {
             startActivity(new Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
         } catch (android.content.ActivityNotFoundException missing) {
-            Toast.makeText(this, "Open Android Settings and allow Sva Now Playing notification access.",
+            Toast.makeText(this, AppLanguage.get(R.string.ui_open_android_settings_and_allow_sva_now_playing_notification_acc),
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -2419,7 +2423,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         double latitude = Double.longBitsToDouble(preferences.getLong("weatherLatitude", Double.doubleToRawLongBits(Double.NaN)));
         double longitude = Double.longBitsToDouble(preferences.getLong("weatherLongitude", Double.doubleToRawLongBits(Double.NaN)));
         if (!WeatherRepository.validCoordinates(latitude, longitude)) return null;
-        return new WeatherRepository.Location(preferences.getString("weatherLocationLabel", "Weather"), latitude, longitude);
+        return new WeatherRepository.Location(preferences.getString("weatherLocationLabel", AppLanguage.get(R.string.ui_weather)), latitude, longitude);
     }
 
     private WeatherRepository.Forecast cachedWeather() {
@@ -2432,10 +2436,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         boolean light = LiquidTheme.isLight(this);
         if (weatherForecast == null) {
             weatherSymbol.setText("☀");
-            weatherTemperature.setText(hasWeatherLocation() ? "Weather unavailable" : "Weather not set");
+            weatherTemperature.setText(hasWeatherLocation() ? AppLanguage.get(R.string.ui_weather_unavailable) : AppLanguage.get(R.string.ui_weather_not_set));
             weatherTemperature.setTextSize(compactNavigation ? 14 : 16);
             weatherTemperature.setTextColor(light ? LiquidTheme.text(this) : 0xFFF5FAF8);
-            weatherCondition.setText(hasWeatherLocation() ? "Refresh in Settings" : "Configure in Settings");
+            weatherCondition.setText(hasWeatherLocation() ? AppLanguage.get(R.string.ui_refresh_in_settings) : AppLanguage.get(R.string.ui_configure_in_settings));
             weatherCondition.setVisibility(View.VISIBLE);
             weatherLocation.setText("");
             weatherMetrics.setText("");
@@ -2449,7 +2453,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         double temperature = fahrenheit ? WeatherRepository.fahrenheit(weatherForecast.temperature) : weatherForecast.temperature;
         weatherTemperature.setTextSize(compactNavigation ? 28 : 32);
         weatherTemperature.setTextColor(light ? LiquidTheme.text(this) : Color.WHITE);
-        String temperatureText = Math.round(temperature) + (fahrenheit ? "°F" : "°C");
+        String temperatureText = AppLanguage.number(Math.round(temperature)) + (fahrenheit ? "°F" : "°C");
         SpannableString styledTemperature = new SpannableString(temperatureText);
         int degree = temperatureText.indexOf('°');
         if (degree >= 0) styledTemperature.setSpan(new ForegroundColorSpan(0xFFFFA94D), degree,
@@ -2461,14 +2465,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 : weatherForecast.apparentTemperature;
         weatherCondition.setText(WeatherRepository.condition(weatherForecast.code));
         weatherCondition.setVisibility(View.VISIBLE);
-        weatherDetails.setText("Feels like " + Math.round(apparent) + (fahrenheit ? "°F" : "°C"));
+        weatherDetails.setText(AppLanguage.get(R.string.ui_feels_like_1_s_2_s, AppLanguage.number(Math.round(apparent)), (fahrenheit ? "°F" : "°C")));
         weatherDetails.setVisibility(View.VISIBLE);
-        weatherLocation.setText("⌖  " + weatherForecast.location);
-        weatherMetrics.setText("≋  " + Math.round(wind) + (mph ? " mph" : " km/h")
+        weatherLocation.setText("⌖  " + AppLanguage.bidi(weatherForecast.location));
+        String windUnit = mph ? (" " + AppLanguage.get(R.string.ui_mph).trim()) : " km/h";
+        weatherMetrics.setText("≋  " + AppLanguage.number(Math.round(wind)) + windUnit
                 + (weatherForecast.humidity >= 0 ? "    💧 " + weatherForecast.humidity + "%" : ""));
-        weatherPanel.setContentDescription(weatherTemperature.getText() + ". " + weatherCondition.getText()
-                + ". " + weatherForecast.location + ". Wind " + Math.round(wind)
-                + (mph ? " mph" : " km/h") + ".");
+        weatherPanel.setContentDescription(AppLanguage.get(R.string.ui_1_s_2_s_3_s_wind_4_s_5_s, weatherTemperature.getText(), weatherCondition.getText(), weatherForecast.location, Math.round(wind), windUnit));
     }
 
     private void showWeatherForecast() {
@@ -2480,7 +2483,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         StringBuilder details = new StringBuilder();
         for (WeatherRepository.Day day : weatherForecast.days) {
             String weekday = day.date;
-            try { weekday = new java.text.SimpleDateFormat("EEE", Locale.getDefault()).format(
+            try { weekday = new java.text.SimpleDateFormat("EEE", AppLanguage.locale()).format(
                     new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(day.date)); } catch (Exception ignored) { }
             double low = fahrenheit ? WeatherRepository.fahrenheit(day.low) : day.low;
             double high = fahrenheit ? WeatherRepository.fahrenheit(day.high) : day.high;
@@ -2491,8 +2494,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         AlertDialog dialog = new AlertDialog.Builder(new android.view.ContextThemeWrapper(this,
                 R.style.SvaDeviceAlertDialogTheme))
                 .setTitle(weatherForecast.location)
-                .setMessage(details.length() > 0 ? details.toString() : "Forecast unavailable")
-                .setPositiveButton("Close", null)
+                .setMessage(details.length() > 0 ? details.toString() : AppLanguage.get(R.string.ui_forecast_unavailable))
+                .setPositiveButton(AppLanguage.get(R.string.ui_close), null)
                 .create();
         Motion.dialog(dialog); dialog.show();
         styleDialog(dialog);
@@ -2520,11 +2523,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         weatherRefreshing = true;
         preferences.edit().putLong("weatherAttemptedAt", System.currentTimeMillis()).apply();
         int generation = ++weatherRequestGeneration;
-        if (settingsScreen != null) settingsScreen.setWeatherFeedback("Refreshing weather…");
+        if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_refreshing_weather));
         lifecycleWork.execute(ioWorker, () -> {
             WeatherRepository.Forecast forecast = null; String error = null;
             try { forecast = WeatherRepository.fetch(location, System.currentTimeMillis()); }
-            catch (Exception failure) { error = failure.getMessage() == null ? "Could not refresh weather." : failure.getMessage(); }
+            catch (Exception failure) { error = failure.getMessage() == null ? AppLanguage.get(R.string.ui_could_not_refresh_weather) : failure.getMessage(); }
             WeatherRepository.Forecast result = forecast; String resultError = error;
             lifecycleWork.post(() -> {
                 if (generation != weatherRequestGeneration || isFinishing() || isDestroyed()) return;
@@ -2534,8 +2537,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     try { preferences.edit().putString("weatherCache", result.toJson().toString())
                             .putLong("weatherUpdatedAt", result.fetchedAt).apply(); } catch (Exception ignored) { }
                     renderWeather();
-                    if (settingsScreen != null) settingsScreen.setWeatherFeedback("Weather refreshed.");
-                } else if (settingsScreen != null) settingsScreen.setWeatherFeedback("Refresh failed · " + resultError);
+                    if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_weather_refreshed));
+                } else if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_refresh_failed_1_s, resultError));
                 scheduleWeatherRefresh();
             });
         });
@@ -2582,11 +2585,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
         cancelWeatherLocation();
         LocationManager manager = (LocationManager) getSystemService(LOCATION_SERVICE);
-        if (manager == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback("Location is unavailable on this TV."); return; }
+        if (manager == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_location_is_unavailable_on_this_tv)); return; }
         String provider = manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ? LocationManager.NETWORK_PROVIDER
                 : manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER : null;
-        if (provider == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback("Turn on Android location services first."); return; }
-        if (settingsScreen != null) settingsScreen.setWeatherFeedback("Finding this TV’s location…");
+        if (provider == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_turn_on_android_location_services_first)); return; }
+        if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_finding_this_tv_s_location));
         try {
             if (Build.VERSION.SDK_INT >= 30) {
                 weatherLocationCancellation = new CancellationSignal();
@@ -2597,22 +2600,22 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
             weatherLocationTimeout = () -> {
                 cancelWeatherLocation();
-                if (settingsScreen != null) settingsScreen.setWeatherFeedback("Location timed out. Try city search instead.");
+                if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_location_timed_out_try_city_search_instead));
             };
             handler.postDelayed(weatherLocationTimeout, 10000);
         } catch (SecurityException error) {
-            if (settingsScreen != null) settingsScreen.setWeatherFeedback("Location permission was not granted.");
+            if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_location_permission_was_not_granted));
         }
     }
 
     private void acceptWeatherLocation(android.location.Location location) {
         cancelWeatherLocation();
-        if (location == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback("Could not determine this TV’s location."); return; }
+        if (location == null) { if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_could_not_determine_this_tv_s_location)); return; }
         double latitude = location.getLatitude(), longitude = location.getLongitude();
         lifecycleWork.execute(ioWorker, () -> {
-            String label = "Current location";
+            String label = AppLanguage.get(R.string.ui_current_location);
             try {
-                List<Address> addresses = new Geocoder(this, Locale.getDefault()).getFromLocation(latitude, longitude, 1);
+                List<Address> addresses = new Geocoder(this, AppLanguage.locale()).getFromLocation(latitude, longitude, 1);
                 if (addresses != null && !addresses.isEmpty()) {
                     Address address = addresses.get(0);
                     String locality = address.getLocality() == null ? address.getSubAdminArea() : address.getLocality();
@@ -2641,7 +2644,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (requestCode != REQUEST_WEATHER_LOCATION) return;
         boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
         if (pendingDeviceWeatherLocation && granted) requestDeviceWeatherLocation();
-        else if (!granted && settingsScreen != null) settingsScreen.setWeatherFeedback("Location denied. Search for a city instead.");
+        else if (!granted && settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_location_denied_search_for_a_city_instead));
         pendingDeviceWeatherLocation = false;
     }
 
@@ -2654,7 +2657,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 if (value == null) continue;
                 long start = value.optLong("start", 0L), end = value.optLong("end", 0L);
                 if (end > start) events.add(new PublicCalendarRepository.Event(
-                        value.optString("title", "Calendar event"), start, end,
+                        value.optString("title", AppLanguage.get(R.string.ui_calendar_event)), start, end,
                         value.optBoolean("allDay", false)));
             }
         } catch (Exception ignored) { }
@@ -2675,25 +2678,25 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             if (event.startMs > System.currentTimeMillis()) { nextEvent = event; break; }
         }
         if (todayEvent != null) {
-            homeCalendarEyebrow.setText("TODAY");
+            homeCalendarEyebrow.setText(AppLanguage.get(R.string.ui_today));
             homeCalendarTitle.setText(todayEvent.title);
-            homeCalendarSubtitle.setText(todayEvent.allDay ? "All day"
-                    : new java.text.SimpleDateFormat("h:mm a", Locale.getDefault()).format(new Date(todayEvent.startMs)));
+            homeCalendarSubtitle.setText(todayEvent.allDay ? AppLanguage.get(R.string.ui_all_day)
+                    : new java.text.SimpleDateFormat("h:mm a", AppLanguage.locale()).format(new Date(todayEvent.startMs)));
         } else if (nextEvent != null) {
-            homeCalendarEyebrow.setText("UP NEXT");
+            homeCalendarEyebrow.setText(AppLanguage.get(R.string.ui_up_next));
             homeCalendarTitle.setText(nextEvent.title);
-            homeCalendarSubtitle.setText(new java.text.SimpleDateFormat("EEE · h:mm a", Locale.getDefault())
+            homeCalendarSubtitle.setText(new java.text.SimpleDateFormat("EEE · h:mm a", AppLanguage.locale())
                     .format(new Date(nextEvent.startMs)));
         } else {
-            homeCalendarEyebrow.setText("TODAY");
-            homeCalendarTitle.setText("No events today");
+            homeCalendarEyebrow.setText(AppLanguage.get(R.string.ui_today));
+            homeCalendarTitle.setText(AppLanguage.get(R.string.ui_no_events_today));
             homeCalendarSubtitle.setText(preferences.getString("publicCalendarUrl", "").isEmpty()
-                    ? "Add a calendar in Settings" : "Your calendar is clear");
+                    ? AppLanguage.get(R.string.ui_add_a_calendar_in_settings) : AppLanguage.get(R.string.ui_your_calendar_is_clear));
         }
     }
 
     private String wrapHomeCalendarTitle(String value) {
-        String clean = value == null ? "Calendar event" : value.trim().replaceAll("\\s+", " ");
+        String clean = value == null ? AppLanguage.get(R.string.ui_calendar_event) : value.trim().replaceAll("\\s+", " ");
         String[] words = clean.split(" ");
         StringBuilder result = new StringBuilder();
         StringBuilder line = new StringBuilder();
@@ -2734,7 +2737,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             if (refreshed) edit.putLong("publicCalendarUpdatedAt", System.currentTimeMillis());
             edit.apply();
             updateCalendarEventDisplay();
-        } catch (Exception failure) { throw new IllegalStateException("Could not save calendar cache.", failure); }
+        } catch (Exception failure) { throw new IllegalStateException(AppLanguage.get(R.string.ui_could_not_save_calendar_cache), failure); }
     }
 
     private void cancelCalendarRefresh() {
@@ -2831,7 +2834,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (appRow == null || appsLoading) return;
         appsLoading = true;
         appRow.removeAllViews();
-        TextView loading = label("Loading apps…", 15, MUTED, false);
+        TextView loading = label(AppLanguage.get(R.string.ui_loading_apps), 15, MUTED, false);
         loading.setGravity(Gravity.CENTER_VERTICAL);
         appRow.addView(loading, new LinearLayout.LayoutParams(dp(180), dp(72)));
         lifecycleWork.execute(ioWorker, () -> {
@@ -2921,7 +2924,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             name.setMaxLines(1);
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams appNameParams = new LinearLayout.LayoutParams(0, -1, 1);
-            appNameParams.leftMargin = dp(8);
+            appNameParams.setMarginStart(dp(8));
             tile.addView(name, appNameParams);
             tile.setOnClickListener(v -> launchApp(entry.packageName));
             if (nowPlayingSection != null && nowPlayingSection.getVisibility() == View.VISIBLE && musicToggle != null) {
@@ -2955,7 +2958,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             });
         }
         if (selected.isEmpty()) {
-            TextView empty = label("No apps selected", 15, MUTED, false);
+            TextView empty = label(AppLanguage.get(R.string.ui_no_apps_selected), 15, MUTED, false);
             empty.setGravity(Gravity.CENTER_VERTICAL);
             appRow.addView(empty, new LinearLayout.LayoutParams(dp(240), dp(72)));
         }
@@ -3048,34 +3051,34 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             thumbnail.setTag(card.url);
             poster.addView(thumbnail, new FrameLayout.LayoutParams(-1, -1));
             // The title becomes the artwork when YouTube has no usable thumbnail.
-            TextView fallback = label(card.title, 20, light ? 0xFF1A353D : Color.WHITE, true);
+            TextView fallback = label(card.displayTitle(), 20, light ? 0xFF1A353D : Color.WHITE, true);
             fallback.setTextColor(light ? 0xFF1A353D : Color.WHITE);
-            fallback.setGravity(Gravity.BOTTOM | Gravity.LEFT);
+            fallback.setGravity(Gravity.BOTTOM | Gravity.START);
             fallback.setMaxLines(3);
             fallback.setEllipsize(android.text.TextUtils.TruncateAt.END);
             fallback.setPadding(dp(15), dp(34), dp(15), dp(14));
             if (!light) fallback.setShadowLayer(dp(8), 0, dp(2), Color.BLACK);
-            fallback.setContentDescription("Artwork: " + card.title);
+            fallback.setContentDescription(AppLanguage.get(R.string.ui_artwork_1_s, card.displayTitle()));
             poster.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
-            TextView type = label(YouTubeCard.VIDEO.equals(card.type) ? "VIDEO" : "PLAYLIST",
+            TextView type = label(YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_video) : AppLanguage.get(R.string.ui_playlist),
                     9, light ? LiquidTheme.accent(this) : Color.WHITE, true);
             type.setTextColor(light ? LiquidTheme.accent(this) : Color.WHITE);
             type.setLetterSpacing(.10f);
             type.setPadding(dp(9), dp(5), dp(9), dp(5));
             type.setBackground(roundedShape(light ? 0xD0FFFFFF : 0xDB121212, LiquidTheme.accent(this), 1, 5));
-            FrameLayout.LayoutParams typeParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
+            FrameLayout.LayoutParams typeParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
             typeParams.setMargins(dp(8), dp(8), 0, 0);
             poster.addView(type, typeParams);
             tile.addView(poster, new LinearLayout.LayoutParams(dp(224), dp(hasThumbnail ? 126 : 178)));
             if (hasThumbnail) {
-                TextView title = label(card.title, 14, LiquidTheme.text(this), true);
+                TextView title = label(card.displayTitle(), 14, LiquidTheme.text(this), true);
                 title.setMaxLines(2);
                 title.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                title.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+                title.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
                 title.setPadding(dp(3), dp(6), dp(3), 0);
                 tile.addView(title, new LinearLayout.LayoutParams(dp(224), dp(52)));
             }
-            tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? "Play video: " : "Open playlist: ") + card.title);
+            tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_play_video) : AppLanguage.get(R.string.ui_open_playlist)).trim() + " " + AppLanguage.bidi(card.displayTitle()));
             tile.setOnClickListener(view -> launchYouTubeCard(card));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(240), dp(198));
             params.setMargins(dp(4), dp(4), dp(14), dp(8));
@@ -3104,9 +3107,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         try {
             Intent browser = new Intent(Intent.ACTION_VIEW, target);
             if (browser.resolveActivity(getPackageManager()) != null) startActivity(browser);
-            else Toast.makeText(this, "No app can open this YouTube link.", Toast.LENGTH_LONG).show();
+            else Toast.makeText(this, AppLanguage.get(R.string.ui_no_app_can_open_this_youtube_link), Toast.LENGTH_LONG).show();
         } catch (Exception e) {
-            Toast.makeText(this, "Could not open this YouTube link.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, AppLanguage.get(R.string.ui_could_not_open_this_youtube_link), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -3204,7 +3207,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     } else if ("videoId".equals(parser.getName())) {
                         String videoId = parser.nextText();
                         if (videoId.matches("[A-Za-z0-9_-]{11}"))
-                            return "https://i.ytimg.com/vi/" + videoId + "/hqdefault.jpg";
+                            return String.format(java.util.Locale.ROOT, "https://i.ytimg.com/vi/%1$s/hqdefault.jpg", videoId);
                     }
                 }
             }
@@ -3345,15 +3348,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 CharSequence name = input.loadCustomLabel(this);
                 if (TextUtils.isEmpty(name)) name = input.loadLabel(this);
                 inputs.add(input);
-                labels.add(TextUtils.isEmpty(name) ? "TV input" : name);
+                labels.add(TextUtils.isEmpty(name) ? AppLanguage.get(R.string.ui_tv_input_4b66ee8) : name);
             }
         } catch (SecurityException unavailable) {
             // Some TV manufacturers restrict input discovery to their system apps.
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(new android.view.ContextThemeWrapper(this,
-                LiquidTheme.alertDialogTheme(this))).setTitle("TV Input");
+                LiquidTheme.alertDialogTheme(this))).setTitle(AppLanguage.get(R.string.ui_tv_input));
         if (inputs.isEmpty()) {
-            builder.setMessage("No TV inputs are available to Sva on this device. Use the Input / Source button on your TV remote.")
+            builder.setMessage(AppLanguage.get(R.string.ui_no_tv_inputs_are_available_to_sva_on_this_device_use_the_input_s))
                     .setPositiveButton("OK", null);
         } else {
             builder.setItems(labels.toArray(new CharSequence[0]), (ignored, index) -> {
@@ -3363,9 +3366,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                         : android.media.tv.TvContract.buildChannelsUriForInput(input.getId());
                 try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
                 catch (android.content.ActivityNotFoundException | SecurityException unavailable) {
-                    Toast.makeText(this, "This TV cannot open that source from Sva. Use the Input / Source button on your TV remote.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, AppLanguage.get(R.string.ui_this_tv_cannot_open_that_source_from_sva_use_the_input_source_bu), Toast.LENGTH_LONG).show();
                 }
-            }).setNegativeButton("Cancel", null);
+            }).setNegativeButton(AppLanguage.get(R.string.ui_cancel), null);
         }
         AlertDialog dialog = builder.create();
         Motion.dialog(dialog); dialog.show(); styleDialog(dialog);
@@ -3523,13 +3526,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
         for (IptvRepository.Channel channel : channels) {
             if (HiddenChannels.isHidden(hiddenChannelKeys, channel)) continue;
-            String category = channel.group.trim().isEmpty() ? "Uncategorized" : channel.group.trim();
+            String category = channel.group.trim().isEmpty() ? AppLanguage.get(R.string.ui_uncategorized) : channel.group.trim();
             grouped.computeIfAbsent(category, ignored -> new ArrayList<>()).add(channel);
         }
         if (grouped.isEmpty()) {
             channelsEmpty.setText(channels.isEmpty()
-                    ? "Add a playlist in Settings to browse live TV."
-                    : "All channels are hidden. Restore channels in Settings.");
+                    ? AppLanguage.get(R.string.ui_add_a_playlist_in_settings_to_browse_live_tv)
+                    : AppLanguage.get(R.string.ui_all_channels_are_hidden_restore_channels_in_settings));
             if (!renderedCategories.isEmpty() || channelRows.getChildCount() != 1 || channelRows.getChildAt(0) != channelsEmpty) {
                 channelRows.removeAllViews();
                 channelRowMap.clear();
@@ -3570,7 +3573,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         for (Map.Entry<String, List<IptvRepository.Channel>> category : grouped.entrySet()) {
             Button tab = channelTabMap.get(category.getKey());
             String prefix = FavoriteChannels.CATEGORY_FAVORITES.equals(category.getKey()) ? "★ " : "";
-            if (tab != null) tab.setText(prefix + category.getKey() + "  ·  " + category.getValue().size());
+            if (tab != null) tab.setText(prefix + AppLanguage.category(category.getKey()) + "  ·  " + category.getValue().size());
             ChannelRow row = channelRowMap.get(selectedChannelCategory);
             if (row != null && category.getKey().equals(selectedChannelCategory)) {
                 queueChannelRowUpdate(row, selectedChannelCategory, category.getValue());
@@ -3591,12 +3594,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void renderGuide() {
         if (guideEmpty == null) return;
-        guideEmpty.setText(channels.isEmpty() ? "Add a playlist and programme guide in Settings."
-                : "Explore the schedule, see what's on now, and set reminders.");
+        guideEmpty.setText(channels.isEmpty() ? AppLanguage.get(R.string.ui_add_a_playlist_and_programme_guide_in_settings)
+                : AppLanguage.get(R.string.ui_explore_the_schedule_see_what_s_on_now_and_set_reminders));
     }
 
     private Button createChannelCategoryTab(String category) {
-        String label = FavoriteChannels.CATEGORY_FAVORITES.equals(category) ? "★ " + category : category;
+        String label = FavoriteChannels.CATEGORY_FAVORITES.equals(category) ? "★ " + AppLanguage.category(category) : category;
         Button tab = actionButton(label);
         tab.setTextSize(14);
         tab.setPadding(dp(18), 0, dp(18), 0);
@@ -3642,7 +3645,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         ArrayList<IptvRepository.Channel> selected = new ArrayList<>();
         for (IptvRepository.Channel channel : channels) {
             if (HiddenChannels.isHidden(hiddenChannelKeys, channel)) continue;
-            String channelCategory = channel.group.trim().isEmpty() ? "Uncategorized" : channel.group.trim();
+            String channelCategory = channel.group.trim().isEmpty() ? AppLanguage.get(R.string.ui_uncategorized) : channel.group.trim();
             if (category.equals(channelCategory)) selected.add(channel);
         }
         return selected;
@@ -3695,16 +3698,16 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 if (generation != backgroundFolderGeneration || isFinishing()) return;
                 if (!scan.success) {
                     if (userSelected) Toast.makeText(this,
-                            "Could not read that folder. Keeping the saved slideshow.", Toast.LENGTH_LONG).show();
+                            AppLanguage.get(R.string.ui_could_not_read_that_folder_keeping_the_saved_slideshow), Toast.LENGTH_LONG).show();
                     return;
                 }
                 cacheBackgroundFolder(treeUri.toString(), scan.photos);
                 if (!sameBackgroundPhotos(scan.photos)) setBackgroundPhotos(scan.photos);
                 if (settingsScreen != null) settingsScreen.refreshAppearance();
                 if (userSelected && scan.photos.isEmpty()) {
-                    Toast.makeText(this, "No images were found in that folder.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, AppLanguage.get(R.string.ui_no_images_were_found_in_that_folder), Toast.LENGTH_LONG).show();
                 } else if (userSelected) {
-                    Toast.makeText(this, "Background slideshow updated · " + scan.photos.size() + " photos", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, AppLanguage.get(R.string.ui_background_slideshow_updated_1_s_photos, scan.photos.size()), Toast.LENGTH_SHORT).show();
                 }
             });
         });
@@ -3720,17 +3723,17 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             String failure = null;
             try {
                 List<String> urls = GooglePhotosAlbumRepository.fetchImageUrls(shareUrl);
-                if (urls.isEmpty()) throw new IllegalStateException("No photos were found. Check that link sharing is on.");
-                for (int i = 0; i < urls.size(); i++) photos.add(new BackgroundPhoto(Uri.parse(urls.get(i)), "Google Photos " + (i + 1)));
+                if (urls.isEmpty()) throw new IllegalStateException(AppLanguage.get(R.string.ui_no_photos_were_found_check_that_link_sharing_is_on));
+                for (int i = 0; i < urls.size(); i++) photos.add(new BackgroundPhoto(Uri.parse(urls.get(i)), AppLanguage.get(R.string.ui_google_photos_1_s, (i + 1))));
             } catch (Exception e) {
-                failure = e.getMessage() == null ? "Could not load that Google Photos album." : e.getMessage();
+                failure = e.getMessage() == null ? AppLanguage.get(R.string.ui_could_not_load_that_google_photos_album) : e.getMessage();
             }
             List<BackgroundPhoto> result = photos;
             String error = failure;
             lifecycleWork.post(() -> {
                 if (generation != backgroundFolderGeneration || isFinishing()) return;
                 if (error != null || result.isEmpty()) {
-                    if (userSelected) Toast.makeText(this, error == null ? "No public photos were found in that album." : error, Toast.LENGTH_LONG).show();
+                    if (userSelected) Toast.makeText(this, error == null ? AppLanguage.get(R.string.ui_no_public_photos_were_found_in_that_album) : error, Toast.LENGTH_LONG).show();
                     return;
                 }
                 cacheBackgroundAlbum(shareUrl, result);
@@ -3738,7 +3741,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                         .putLong("googlePhotosUpdatedAt", System.currentTimeMillis()).apply();
                 if (!sameBackgroundPhotos(result)) setBackgroundPhotos(result);
                 if (settingsScreen != null) settingsScreen.refreshAppearance();
-                if (userSelected) Toast.makeText(this, "Google Photos slideshow updated · " + result.size() + " photos", Toast.LENGTH_SHORT).show();
+                if (userSelected) Toast.makeText(this, AppLanguage.get(R.string.ui_google_photos_slideshow_updated_1_s_photos, result.size()), Toast.LENGTH_SHORT).show();
                 scheduleGooglePhotosRefresh();
             });
         });
@@ -3782,7 +3785,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             JSONArray urls = new JSONArray(preferences.getString(GOOGLE_PHOTOS_CACHE_IMAGES, "[]"));
             for (int i = 0; i < urls.length(); i++) {
                 String url = urls.optString(i, "");
-                if (!url.isEmpty()) photos.add(new BackgroundPhoto(Uri.parse(url), "Google Photos " + (i + 1)));
+                if (!url.isEmpty()) photos.add(new BackgroundPhoto(Uri.parse(url), AppLanguage.get(R.string.ui_google_photos_1_s, (i + 1))));
             }
         } catch (Exception ignored) { }
         return photos;
@@ -3797,7 +3800,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 JSONObject value = values.optJSONObject(i);
                 if (value == null) continue;
                 String uri = value.optString("uri", "");
-                if (!uri.isEmpty()) photos.add(new BackgroundPhoto(Uri.parse(uri), value.optString("name", "Photo")));
+                if (!uri.isEmpty()) photos.add(new BackgroundPhoto(Uri.parse(uri), value.optString("name", AppLanguage.get(R.string.ui_photo))));
             }
         } catch (Exception ignored) { }
         return photos;
@@ -4042,7 +4045,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (channel == null) return false;
         boolean added = FavoriteChannels.toggle(favoriteChannelKeys, channel);
         FavoriteChannels.save(preferences, favoriteChannelKeys);
-        Toast.makeText(this, (added ? "Added to" : "Removed from") + " favourites: " + channel.name, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, AppLanguage.get(added ? R.string.ui_favourite_added : R.string.ui_favourite_removed, AppLanguage.bidi(channel.name)), Toast.LENGTH_SHORT).show();
         renderChannels();
         return true;
     }
@@ -4051,8 +4054,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (channelsRefreshing) return;
         channelsRefreshing = true;
         status.setVisibility(View.VISIBLE);
-        status.setText("Refreshing channels…");
-        if (settingsScreen != null) settingsScreen.onRefreshResult("Refreshing channels…");
+        status.setText(AppLanguage.get(R.string.ui_refreshing_channels));
+        if (settingsScreen != null) settingsScreen.onRefreshResult(AppLanguage.get(R.string.ui_refreshing_channels));
         iptv.refreshChannels((loaded, message) -> lifecycleWork.post(() -> {
             channelsRefreshing = false;
             channels.clear(); channels.addAll(loaded);
@@ -4070,7 +4073,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private void refreshGuide(boolean userRequested) {
         if (guideRefreshing) return;
         guideRefreshing = true;
-        String refreshing = userRequested ? "Refreshing programme guide…" : "Updating today's programme guide…";
+        String refreshing = userRequested ? AppLanguage.get(R.string.ui_refreshing_programme_guide) : AppLanguage.get(R.string.ui_updating_today_s_programme_guide);
         status.setVisibility(View.VISIBLE);
         status.setText(refreshing);
         if (settingsScreen != null) settingsScreen.onRefreshResult(refreshing);
@@ -4135,6 +4138,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
     }
 
+    private boolean isRtl() { return getResources().getConfiguration().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL; }
+
     private void showSettings() {
         if (settingsScreen != null) return;
         settingsScreen = new SettingsScreen();
@@ -4142,26 +4147,26 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private final class SettingsScreen {
-        private static final int LIVE = 0, CHANNELS = 1, APPS = 2, APPEARANCE = 3, CLOCK = 4, DRM = 5, HOME = 6, BACKUP = 7, YOUTUBE = 8, CALENDAR = 9, SCHEDULES = 10, GAMES = 11, WEATHER = 12, NAVIGATION = 13;
-        private final String[] sections = {"Live TV", "Channels", "Apps", "Appearance", "Clock", "Playback & DRM", "Home button", "Backup & restore", "YouTube", "Calendar", "Schedules", "Games", "Weather", "Navigation"};
+        private static final int LIVE = 0, CHANNELS = 1, APPS = 2, APPEARANCE = 3, CLOCK = 4, DRM = 5, HOME = 6, BACKUP = 7, YOUTUBE = 8, CALENDAR = 9, SCHEDULES = 10, GAMES = 11, WEATHER = 12, NAVIGATION = 13, LANGUAGE = 14;
+        private final String[] sections = {AppLanguage.get(R.string.ui_live_tv), AppLanguage.get(R.string.ui_channels_18e03e2), AppLanguage.get(R.string.ui_apps), AppLanguage.get(R.string.ui_appearance), AppLanguage.get(R.string.ui_clock), AppLanguage.get(R.string.ui_playback_drm), AppLanguage.get(R.string.ui_home_button), AppLanguage.get(R.string.ui_backup_restore), "YouTube", AppLanguage.get(R.string.ui_calendar), AppLanguage.get(R.string.ui_schedules), AppLanguage.get(R.string.ui_games), AppLanguage.get(R.string.ui_weather), AppLanguage.get(R.string.ui_navigation), AppLanguage.get(R.string.ui_language)};
         private final int[] NAV_ORDER = {
             // Group 0: Content (5 items)
             LIVE, CHANNELS, YOUTUBE, CALENDAR, GAMES,
             // Group 1: Home & Display (5 items)
             APPS, APPEARANCE, CLOCK, WEATHER, NAVIGATION,
             // Group 2: System & Advanced (4 items)
-            SCHEDULES, HOME, DRM, BACKUP
+            SCHEDULES, HOME, DRM, BACKUP, LANGUAGE
         };
-        private final String[] GROUP_LABELS = {"Content", "Home & Display", "System"};
+        private final String[] GROUP_LABELS = {AppLanguage.get(R.string.ui_content), AppLanguage.get(R.string.ui_home_display), AppLanguage.get(R.string.ui_system)};
         private final String[] descriptions = {
-                "Playlist and programme guide", "Choose which channels appear in Live TV",
-                "Choose and order your home shortcuts", "Photo backdrop and wallpaper",
-                "Time and date on Home", "Default Widevine license settings",
-                "Open Sva when the TV Home button opens its built-in launcher",
-                "Save or restore launcher settings and channels", "Save videos and playlists in Saved",
-                "Show events from iCalendar feeds", "Choose when content updates automatically",
-                "Import and manage your local NES library", "Current conditions and a three-day forecast",
-                "Choose which categories appear and their order"
+                AppLanguage.get(R.string.ui_playlist_and_programme_guide), AppLanguage.get(R.string.ui_choose_which_channels_appear_in_live_tv),
+                AppLanguage.get(R.string.ui_choose_and_order_your_home_shortcuts), AppLanguage.get(R.string.ui_photo_backdrop_and_wallpaper),
+                AppLanguage.get(R.string.ui_time_and_date_on_home), AppLanguage.get(R.string.ui_default_widevine_license_settings),
+                AppLanguage.get(R.string.ui_open_sva_when_the_tv_home_button_opens_its_built_in_launcher),
+                AppLanguage.get(R.string.ui_save_or_restore_launcher_settings_and_channels), AppLanguage.get(R.string.ui_save_videos_and_playlists_in_saved),
+                AppLanguage.get(R.string.ui_show_events_from_icalendar_feeds), AppLanguage.get(R.string.ui_choose_when_content_updates_automatically),
+                AppLanguage.get(R.string.ui_import_and_manage_your_local_nes_library), AppLanguage.get(R.string.ui_current_conditions_and_a_three_day_forecast),
+                AppLanguage.get(R.string.ui_choose_which_categories_appear_and_their_order), AppLanguage.get(R.string.ui_choose_the_language_used_throughout_sva)
         };
         private final boolean compactSettings = getResources().getDisplayMetrics().widthPixels
                 / getResources().getDisplayMetrics().density < 1100;
@@ -4177,6 +4182,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private View firstControl;
         private EditText playlistField, guideField, licenseField, headersField, calendarUrlField;
         private EditText youtubeUrlField, youtubeTitleField, youtubeArtField;
+        private Button youtubeAddButton;
         private TextView liveFeedback, cacheSummary, guideSummary, youtubeFeedback, calendarFeedback, calendarSummary, weatherFeedback;
         private LinearLayout youtubeSavedList, weatherSearchResults;
         private ChannelSettingsAdapter channelAdapter;
@@ -4203,7 +4209,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             // ── Header ────────────────────────────────────────────────────────────
             LinearLayout heading = new LinearLayout(MainActivity.this);
             heading.setGravity(Gravity.CENTER_VERTICAL);
-            shell.addView(heading, new LinearLayout.LayoutParams(-1, dp(60)));
+            heading.setMinimumHeight(dp(60));
+            shell.addView(heading, new LinearLayout.LayoutParams(-1, -2));
             LinearLayout headingCopy = new LinearLayout(MainActivity.this);
             headingCopy.setOrientation(LinearLayout.VERTICAL);
             headingCopy.setGravity(Gravity.CENTER_VERTICAL);
@@ -4213,7 +4220,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             LinearLayout.LayoutParams eyeParams = new LinearLayout.LayoutParams(-2, -2);
             eyeParams.bottomMargin = dp(2);
             headingCopy.addView(eyebrow, eyeParams);
-            TextView title = label("Settings", 28, SettingsUi.text(MainActivity.this), true);
+            TextView title = label(AppLanguage.get(R.string.ui_settings), 28, SettingsUi.text(MainActivity.this), true);
             headingCopy.addView(title);
             // Thin separator below header
             View accentLine = new View(MainActivity.this);
@@ -4246,7 +4253,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             railFrame.addView(railScroll, new FrameLayout.LayoutParams(-1, -1));
 
             LinearLayout.LayoutParams railParams = new LinearLayout.LayoutParams(dp(compactSettings ? 220 : 260), -1);
-            railParams.rightMargin = dp(12);
+            railParams.setMarginEnd(dp(12));
             body.addView(railFrame, railParams);
 
             // Build grouped rail with NAV_ORDER
@@ -4272,7 +4279,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 }
                 Button tab = new Button(MainActivity.this);
                 tab.setText(sections[target]);
-                tab.setCompoundDrawablesWithIntrinsicBounds(SettingsUi.icon(MainActivity.this, target), null, null, null);
+                tab.setCompoundDrawablesRelativeWithIntrinsicBounds(SettingsUi.icon(MainActivity.this, target), null, null, null);
                 tab.setCompoundDrawablePadding(dp(12));
                 tab.setTypeface(LiquidTheme.font(MainActivity.this));
                 tab.setTextSize(18);
@@ -4342,17 +4349,21 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                             View next = input.focusSearch(direction);
                             if (next != null && isWithinPage(next, detail) && next != input
                                     && next.requestFocus()) return true;
+                            if (direction == View.FOCUS_UP) {
+                                tabs[section].requestFocus();
+                                return true;
+                            }
                         }
                     }
                     return false;
                 }
                 if (rail != null && isWithinPage(focused, rail)) {
                     if (direction == View.FOCUS_UP && focused == tabs[NAV_ORDER[0]]) return true;
-                    if (direction == View.FOCUS_RIGHT) {
+                    if (direction == (isRtl() ? View.FOCUS_LEFT : View.FOCUS_RIGHT)) {
                         if (focused == tabs[section] && firstControl != null && firstControl.requestFocus()) return true;
                         return true;
                     }
-                    if (direction == View.FOCUS_LEFT) return true;
+                    if (direction == (isRtl() ? View.FOCUS_RIGHT : View.FOCUS_LEFT)) return true;
                     View next = focused.focusSearch(direction);
                     if (next != null && isWithinPage(next, rail)
                             && next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
@@ -4378,18 +4389,20 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     if ((direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT)
                             && focused.getParent() instanceof LinearLayout
                             && ("settings-save-actions".equals(((View) focused.getParent()).getTag())
-                            || "settings-app-actions".equals(((View) focused.getParent()).getTag()))) {
+                            || "settings-app-actions".equals(((View) focused.getParent()).getTag())
+                            || "settings-card-actions".equals(((View) focused.getParent()).getTag()))) {
                         LinearLayout actions = (LinearLayout) focused.getParent();
                         int step = direction == View.FOCUS_LEFT ? -1 : 1;
+                        if (isRtl()) step = -step;
                         for (int index = actions.indexOfChild(focused) + step;
                              index >= 0 && index < actions.getChildCount(); index += step) {
                             View target = actions.getChildAt(index);
                             if (target.getVisibility() == View.VISIBLE && target.isEnabled()
                                     && target.isFocusable() && target.requestFocus()) return true;
                         }
-                        if (direction == View.FOCUS_RIGHT) return true;
+                        if (direction == (isRtl() ? View.FOCUS_LEFT : View.FOCUS_RIGHT)) return true;
                     }
-                    if (direction == View.FOCUS_LEFT && !(focused instanceof EditText)) {
+                    if (direction == (isRtl() ? View.FOCUS_RIGHT : View.FOCUS_LEFT) && !(focused instanceof EditText)) {
                         tabs[section].requestFocus(); return true;
                     }
                     View next = focused.focusSearch(direction);
@@ -4397,7 +4410,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                         if (next.isFocusable() && next.isEnabled() && next.requestFocus()) return true;
                         return true;
                     }
-                    if (direction == View.FOCUS_LEFT && tabs[section].requestFocus()) return true;
+                    if (direction == (isRtl() ? View.FOCUS_RIGHT : View.FOCUS_LEFT) && tabs[section].requestFocus()) return true;
                     if (direction == View.FOCUS_UP && !canScrollWithinPage(focused, detail, direction)) {
                         tabs[section].requestFocus(); return true;
                     }
@@ -4445,6 +4458,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                         | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
             }
             tabs[section].requestFocus();
+            if (section == LANGUAGE && firstControl != null) firstControl.requestFocus();
         }
 
         private void captureDrafts() {
@@ -4586,10 +4600,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             if (!hasUnsavedEdits()) { dialog.dismiss(); return; }
             AlertDialog prompt = new AlertDialog.Builder(new android.view.ContextThemeWrapper(MainActivity.this,
                     LiquidTheme.alertDialogTheme(MainActivity.this)))
-                    .setTitle("Discard unsaved edits?")
-                    .setMessage("Playlist, DRM, or calendar changes have not been saved.")
-                    .setPositiveButton("Discard", (ignored, which) -> dialog.dismiss())
-                    .setNegativeButton("Keep editing", null).create();
+                    .setTitle(AppLanguage.get(R.string.ui_discard_unsaved_edits))
+                    .setMessage(AppLanguage.get(R.string.ui_playlist_drm_or_calendar_changes_have_not_been_saved))
+                    .setPositiveButton(AppLanguage.get(R.string.ui_discard), (ignored, which) -> dialog.dismiss())
+                    .setNegativeButton(AppLanguage.get(R.string.ui_keep_editing), null).create();
             Motion.dialog(prompt); prompt.show();
             styleDialog(prompt);
         }
@@ -4655,12 +4669,18 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 case GAMES: renderGameSettings(page); break;
                 case WEATHER: renderWeatherSettings(page); break;
                 case NAVIGATION: renderNavigationSettings(page); break;
+                case LANGUAGE: renderLanguageSettings(page); break;
                 default: break;
             }
             if (firstControl != null) {
                 firstControl.setId(View.generateViewId());
-                tabs[section].setNextFocusRightId(firstControl.getId());
-                firstControl.setNextFocusLeftId(tabs[section].getId());
+                if (isRtl()) {
+                    tabs[section].setNextFocusLeftId(firstControl.getId());
+                    firstControl.setNextFocusRightId(tabs[section].getId());
+                } else {
+                    tabs[section].setNextFocusRightId(firstControl.getId());
+                    firstControl.setNextFocusLeftId(tabs[section].getId());
+                }
                 firstControl.setNextFocusUpId(tabs[section].getId());
             }
             restoreLayout(restoreFocus);
@@ -4669,13 +4689,30 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderGameSettings(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Library");
-            addFormHint(form, "Sva supports user-provided .nes files only. Games are copied into private app storage; original files are never changed.");
-            addFormButton(form, "Open game library and import", v -> openGameLibrary());
-            addFormSectionHeader(form, "Controllers");
-            addFormButton(form, "Configure game controllers", v -> startActivity(new Intent(MainActivity.this, ControllerSettingsActivity.class)));
-            addFormHint(form, "Nestopia UE is embedded in Sva. On a TV remote, use the arrow buttons to move, OK for A, and hold OK for Start. Gamepads are assigned to players one and two automatically. During play, Back opens Resume, Restart, and Exit.");
-            addFormHint(form, "Nestopia UE · GPL-2.0-or-later · Sva combined application GPLv3. Source: github.com/libretro/nestopia");
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_library));
+            addFormHint(form, AppLanguage.get(R.string.ui_sva_supports_user_provided_nes_files_only_games_are_copied_into));
+            addFormButton(form, AppLanguage.get(R.string.ui_open_game_library_and_import), v -> openGameLibrary());
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_controllers));
+            addFormButton(form, AppLanguage.get(R.string.ui_configure_game_controllers), v -> startActivity(new Intent(MainActivity.this, ControllerSettingsActivity.class)));
+            addFormHint(form, AppLanguage.get(R.string.ui_nestopia_ue_is_embedded_in_sva_on_a_tv_remote_use_the_arrow_butt));
+            addFormHint(form, AppLanguage.get(R.string.ui_licenses));
+        }
+
+        private void renderLanguageSettings(LinearLayout page) {
+            addFormHint(page, AppLanguage.get(R.string.ui_follow_your_tv_language_or_choose_a_different_language_for_sva_t));
+            int selected = java.util.Arrays.asList(AppLanguage.TAGS).indexOf(AppLanguage.selected(MainActivity.this));
+            View choice = SettingsUi.choice(MainActivity.this, AppLanguage.get(R.string.ui_language), AppLanguage.labels(MainActivity.this),
+                    Math.max(0, selected), index -> {
+                        String tag = AppLanguage.TAGS[index];
+                        if (tag.equals(AppLanguage.selected(MainActivity.this))) return;
+                        captureDrafts();
+
+                        AppLanguage.select(MainActivity.this, tag);
+                        // Older TVs do not dispatch a locale configuration change for an app override.
+                        if (android.os.Build.VERSION.SDK_INT < 33) recreate();
+                    });
+            page.addView(choice);
+            firstControl = choice;
         }
 
         private void renderNavigationSettings(LinearLayout page) {
@@ -4684,32 +4721,32 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             orderRows.setOrientation(LinearLayout.VERTICAL);
             orderRows.setClipChildren(false);
             orderRows.setClipToPadding(false);
-            addFormSectionHeader(form, "Visible categories");
-            addFormHint(form, "Choose which categories appear in the navigation bar. Your games and calendar data stay saved.");
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_visible_categories));
+            addFormHint(form, AppLanguage.get(R.string.ui_choose_which_categories_appear_in_the_navigation_bar_your_games));
             boolean hidden = preferences.getBoolean(PREF_HIDE_LIVE_TV, false);
-            addToggle(form, "Show Live TV in navigation", !hidden, enabled -> {
+            addToggle(form, AppLanguage.get(R.string.ui_show_live_tv_in_navigation), !hidden, enabled -> {
                 preferences.edit().putBoolean(PREF_HIDE_LIVE_TV, !enabled).apply();
                 rebuildNavigationButtons();
                 renderNavigationOrder(orderRows, -1);
                 if (!enabled && activeTab == TAB_TV) selectTab(TAB_HOME, true);
             });
-            addToggle(form, "Show Games in navigation", !preferences.getBoolean(PREF_HIDE_GAMES, false), enabled -> {
+            addToggle(form, AppLanguage.get(R.string.ui_show_games_in_navigation), !preferences.getBoolean(PREF_HIDE_GAMES, false), enabled -> {
                 preferences.edit().putBoolean(PREF_HIDE_GAMES, !enabled).apply();
                 rebuildNavigationButtons();
                 renderNavigationOrder(orderRows, -1);
                 if (!enabled && activeTab == TAB_GAMES) selectTab(TAB_HOME, true);
             });
-            addToggle(form, "Show Events in navigation", !preferences.getBoolean(PREF_HIDE_EVENTS, false), enabled -> {
+            addToggle(form, AppLanguage.get(R.string.ui_show_events_in_navigation), !preferences.getBoolean(PREF_HIDE_EVENTS, false), enabled -> {
                 preferences.edit().putBoolean(PREF_HIDE_EVENTS, !enabled).apply();
                 rebuildNavigationButtons();
                 renderNavigationOrder(orderRows, -1);
                 if (!enabled && activeTab == TAB_EVENTS) selectTab(TAB_HOME, true);
             });
-            addFormSectionHeader(form, "Item order");
-            addFormHint(form, "Home stays first. Select a category to change its position. Hidden categories keep their place.");
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_item_order));
+            addFormHint(form, AppLanguage.get(R.string.ui_home_stays_first_select_a_category_to_change_its_position_hidden));
             form.addView(orderRows);
             renderNavigationOrder(orderRows, -1);
-            addFormButton(form, "Reset item order", v -> {
+            addFormButton(form, AppLanguage.get(R.string.ui_reset_item_order), v -> {
                 preferences.edit().remove(NavigationPreferences.ORDER).remove(PREF_LIVE_TV_POSITION).apply();
                 rebuildNavigationButtons();
                 renderNavigationOrder(orderRows, -1);
@@ -4719,11 +4756,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void renderNavigationOrder(LinearLayout container, int focusTab) {
             container.removeAllViews();
             List<Integer> ordered = navigationOrder();
-            String[] positions = {"First after Home", "Second after Home", "Third after Home", "Last"};
+            String[] positions = {AppLanguage.get(R.string.ui_first_after_home), AppLanguage.get(R.string.ui_second_after_home), AppLanguage.get(R.string.ui_third_after_home), AppLanguage.get(R.string.ui_last)};
             for (int position = 0; position < ordered.size(); position++) {
                 final int tab = ordered.get(position);
                 View row = SettingsUi.choice(MainActivity.this, TAB_TITLES[tab]
-                        + (isNavigationHidden(tab) ? " · Hidden" : ""), positions, position, destination -> {
+                        + (isNavigationHidden(tab) ? AppLanguage.get(R.string.ui_hidden_ce2680d) : ""), positions, position, destination -> {
                     List<Integer> updated = navigationOrder();
                     updated.remove(Integer.valueOf(tab)); updated.add(destination, tab);
                     preferences.edit().putString(NavigationPreferences.ORDER, NavigationPreferences.encode(updated)).apply();
@@ -4739,29 +4776,29 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             LinearLayout form = scrollForm(page);
             WeatherRepository.Location saved = savedWeatherLocation();
             // — Location ——————————————————————————————————————————————————————
-            addFormSectionHeader(form, "Location");
-            addFormHint(form, saved == null ? "Choose a city or use this TV's location to show weather on Home."
-                    : "Weather location · " + saved.label);
-            EditText search = addInput(form, "Search city or postal code", "Pune, India", "", false);
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_location));
+            addFormHint(form, saved == null ? AppLanguage.get(R.string.ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home)
+                    : AppLanguage.get(R.string.ui_weather_location_1_s, saved.label));
+            EditText search = addInput(form, AppLanguage.get(R.string.ui_search_city_or_postal_code), AppLanguage.get(R.string.ui_pune_india), "", false);
             weatherSearchResults = new LinearLayout(MainActivity.this);
             weatherSearchResults.setOrientation(LinearLayout.VERTICAL);
             weatherSearchResults.setClipChildren(false);
             weatherSearchResults.setClipToPadding(false);
-            addFormButton(form, "Search", v -> {
+            addFormButton(form, AppLanguage.get(R.string.ui_search), v -> {
                 String query = search.getText().toString().trim();
-                if (query.length() < 2) { setWeatherFeedback("Enter at least two characters."); return; }
-                setWeatherFeedback("Searching locations…"); weatherSearchResults.removeAllViews();
+                if (query.length() < 2) { setWeatherFeedback(AppLanguage.get(R.string.ui_enter_at_least_two_characters)); return; }
+                setWeatherFeedback(AppLanguage.get(R.string.ui_searching_locations)); weatherSearchResults.removeAllViews();
                 lifecycleWork.execute(ioWorker, () -> {
                     List<WeatherRepository.Location> results = null; String error = null;
-                    try { results = WeatherRepository.search(query, Locale.getDefault()); }
-                    catch (Exception failure) { error = failure.getMessage() == null ? "Location search failed." : failure.getMessage(); }
+                    try { results = WeatherRepository.search(query, AppLanguage.locale()); }
+                    catch (Exception failure) { error = failure.getMessage() == null ? AppLanguage.get(R.string.ui_location_search_failed) : failure.getMessage(); }
                     List<WeatherRepository.Location> found = results; String failure = error;
                     lifecycleWork.post(() -> {
                         if (settingsScreen != this || section != WEATHER) return;
                         weatherSearchResults.removeAllViews();
-                        if (failure != null) { setWeatherFeedback("Search failed · " + failure); return; }
-                        if (found == null || found.isEmpty()) { setWeatherFeedback("No matching places found."); return; }
-                        setWeatherFeedback("Choose a location.");
+                        if (failure != null) { setWeatherFeedback(AppLanguage.get(R.string.ui_search_failed_1_s, failure)); return; }
+                        if (found == null || found.isEmpty()) { setWeatherFeedback(AppLanguage.get(R.string.ui_no_matching_places_found)); return; }
+                        setWeatherFeedback(AppLanguage.get(R.string.ui_choose_a_location));
                         for (WeatherRepository.Location location : found) {
                             Button option = addFormButton(weatherSearchResults, location.label, null);
                             option.setOnClickListener(ignored -> saveWeatherLocation("city", location));
@@ -4770,8 +4807,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 });
             });
             form.addView(weatherSearchResults);
-            addFormButton(form, "Use device location", v -> requestDeviceWeatherLocation());
-            if (saved != null) addFormButton(form, "Remove weather", v -> {
+            addFormButton(form, AppLanguage.get(R.string.ui_use_device_location), v -> requestDeviceWeatherLocation());
+            if (saved != null) addFormButton(form, AppLanguage.get(R.string.ui_remove_weather), true, v -> {
                 preferences.edit().remove("weatherLocationMode").remove("weatherLocationLabel")
                         .remove("weatherLatitude").remove("weatherLongitude").remove("weatherCache")
                         .remove("weatherUpdatedAt").remove("weatherAttemptedAt").apply();
@@ -4779,24 +4816,24 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 renderWeather(); renderSection();
             });
             // — Units ——————————————————————————————————————————————————————————
-            addFormSectionHeader(form, "Units");
-            addChoice(form, "Temperature", new String[]{"Celsius", "Fahrenheit"},
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_units));
+            addChoice(form, AppLanguage.get(R.string.ui_temperature), new String[]{AppLanguage.get(R.string.ui_celsius), AppLanguage.get(R.string.ui_fahrenheit)},
                     preferences.getBoolean("weatherFahrenheit", false) ? 1 : 0, index -> {
                         preferences.edit().putBoolean("weatherFahrenheit", index == 1).apply(); renderWeather();
                     });
-            addChoice(form, "Wind speed", new String[]{"km/h", "mph"},
+            addChoice(form, AppLanguage.get(R.string.ui_wind_speed), new String[]{"km/h", "mph"},
                     preferences.getBoolean("weatherMph", false) ? 1 : 0, index -> {
                         preferences.edit().putBoolean("weatherMph", index == 1).apply(); renderWeather();
                     });
-            addFormButton(form, "Refresh now", v -> {
-                if (!hasWeatherLocation()) { setWeatherFeedback("Choose a location first."); return; }
+            addFormButton(form, AppLanguage.get(R.string.ui_refresh_now), v -> {
+                if (!hasWeatherLocation()) { setWeatherFeedback(AppLanguage.get(R.string.ui_choose_a_location_first)); return; }
                 if ("device".equals(preferences.getString("weatherLocationMode", ""))) requestDeviceWeatherLocation();
                 else maybeRefreshWeather(true);
             });
             weatherFeedback = label("", 14, SettingsUi.muted(MainActivity.this), false);
             weatherFeedback.setPadding(dp(2), dp(6), dp(2), dp(6));
             form.addView(weatherFeedback);
-            addFormHint(form, "Weather by Open-Meteo · Locations by GeoNames · Device location requested only on setup or manual refresh.");
+            addFormHint(form, AppLanguage.get(R.string.ui_weather_by_open_meteo_locations_by_geonames_device_location_requ));
         }
 
         private void setWeatherFeedback(String message) {
@@ -4805,67 +4842,67 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderHomeOverride(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Override status");
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_override_status));
             boolean enabled = isLauncherOverrideEnabled();
             addFormHint(form, enabled
-                    ? "✓ Sva launcher override is enabled on this TV."
-                    : "✕ Sva launcher override is currently disabled.");
-            addFormHint(form, "Some TVs keep their built-in launcher as Home even when another launcher is selected. Enable Sva Launcher in Android Accessibility settings to reopen Sva whenever the TV opens its built-in launcher.");
-            addFormSectionHeader(form, "Settings shortcuts");
+                    ? AppLanguage.get(R.string.ui_sva_launcher_override_is_enabled_on_this_tv)
+                    : AppLanguage.get(R.string.ui_sva_launcher_override_is_currently_disabled));
+            addFormHint(form, AppLanguage.get(R.string.ui_some_tvs_keep_their_built_in_launcher_as_home_even_when_another));
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_settings_shortcuts));
             TextView accessibilityFeedback = SettingsUi.text(MainActivity.this, "", 14, true);
             accessibilityFeedback.setTag("accessibility-shortcut-feedback");
             accessibilityFeedback.setVisibility(View.GONE);
-            addFormButton(form, "Open Accessibility settings", v -> AccessibilitySettingsShortcut.open(
+            addFormButton(form, AppLanguage.get(R.string.ui_open_accessibility_settings), v -> AccessibilitySettingsShortcut.open(
                     action -> startActivity(new Intent(action)), accessibilityFeedback));
             SettingsUi.add(form, accessibilityFeedback);
-            addFormButton(form, "Try setting Sva as the Home app", v -> {
+            addFormButton(form, AppLanguage.get(R.string.ui_try_setting_sva_as_the_home_app), v -> {
                 try {
                     startActivity(new Intent("android.settings.HOME_SETTINGS"));
                 } catch (Exception e) {
                     try { startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS)); }
-                    catch (Exception ignored) { Toast.makeText(MainActivity.this, "Could not open Home settings.", Toast.LENGTH_LONG).show(); }
+                    catch (Exception ignored) { Toast.makeText(MainActivity.this, AppLanguage.get(R.string.ui_could_not_open_home_settings), Toast.LENGTH_LONG).show(); }
                 }
             });
         }
 
         private void renderBackup(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Create backup");
-            addFormHint(form, "Create a JSON backup of launcher settings, app and channel choices, and IPTV details.");
-            addFormButton(form, "Create backup file", v -> openBackupExportPicker());
-            addFormSectionHeader(form, "Restore from backup");
-            addFormHint(form, "Restoring replaces the current launcher settings and channel preferences. Keep backup files private.");
-            addFormButton(form, "Restore from backup", v -> openBackupImportPicker());
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_create_backup));
+            addFormHint(form, AppLanguage.get(R.string.ui_create_a_json_backup_of_launcher_settings_app_and_channel_choice));
+            addFormButton(form, AppLanguage.get(R.string.ui_create_backup_file), v -> openBackupExportPicker());
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_restore_from_backup));
+            addFormHint(form, AppLanguage.get(R.string.ui_restoring_replaces_the_current_launcher_settings_and_channel_pre));
+            addFormButton(form, AppLanguage.get(R.string.ui_restore_from_backup), v -> openBackupImportPicker());
         }
 
         private void renderSchedules(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Refresh intervals");
-            addFormHint(form, "Schedules run while Sva is open. Overdue content is checked when Home resumes; manual refresh buttons continue to work when automatic refresh is disabled.");
-            addScheduleButton(form, "Photo slideshow", SchedulePreferences.SLIDESHOW,
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_refresh_intervals));
+            addFormHint(form, AppLanguage.get(R.string.ui_schedules_run_while_sva_is_open_overdue_content_is_checked_when));
+            addScheduleButton(form, AppLanguage.get(R.string.ui_photo_slideshow), SchedulePreferences.SLIDESHOW,
                     SchedulePreferences.SLIDESHOW_VALUES, SchedulePreferences.DEFAULT_SLIDESHOW, true, false,
                     () -> {
                         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
                         scheduleNextBackgroundPhoto();
                     });
-            addScheduleButton(form, "IPTV playlist", SchedulePreferences.PLAYLIST,
+            addScheduleButton(form, AppLanguage.get(R.string.ui_iptv_playlist), SchedulePreferences.PLAYLIST,
                     SchedulePreferences.PLAYLIST_VALUES, SchedulePreferences.DEFAULT_PLAYLIST, false, false,
                     () -> { maybeRefreshLiveData(); scheduleLiveRefreshCheck(); });
-            addScheduleButton(form, "Programme guide", SchedulePreferences.GUIDE,
+            addScheduleButton(form, AppLanguage.get(R.string.ui_programme_guide), SchedulePreferences.GUIDE,
                     SchedulePreferences.GUIDE_VALUES, SchedulePreferences.DEFAULT_GUIDE, false, false,
                     () -> { maybeRefreshLiveData(); scheduleLiveRefreshCheck(); });
-            addScheduleButton(form, "Public calendar", SchedulePreferences.CALENDAR,
+            addScheduleButton(form, AppLanguage.get(R.string.ui_public_calendar), SchedulePreferences.CALENDAR,
                     SchedulePreferences.CALENDAR_VALUES, SchedulePreferences.DEFAULT_CALENDAR, false, false,
                     () -> { maybeRefreshPublicCalendar(false); scheduleCalendarRefresh(); });
-            addScheduleButton(form, "Google Photos album", SchedulePreferences.GOOGLE_PHOTOS,
+            addScheduleButton(form, AppLanguage.get(R.string.ui_google_photos_album), SchedulePreferences.GOOGLE_PHOTOS,
                     SchedulePreferences.GOOGLE_PHOTOS_VALUES, SchedulePreferences.DEFAULT_GOOGLE_PHOTOS, false, true,
                     () -> { maybeRefreshGooglePhotos(false); scheduleGooglePhotosRefresh(); });
-            addScheduleButton(form, "Weather", SchedulePreferences.WEATHER,
+            addScheduleButton(form, AppLanguage.get(R.string.ui_weather), SchedulePreferences.WEATHER,
                     SchedulePreferences.WEATHER_VALUES, SchedulePreferences.DEFAULT_WEATHER, false, true,
                     () -> { weatherRefreshedThisLaunch = false; maybeRefreshWeather(false); scheduleWeatherRefresh(); });
-            addFormSectionHeader(form, "Defaults");
-            addFormHint(form, "Paused keeps the current photo visible. Every launch refreshes Google Photos or weather once when Sva starts.");
-            addFormButton(form, "Restore schedule defaults", v -> {
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_defaults));
+            addFormHint(form, AppLanguage.get(R.string.ui_paused_keeps_the_current_photo_visible_every_launch_refreshes_go));
+            addFormButton(form, AppLanguage.get(R.string.ui_restore_schedule_defaults), v -> {
                 preferences.edit()
                         .putLong(SchedulePreferences.SLIDESHOW, SchedulePreferences.DEFAULT_SLIDESHOW)
                         .putLong(SchedulePreferences.PLAYLIST, SchedulePreferences.DEFAULT_PLAYLIST)
@@ -4894,7 +4931,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             String[] labels = new String[values.length];
             int selected = 0;
             for (int i = 0; i < values.length; i++) {
-                labels[i] = SchedulePreferences.label(values[i], slideshow, googlePhotos);
+                labels[i] = AppLanguage.duration(values[i], slideshow, googlePhotos);
                 if (values[i] == current) selected = i;
             }
             addChoice(form, title, labels, selected, index -> {
@@ -4904,24 +4941,24 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderYouTubeSettings(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Add shortcut");
-            addFormHint(form, "Paste a public YouTube video or playlist link to add a card to Saved. Add an optional title; the full artwork thumbnail stays visible on the card.");
-            youtubeUrlField = addInput(form, "Video or playlist link", "https://www.youtube.com/watch?v=…", draftYoutubeUrl, false);
-            youtubeTitleField = addInput(form, "Card title · optional", "Use the YouTube title", draftYoutubeTitle, false);
-            youtubeArtField = addInput(form, "Artwork video link · optional", "Use for playlist artwork", draftYoutubeArt, false);
-            addFormButton(form, "Add to Saved", view -> {
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_add_shortcut));
+            addFormHint(form, AppLanguage.get(R.string.ui_paste_a_public_youtube_video_or_playlist_link_to_add_a_card_to_s));
+            youtubeUrlField = addInput(form, AppLanguage.get(R.string.ui_video_or_playlist_link), "https://www.youtube.com/watch?v=…", draftYoutubeUrl, false);
+            youtubeTitleField = addInput(form, AppLanguage.get(R.string.ui_card_title_optional), AppLanguage.get(R.string.ui_use_the_youtube_title), draftYoutubeTitle, false);
+            youtubeArtField = addInput(form, AppLanguage.get(R.string.ui_artwork_video_link_optional), AppLanguage.get(R.string.ui_use_for_playlist_artwork), draftYoutubeArt, false);
+            youtubeAddButton = addFormButton(form, AppLanguage.get(R.string.ui_add_to_saved), view -> {
                 String value = youtubeUrlField == null ? draftYoutubeUrl : youtubeUrlField.getText().toString();
                 String customTitle = youtubeTitleField == null ? draftYoutubeTitle : youtubeTitleField.getText().toString().trim();
                 String artworkVideo = youtubeArtField == null ? draftYoutubeArt : youtubeArtField.getText().toString().trim();
                 YouTubeCard parsed = YouTubeCard.parse(value);
                 if (parsed == null) {
-                    if (youtubeFeedback != null) youtubeFeedback.setText("Enter a valid YouTube video or playlist link.");
+                    if (youtubeFeedback != null) youtubeFeedback.setText(AppLanguage.get(R.string.ui_enter_a_valid_youtube_video_or_playlist_link));
                     return;
                 }
                 List<YouTubeCard> cards = savedYouTubeCards();
                 for (YouTubeCard card : cards) {
                     if (card.url.equals(parsed.url)) {
-                        if (youtubeFeedback != null) youtubeFeedback.setText("That link is already in Saved.");
+                        if (youtubeFeedback != null) youtubeFeedback.setText(AppLanguage.get(R.string.ui_that_link_is_already_in_saved));
                         return;
                     }
                 }
@@ -4930,7 +4967,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     parsed.customTitle = true;
                 }
                 if (!artworkVideo.isEmpty() && !parsed.useArtworkFromVideo(artworkVideo)) {
-                    if (youtubeFeedback != null) youtubeFeedback.setText("Artwork must be a YouTube video link.");
+                    if (youtubeFeedback != null) youtubeFeedback.setText(AppLanguage.get(R.string.ui_artwork_must_be_a_youtube_video_link));
                     return;
                 }
                 cards.add(parsed);
@@ -4942,14 +4979,14 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 if (youtubeUrlField != null) youtubeUrlField.setText("");
                 if (youtubeTitleField != null) youtubeTitleField.setText("");
                 if (youtubeArtField != null) youtubeArtField.setText("");
-                if (youtubeFeedback != null) youtubeFeedback.setText("Added to Saved.");
+                if (youtubeFeedback != null) youtubeFeedback.setText(AppLanguage.get(R.string.ui_added_to_saved));
                 renderYouTubeSavedList();
                 if (youtubeUrlField != null) youtubeUrlField.requestFocus();
             });
             youtubeFeedback = label("", 14, SettingsUi.muted(MainActivity.this), false);
             youtubeFeedback.setPadding(0, dp(4), 0, dp(8));
             form.addView(youtubeFeedback);
-            TextView savedTitle = label("Saved shortcuts", 18, SettingsUi.text(MainActivity.this), true);
+            TextView savedTitle = label(AppLanguage.get(R.string.ui_saved_shortcuts), 18, SettingsUi.text(MainActivity.this), true);
             savedTitle.setLetterSpacing(.12f);
             LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, dp(36));
             titleParams.topMargin = dp(10);
@@ -4967,10 +5004,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             youtubeSavedList.removeAllViews();
             List<YouTubeCard> cards = savedYouTubeCards();
             if (cards.isEmpty()) {
-                youtubeSavedList.addView(label("No YouTube cards saved yet.", 14,
+                if (youtubeAddButton != null) youtubeAddButton.setNextFocusDownId(View.NO_ID);
+                youtubeSavedList.addView(label(AppLanguage.get(R.string.ui_no_youtube_cards_saved_yet), 14,
                         SettingsUi.muted(MainActivity.this), false));
                 return;
             }
+            Button firstEditTitle = null;
             for (YouTubeCard card : cards) {
                 LinearLayout row = new LinearLayout(MainActivity.this);
                 row.setGravity(Gravity.CENTER_VERTICAL);
@@ -4984,14 +5023,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 title.setSingleLine(true);
                 title.setEllipsize(android.text.TextUtils.TruncateAt.END);
                 copy.addView(title);
-                TextView detail = label((YouTubeCard.VIDEO.equals(card.type) ? "VIDEO" : "PLAYLIST")
-                        + ((card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()) ? "  ·  Add art" : "")
+                TextView detail = label((YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_video) : AppLanguage.get(R.string.ui_playlist))
+                        + ((card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()) ? ("  ·  " + AppLanguage.get(R.string.ui_add_art).replace("·", "").trim()) : "")
                         + "  ·  " + card.url, 11, SettingsUi.muted(MainActivity.this), false);
                 detail.setSingleLine(true);
                 detail.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
                 copy.addView(detail);
                 row.addView(copy, new LinearLayout.LayoutParams(-1, -2));
                 LinearLayout cardActions = new LinearLayout(MainActivity.this);
+                cardActions.setTag("settings-card-actions");
                 cardActions.setClipChildren(false);
                 cardActions.setClipToPadding(false);
                 row.setClipChildren(false);
@@ -4999,12 +5039,16 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 LinearLayout.LayoutParams cardActionParams = new LinearLayout.LayoutParams(-1, -2);
                 cardActionParams.topMargin = dp(10);
                 row.addView(cardActions, cardActionParams);
-                Button remove = settingsButton("Remove");
-                remove.setContentDescription("Remove " + card.title + " from Saved");
-                Button editTitle = settingsButton("Title");
-                editTitle.setContentDescription("Edit title for " + card.title);
-                Button editArt = settingsButton("Art");
-                editArt.setContentDescription("Edit artwork for " + card.title);
+                Button remove = settingsButton(AppLanguage.get(R.string.ui_remove));
+                remove.setContentDescription(AppLanguage.get(R.string.ui_remove_1_s_from_saved, card.displayTitle()));
+                Button editTitle = settingsButton(AppLanguage.get(R.string.ui_title));
+                editTitle.setContentDescription(AppLanguage.get(R.string.ui_edit_title_for_1_s, card.displayTitle()));
+                editTitle.setId(View.generateViewId());
+                if (firstEditTitle == null) {
+                    firstEditTitle = editTitle;
+                }
+                Button editArt = settingsButton(AppLanguage.get(R.string.ui_art));
+                editArt.setContentDescription(AppLanguage.get(R.string.ui_edit_artwork_for_1_s, card.displayTitle()));
                 LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(0, dp(46), 1);
                 editParams.setMargins(dp(2), dp(2), dp(3), dp(2));
                 cardActions.addView(editTitle, editParams);
@@ -5022,19 +5066,24 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     for (YouTubeCard saved : latest) if (!saved.url.equals(card.url)) retained.add(saved);
                     saveYouTubeCards(retained);
                     youtubeChanged = true;
-                    if (youtubeFeedback != null) youtubeFeedback.setText("Removed from Saved.");
+                    if (youtubeFeedback != null) youtubeFeedback.setText(AppLanguage.get(R.string.ui_removed_from_saved));
                     renderYouTubeSavedList();
                 });
                 LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
                 rowParams.setMargins(dp(6), dp(2), dp(6), dp(8));
                 youtubeSavedList.addView(row, rowParams);
             }
+            if (youtubeAddButton != null && firstEditTitle != null) {
+                if (youtubeAddButton.getId() == View.NO_ID) youtubeAddButton.setId(View.generateViewId());
+                youtubeAddButton.setNextFocusDownId(firstEditTitle.getId());
+                firstEditTitle.setNextFocusUpId(youtubeAddButton.getId());
+            }
         }
 
         private void editYouTubeArtwork(YouTubeCard selected) {
             EditText artworkInput = new EditText(MainActivity.this);
             artworkInput.setSingleLine(true);
-            artworkInput.setHint("YouTube video link");
+            artworkInput.setHint(AppLanguage.get(R.string.ui_youtube_video_link));
             artworkInput.setTextColor(SettingsUi.text(MainActivity.this));
             artworkInput.setHintTextColor(SettingsUi.muted(MainActivity.this));
             artworkInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
@@ -5043,18 +5092,18 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     LiquidTheme.border(MainActivity.this), 1, 12));
             AlertDialog artworkDialog = new AlertDialog.Builder(new android.view.ContextThemeWrapper(MainActivity.this,
                     LiquidTheme.alertDialogTheme(MainActivity.this)))
-                    .setTitle("Card artwork")
-                    .setMessage("Paste a YouTube video link to use its thumbnail. Leave empty to retry automatic artwork.")
+                    .setTitle(AppLanguage.get(R.string.ui_card_artwork))
+                    .setMessage(AppLanguage.get(R.string.ui_paste_a_youtube_video_link_to_use_its_thumbnail_leave_empty_to_r))
                     .setView(artworkInput)
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Save", null)
+                    .setNegativeButton(AppLanguage.get(R.string.ui_cancel), null)
+                    .setPositiveButton(AppLanguage.get(R.string.ui_save), null)
                     .create();
             artworkDialog.setOnShowListener(ignored -> artworkDialog.getButton(AlertDialog.BUTTON_POSITIVE)
                     .setOnClickListener(view -> {
                         String videoLink = artworkInput.getText().toString().trim();
                         YouTubeCard image = videoLink.isEmpty() ? null : YouTubeCard.parse(videoLink);
                         if (!videoLink.isEmpty() && (image == null || !YouTubeCard.VIDEO.equals(image.type))) {
-                            artworkInput.setError("Enter a YouTube video link");
+                            artworkInput.setError(AppLanguage.get(R.string.ui_enter_a_youtube_video_link));
                             return;
                         }
                         List<YouTubeCard> cards = savedYouTubeCards();
@@ -5081,7 +5130,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void editYouTubeTitle(YouTubeCard selected) {
             EditText titleInput = new EditText(MainActivity.this);
             titleInput.setSingleLine(true);
-            titleInput.setHint("Use the YouTube title");
+            titleInput.setHint(AppLanguage.get(R.string.ui_use_the_youtube_title));
             titleInput.setText(selected.customTitle ? selected.title : "");
             titleInput.setTextColor(SettingsUi.text(MainActivity.this));
             titleInput.setHintTextColor(SettingsUi.muted(MainActivity.this));
@@ -5094,11 +5143,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     LiquidTheme.border(MainActivity.this), 1, 12));
             AlertDialog prompt = new AlertDialog.Builder(new android.view.ContextThemeWrapper(MainActivity.this,
                     LiquidTheme.alertDialogTheme(MainActivity.this)))
-                    .setTitle("Card title")
-                    .setMessage("Clear the title to use the title provided by YouTube when available.")
+                    .setTitle(AppLanguage.get(R.string.ui_card_title))
+                    .setMessage(AppLanguage.get(R.string.ui_clear_the_title_to_use_the_title_provided_by_youtube_when_availa))
                     .setView(titleInput)
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Save", (dialog, which) -> {
+                    .setNegativeButton(AppLanguage.get(R.string.ui_cancel), null)
+                    .setPositiveButton(AppLanguage.get(R.string.ui_save), (dialog, which) -> {
                         String custom = titleInput.getText().toString().trim();
                         List<YouTubeCard> latest = savedYouTubeCards();
                         for (YouTubeCard card : latest) {
@@ -5118,17 +5167,17 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderCalendarSettings(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Calendar feeds");
-            addFormHint(form, "Add iCalendar feed URLs, one per line. Google Calendar, published calendars, and local calendar servers are supported. Feeds must be readable without signing in. Events are combined in the Events tab.");
-            calendarUrlField = addInput(form, "Calendar feeds · one URL per line", "https://example.com/calendar.ics", draftCalendarUrl, true);
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_calendar_feeds));
+            addFormHint(form, AppLanguage.get(R.string.ui_add_icalendar_feed_urls_one_per_line_google_calendar_published_c));
+            calendarUrlField = addInput(form, AppLanguage.get(R.string.ui_calendar_feeds_one_url_per_line), "https://example.com/calendar.ics", draftCalendarUrl, true);
             calendarSummary = label(calendarSummaryText(), 14, SettingsUi.muted(MainActivity.this), false);
             calendarSummary.setPadding(dp(14), dp(8), dp(14), dp(8));
             calendarSummary.setBackground(roundedShape(SettingsUi.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 10));
             LinearLayout.LayoutParams csParams = new LinearLayout.LayoutParams(-1, -2);
             csParams.setMargins(0, dp(4), 0, dp(6));
             form.addView(calendarSummary, csParams);
-            addFormSectionHeader(form, "Actions");
-            addFormButton(form, "Save calendar and refresh", view -> {
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_actions));
+            addFormButton(form, AppLanguage.get(R.string.ui_save_calendar_and_refresh), view -> {
                 String entered = calendarUrlField == null ? draftCalendarUrl : calendarUrlField.getText().toString();
                 final List<String> urls;
                 try { urls = PublicCalendarRepository.normalizeUrls(entered); }
@@ -5147,7 +5196,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     renderedCalendarStamp = -1;
                     draftCalendarUrl = "";
                     if (calendarUrlField != null) calendarUrlField.setText("");
-                    if (calendarFeedback != null) calendarFeedback.setText("Calendars removed.");
+                    if (calendarFeedback != null) calendarFeedback.setText(AppLanguage.get(R.string.ui_calendars_removed));
                     updateCalendarEventDisplay();
                     scheduleCalendarRefresh();
                     if (calendarSummary != null) calendarSummary.setText(calendarSummaryText());
@@ -5157,25 +5206,25 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 saveCalendarCache(cache, urls, false);
                 draftCalendarUrl = normalized;
                 if (calendarUrlField != null) calendarUrlField.setText(normalized);
-                if (calendarFeedback != null) calendarFeedback.setText("Refreshing calendar feeds…");
+                if (calendarFeedback != null) calendarFeedback.setText(AppLanguage.get(R.string.ui_refreshing_calendar_feeds));
                 if (calendarSummary != null) calendarSummary.setText(calendarSummaryText());
                 refreshPublicCalendar(normalized, true);
             });
-            addFormButton(form, "Refresh saved calendar now", view -> {
+            addFormButton(form, AppLanguage.get(R.string.ui_refresh_saved_calendar_now), view -> {
                 String entered = calendarUrlField == null ? draftCalendarUrl : calendarUrlField.getText().toString();
                 if (!entered.equals(preferences.getString("publicCalendarUrl", ""))) {
-                    if (calendarFeedback != null) calendarFeedback.setText("Save the calendar feeds before refreshing.");
+                    if (calendarFeedback != null) calendarFeedback.setText(AppLanguage.get(R.string.ui_save_the_calendar_feeds_before_refreshing));
                 } else if (entered.isEmpty()) {
-                    if (calendarFeedback != null) calendarFeedback.setText("Add a calendar feed first.");
+                    if (calendarFeedback != null) calendarFeedback.setText(AppLanguage.get(R.string.ui_add_a_calendar_feed_first));
                 } else {
-                    if (calendarFeedback != null) calendarFeedback.setText("Refreshing calendar feeds…");
+                    if (calendarFeedback != null) calendarFeedback.setText(AppLanguage.get(R.string.ui_refreshing_calendar_feeds));
                     refreshPublicCalendar(entered, true);
                 }
             });
             calendarFeedback = label("", 14, SettingsUi.muted(MainActivity.this), false);
             calendarFeedback.setPadding(dp(2), dp(4), dp(2), dp(4));
             form.addView(calendarFeedback);
-            addFormHint(form, "The on-device schedule is checked when Sva opens. Change its automatic refresh cadence under Schedules. Events appear while active.");
+            addFormHint(form, AppLanguage.get(R.string.ui_the_on_device_schedule_is_checked_when_sva_opens_change_its_auto));
         }
 
         private String calendarSummaryText() {
@@ -5183,13 +5232,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             JSONArray events;
             try { events = new JSONArray(preferences.getString("publicCalendarEvents", "[]")); }
             catch (Exception ignored) { events = new JSONArray(); }
-            String updated = updatedAt == 0L ? "Not refreshed yet"
-                    : "Updated " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                    .format(new Date(updatedAt));
+            String updated = updatedAt == 0L ? AppLanguage.get(R.string.ui_not_refreshed_yet)
+                    : AppLanguage.get(R.string.ui_updated_1_s, DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, AppLanguage.locale())
+                    .format(new Date(updatedAt)));
             int sources;
             try { sources = PublicCalendarRepository.normalizeUrls(preferences.getString("publicCalendarUrl", "")).size(); }
-            catch (IllegalArgumentException invalidSavedUrls) { return "Calendar feeds need correcting · " + events.length() + " cached events"; }
-            return "Calendar cache · " + sources + " sources · " + events.length() + " events · " + updated;
+            catch (IllegalArgumentException invalidSavedUrls) { return AppLanguage.get(R.string.ui_calendar_feeds_need_correcting_1_s_cached_events, events.length()); }
+            return AppLanguage.get(R.string.ui_calendar_cache_1_s_sources_2_s_events_3_s, sources, events.length(), updated);
         }
 
         void onCalendarRefreshResult(String message) {
@@ -5261,7 +5310,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
 
         private Button addFormButton(LinearLayout form, String text, View.OnClickListener listener) {
+            return addFormButton(form, text, false, listener);
+        }
+
+        private Button addFormButton(LinearLayout form, String text, boolean destructive, View.OnClickListener listener) {
             Button button = settingsButton(text);
+            if (destructive) button.setTextColor(LiquidTheme.isLight(MainActivity.this) ? 0xFFAA2635 : 0xFFFFA8AB);
             button.setOnClickListener(listener);
             button.setMinHeight(dp(50));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
@@ -5280,7 +5334,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             if (text.equals("↑") || text.equals("↓")) {
                 button.setPadding(dp(4), 0, dp(4), 0);
                 button.setGravity(Gravity.CENTER);
-                button.setContentDescription(text.equals("↑") ? "Move up" : "Move down");
+                button.setContentDescription(text.equals("↑") ? AppLanguage.get(R.string.ui_move_up) : AppLanguage.get(R.string.ui_move_down));
             }
             return button;
         }
@@ -5311,21 +5365,21 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             actions.setGravity(Gravity.CENTER_VERTICAL);
             rowParams.setMargins(dp(8), dp(10), dp(8), dp(4));
             page.addView(actions, rowParams);
-            Button saveButton = settingsButton("Save changes");
+            Button saveButton = settingsButton(AppLanguage.get(R.string.ui_save_changes));
             saveButton.setTextColor(LiquidTheme.accent(MainActivity.this));
             saveButton.setMinHeight(dp(50));
             saveButton.setOnClickListener(save);
             LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(0, -2, 1);
             saveParams.setMargins(dp(2), dp(3), dp(4), dp(3));
             actions.addView(saveButton, saveParams);
-            Button discardButton = settingsButton("Discard edits");
+            Button discardButton = settingsButton(AppLanguage.get(R.string.ui_discard_edits));
             discardButton.setOnClickListener(discard);
             discardButton.setMinHeight(dp(50));
             LinearLayout.LayoutParams discardParams = new LinearLayout.LayoutParams(0, -2, 1);
             discardParams.setMargins(dp(6), dp(3), dp(4), dp(3));
             actions.addView(discardButton, discardParams);
             if (refresh != null) {
-                Button refreshButton = settingsButton("Refresh channels");
+                Button refreshButton = settingsButton(AppLanguage.get(R.string.ui_refresh_channels));
                 refreshButton.setOnClickListener(refresh);
                 refreshButton.setMinHeight(dp(50));
                 LinearLayout.LayoutParams refreshParams = new LinearLayout.LayoutParams(0, -2, 1);
@@ -5354,12 +5408,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderLive(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Playlist & Guide URLs");
-            playlistField = addInput(form, "M3U playlists · one URL per line", "https://example.com/playlist.m3u", draftPlaylist, true);
-            guideField = addInput(form, "Programme guides · one URL per line", "https://www.epgschedule.com/data/index-lite.json", draftGuide, true);
-            addFormHint(form, "Channels from all playlists are combined. Guide schedules from all sources are merged. Duplicate source URLs are ignored.");
-            addFormHint(form, "XMLTV matches by tvg-id. JSON guides match channel IDs or a unique channel name. EPGSchedule times use India Standard Time.");
-            addFormSectionHeader(form, "Cache & Guide status");
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_playlist_guide_urls));
+            playlistField = addInput(form, AppLanguage.get(R.string.ui_m3u_playlists_one_url_per_line), "https://example.com/playlist.m3u", draftPlaylist, true);
+            guideField = addInput(form, AppLanguage.get(R.string.ui_programme_guides_one_url_per_line), "https://www.epgschedule.com/data/index-lite.json", draftGuide, true);
+            addFormHint(form, AppLanguage.get(R.string.ui_channels_from_all_playlists_are_combined_guide_schedules_from_al));
+            addFormHint(form, AppLanguage.get(R.string.ui_xmltv_matches_by_tvg_id_json_guides_match_channel_ids_or_a_uniqu));
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_cache_guide_status));
             cacheSummary = label(cacheSummaryText(), 14, SettingsUi.muted(MainActivity.this), false);
             cacheSummary.setPadding(dp(14), dp(8), dp(14), dp(8));
             cacheSummary.setBackground(roundedShape(SettingsUi.surface(MainActivity.this), LiquidTheme.border(MainActivity.this), 1, 10));
@@ -5374,15 +5428,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             gsParams.setMargins(0, dp(4), 0, dp(6));
             form.addView(guideSummary, gsParams);
 
-            addFormButton(form, "Refresh programme guide now", v -> {
+            addFormButton(form, AppLanguage.get(R.string.ui_refresh_programme_guide_now), v -> {
                 String enteredGuide = guideField == null ? draftGuide : guideField.getText().toString().trim();
                 if (enteredGuide.isEmpty() || !enteredGuide.equals(iptv.guideUrl())) {
-                    if (liveFeedback != null) liveFeedback.setText("Save the programme guide URL before refreshing it.");
+                    if (liveFeedback != null) liveFeedback.setText(AppLanguage.get(R.string.ui_save_the_programme_guide_url_before_refreshing_it));
                     return;
                 }
                 refreshGuide(true);
             });
-            addFormHint(form, "Playlist and programme-guide refresh cadences are configured independently under Schedules. You can also refresh them manually here.");
+            addFormHint(form, AppLanguage.get(R.string.ui_playlist_and_programme_guide_refresh_cadences_are_configured_ind));
             addSaveActions(page, v -> {
                 captureDrafts();
                 String playlist = draftPlaylist.trim(), guide = draftGuide.trim();
@@ -5397,15 +5451,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 renderSection();
                 if (changed) maybeRefreshLiveData();
                 if (liveFeedback != null) liveFeedback.setText(changed
-                        ? "Settings saved. Automatic refresh uses the cadences under Schedules."
-                        : "No changes to save.");
+                        ? AppLanguage.get(R.string.ui_settings_saved_automatic_refresh_uses_the_cadences_under_schedul)
+                        : AppLanguage.get(R.string.ui_no_changes_to_save));
             }, v -> {
                 draftPlaylist = iptv.playlistUrl(); draftGuide = iptv.guideUrl(); renderSection();
             }, v -> {
                 String enteredPlaylist = playlistField == null
                         ? draftPlaylist : playlistField.getText().toString().trim();
                 if (enteredPlaylist.isEmpty() || !enteredPlaylist.equals(iptv.playlistUrl())) {
-                    if (liveFeedback != null) liveFeedback.setText("Save the playlist URL before refreshing channels.");
+                    if (liveFeedback != null) liveFeedback.setText(AppLanguage.get(R.string.ui_save_the_playlist_url_before_refreshing_channels));
                     return;
                 }
                 refreshChannels();
@@ -5417,16 +5471,16 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderDrm(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Widevine DRM");
-            licenseField = addInput(form, "Widevine license URL", "Optional default license endpoint", draftLicense, false);
-            headersField = addInput(form, "License request headers", "One per line · Name: Value", draftHeaders, true);
-            addFormHint(form, "Channel-specific KODIPROP settings in the playlist take priority over these defaults.");
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_widevine_drm));
+            licenseField = addInput(form, AppLanguage.get(R.string.ui_widevine_license_url), AppLanguage.get(R.string.ui_optional_default_license_endpoint), draftLicense, false);
+            headersField = addInput(form, AppLanguage.get(R.string.ui_license_request_headers), AppLanguage.get(R.string.ui_one_per_line_name_value), draftHeaders, true);
+            addFormHint(form, AppLanguage.get(R.string.ui_channel_specific_kodiprop_settings_in_the_playlist_take_priority));
             addSaveActions(page, v -> {
                 captureDrafts();
                 iptv.saveDrmSettings(draftLicense, draftHeaders);
                 draftLicense = iptv.drmLicenseUrl(); draftHeaders = iptv.drmHeaderText();
                 renderSection();
-                Toast.makeText(MainActivity.this, "Playback settings saved", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, AppLanguage.get(R.string.ui_playback_settings_saved), Toast.LENGTH_SHORT).show();
             }, v -> {
                 draftLicense = iptv.drmLicenseUrl(); draftHeaders = iptv.drmHeaderText(); renderSection();
             }, null);
@@ -5434,12 +5488,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderClock(LinearLayout page) {
             LinearLayout form = scrollForm(page);
-            addFormSectionHeader(form, "Clock display");
-            addFormHint(form, "Changes appear on the Home clock immediately.");
-            addToggle(form, "24-hour time", preferences.getBoolean("24h", false), enabled -> {
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_clock_display));
+            addFormHint(form, AppLanguage.get(R.string.ui_changes_appear_on_the_home_clock_immediately));
+            addToggle(form, AppLanguage.get(R.string.ui_24_hour_time), preferences.getBoolean("24h", false), enabled -> {
                 preferences.edit().putBoolean("24h", enabled).apply(); updateClock();
             });
-            addToggle(form, "Show date", preferences.getBoolean("showDate", true), enabled -> {
+            addToggle(form, AppLanguage.get(R.string.ui_show_date), preferences.getBoolean("showDate", true), enabled -> {
                 preferences.edit().putBoolean("showDate", enabled).apply(); updateClock();
             });
         }
@@ -5447,31 +5501,31 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void renderAppearance(LinearLayout page) {
             LinearLayout form = scrollForm(page);
             // — Theme ——————————————————————————————————————————————————————————
-            addFormSectionHeader(form, "Theme");
-            addFormHint(form, "Follow your TV’s theme, or choose a light or dark appearance.");
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_theme));
+            addFormHint(form, AppLanguage.get(R.string.ui_follow_your_tv_s_theme_or_choose_a_light_or_dark_appearance));
             String mode = preferences.getString(LiquidTheme.PREF_MODE, LiquidTheme.DEFAULT_MODE);
             String[] modes = {LiquidTheme.SYSTEM, LiquidTheme.LIGHT, LiquidTheme.DARK};
-            addChoice(form, "Appearance", new String[]{"System default", "Light", "Dark"},
+            addChoice(form, AppLanguage.get(R.string.ui_appearance), new String[]{AppLanguage.get(R.string.ui_system_default), AppLanguage.get(R.string.ui_light), AppLanguage.get(R.string.ui_dark)},
                     LiquidTheme.LIGHT.equals(mode) ? 1 : LiquidTheme.DARK.equals(mode) ? 2 : 0,
                     index -> changeLiquidGlassMode(modes[index]));
 
             // — Now Playing ————————————————————————————————————————————————————
-            addFormSectionHeader(form, "Now Playing");
-            addFormHint(form, "Appears on Home only while media is playing. Allow notification access to show playback from other apps.");
-            addFormButton(form, "Manage Now Playing access", v -> openMusicAccessSettings());
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_now_playing));
+            addFormHint(form, AppLanguage.get(R.string.ui_appears_on_home_only_while_media_is_playing_allow_notification_a));
+            addFormButton(form, AppLanguage.get(R.string.ui_manage_now_playing_access), v -> openMusicAccessSettings());
             // — Screensaver ————————————————————————————————————————————————————
-            addFormSectionHeader(form, "Screensaver");
-            addFormButton(form, "Sva Memories · screensaver settings", v ->
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_screensaver));
+            addFormButton(form, AppLanguage.get(R.string.ui_sva_memories_screensaver_settings), v ->
                     startActivity(new Intent(MainActivity.this, ScreensaverSettingsActivity.class)));
             // — Slideshow ——————————————————————————————————————————————————————
-            addFormSectionHeader(form, "Slideshow");
-            addFormHint(form, "A photo folder or Google Photos album plays as a slideshow. It takes priority over a single wallpaper.");
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_slideshow));
+            addFormHint(form, AppLanguage.get(R.string.ui_a_photo_folder_or_google_photos_album_plays_as_a_slideshow_it_ta));
             boolean hasFolder = !preferences.getString("wallpaperFolder", "").isEmpty();
             addFormHint(form, hasFolder
-                    ? "Photo folder · " + backgroundPhotos.size() + " images"
-                    : "No photo folder selected");
-            addFormButton(form, "Choose photo folder", v -> openWallpaperFolderPicker());
-            if (hasFolder) addFormButton(form, "Clear photo folder", v -> {
+                    ? AppLanguage.get(R.string.ui_photo_folder_1_s_images, backgroundPhotos.size())
+                    : AppLanguage.get(R.string.ui_no_photo_folder_selected));
+            addFormButton(form, AppLanguage.get(R.string.ui_choose_photo_folder), v -> openWallpaperFolderPicker());
+            if (hasFolder) addFormButton(form, AppLanguage.get(R.string.ui_clear_photo_folder), true, v -> {
                 backgroundFolderGeneration++;
                 preferences.edit().remove("wallpaperFolder")
                         .remove(PHOTO_FOLDER_CACHE_URI)
@@ -5483,19 +5537,19 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             });
             String albumUrl = preferences.getString("wallpaperAlbum", "");
             addFormHint(form, albumUrl.isEmpty()
-                    ? "No Google Photos album selected"
-                    : "Google Photos album · " + backgroundPhotos.size() + " images");
-            EditText albumField = addInput(form, "Google Photos public album link", "Paste a link shared with anyone", albumUrl, false);
-            addFormButton(form, "Use Google Photos album", v -> {
+                    ? AppLanguage.get(R.string.ui_no_google_photos_album_selected)
+                    : AppLanguage.get(R.string.ui_google_photos_album_1_s_images, backgroundPhotos.size()));
+            EditText albumField = addInput(form, AppLanguage.get(R.string.ui_google_photos_public_album_link), AppLanguage.get(R.string.ui_paste_a_link_shared_with_anyone), albumUrl, false);
+            addFormButton(form, AppLanguage.get(R.string.ui_use_google_photos_album), v -> {
                 String link = albumField.getText().toString().trim();
                 if (link.isEmpty()) {
-                    Toast.makeText(MainActivity.this, "Paste a Google Photos shared album link first.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, AppLanguage.get(R.string.ui_paste_a_google_photos_shared_album_link_first), Toast.LENGTH_SHORT).show();
                     return;
                 }
-                Toast.makeText(MainActivity.this, "Loading public album…", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, AppLanguage.get(R.string.ui_loading_public_album), Toast.LENGTH_SHORT).show();
                 loadBackgroundAlbum(link, true);
             });
-            if (!albumUrl.isEmpty()) addFormButton(form, "Clear Google Photos album", v -> {
+            if (!albumUrl.isEmpty()) addFormButton(form, AppLanguage.get(R.string.ui_clear_google_photos_album), true, v -> {
                 backgroundFolderGeneration++;
                 preferences.edit().remove("wallpaperAlbum")
                         .remove(GOOGLE_PHOTOS_CACHE_URL)
@@ -5509,12 +5563,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 renderSection();
             });
             // — Single wallpaper ———————————————————————————————————————————————
-            addFormSectionHeader(form, "Single wallpaper");
+            addFormSectionHeader(form, AppLanguage.get(R.string.ui_single_wallpaper));
             boolean hasWallpaper = preferences.contains("wallpaper");
-            addFormHint(form, hasWallpaper ? "Single wallpaper is set" : "No single wallpaper — using the default landscape");
-            addFormButton(form, "Choose single wallpaper", v ->
+            addFormHint(form, hasWallpaper ? AppLanguage.get(R.string.ui_single_wallpaper_is_set) : AppLanguage.get(R.string.ui_no_single_wallpaper_using_the_default_landscape));
+            addFormButton(form, AppLanguage.get(R.string.ui_choose_single_wallpaper), v ->
                     startActivityForResult(TvFilePickerActivity.intent(MainActivity.this, TvFilePickerActivity.MODE_IMAGE), PICK_WALLPAPER));
-            if (hasWallpaper) addFormButton(form, "Clear single wallpaper", v -> {
+            if (hasWallpaper) addFormButton(form, AppLanguage.get(R.string.ui_clear_single_wallpaper), true, v -> {
                 preferences.edit().remove("wallpaper").apply();
                 applyWallpaper();
                 renderSection();
@@ -5540,23 +5594,22 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private String cacheSummaryText() {
             long updatedAt = iptv.lastUpdatedAt();
-            String updated = updatedAt == 0 ? "Not refreshed yet"
-                    : "Updated " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                    .format(new Date(updatedAt));
-            return "On-device channel cache · " + channels.size()
-                    + (channels.size() == 1 ? " channel" : " channels") + " · " + updated;
+            String updated = updatedAt == 0 ? AppLanguage.get(R.string.ui_not_refreshed_yet)
+                    : AppLanguage.get(R.string.ui_updated_1_s, DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, AppLanguage.locale())
+                    .format(new Date(updatedAt)));
+            return AppLanguage.get(R.string.ui_on_device_channel_cache_1_s_2_s_3_s, "", AppLanguage.quantity(R.plurals.channel_count, channels.size()), updated);
         }
 
         private String guideSummaryText() {
             long updatedAt = iptv.lastGuideUpdatedAt();
-            String updated = updatedAt == 0 ? "Not refreshed yet"
-                    : "Last refreshed " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                    .format(new Date(updatedAt));
-            return "Programme guide · daily refresh · " + updated;
+            String updated = updatedAt == 0 ? AppLanguage.get(R.string.ui_not_refreshed_yet)
+                    : AppLanguage.get(R.string.ui_last_refreshed_1_s, DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, AppLanguage.locale())
+                    .format(new Date(updatedAt)));
+            return AppLanguage.get(R.string.ui_programme_guide_daily_refresh_1_s, updated);
         }
 
         private void renderChannelSettings(LinearLayout page) {
-            EditText search = addInput(page, "Find a channel", "Search by channel name", "", false);
+            EditText search = addInput(page, AppLanguage.get(R.string.ui_find_a_channel), AppLanguage.get(R.string.ui_search_by_channel_name), "", false);
             search.setInputType(InputType.TYPE_CLASS_TEXT);
             TextView count = label("", 14, SettingsUi.muted(MainActivity.this), false);
             LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(-1, -2);
@@ -5581,7 +5634,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
 
         private void renderAppSettings(LinearLayout page) {
-            addFormHint(page, "Choose up to five apps for Home. Use arrows to change their order.");
+            addFormHint(page, AppLanguage.get(R.string.ui_choose_up_to_five_apps_for_home_use_arrows_to_change_their_order));
             appList = new RecyclerView(MainActivity.this);
             appList.setLayoutManager(new LinearLayoutManager(MainActivity.this));
             appList.setClipChildren(true);
@@ -5616,14 +5669,14 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             ChannelSettingsAdapter(TextView count) { this.count = count; }
 
             void setQuery(String value) {
-                query = value == null ? "" : value.trim().toLowerCase(Locale.getDefault());
+                query = value == null ? "" : value.trim().toLowerCase(AppLanguage.locale());
                 refresh();
             }
 
             void refresh() {
                 visible.clear();
                 for (IptvRepository.Channel channel : channels) {
-                    if (query.isEmpty() || channel.name.toLowerCase(Locale.getDefault()).contains(query)) visible.add(channel);
+                    if (query.isEmpty() || channel.name.toLowerCase(AppLanguage.locale()).contains(query)) visible.add(channel);
                 }
                 updateCountLabel();
                 notifyDataSetChanged();
@@ -5646,8 +5699,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
 
             private void updateCountLabel() {
-                count.setText(visible.size() + " of " + channels.size() + " channels · "
-                        + shownChannelCount() + " shown · " + favoriteChannelCount() + " favourites\nPress OK to toggle visibility · Long-press to toggle favourite");
+                count.setText(AppLanguage.get(R.string.ui_1_s_of_2_s_channels_3_s_shown_4_s_favourites_press_ok_to_toggle, visible.size(), channels.size(), shownChannelCount(), favoriteChannelCount()));
             }
 
             @Override public Holder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -5679,9 +5731,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 IptvRepository.Channel channel = visible.get(position);
                 boolean isFav = favoriteChannelKeys.contains(channel.stableKey());
                 holder.name.setText((isFav ? "★  " : "") + channel.name);
-                holder.group.setText(channel.group.isEmpty() ? "Uncategorized" : channel.group);
+                holder.group.setText(channel.group.isEmpty() ? AppLanguage.get(R.string.ui_uncategorized) : channel.group);
                 boolean shown = !HiddenChannels.isHidden(hiddenChannelKeys, channel);
-                holder.state.setText((isFav ? "★ " : "") + (shown ? "Shown" : "Hidden"));
+                holder.state.setText((isFav ? "★ " : "") + (shown ? AppLanguage.get(R.string.ui_shown) : AppLanguage.get(R.string.ui_hidden)));
                 holder.state.setTextColor(shown ? SettingsUi.text(MainActivity.this)
                         : SettingsUi.muted(MainActivity.this));
                 holder.itemView.setOnClickListener(v -> {
@@ -5699,7 +5751,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     int current = holder.getBindingAdapterPosition();
                     if (current != RecyclerView.NO_POSITION) notifyItemChanged(current);
                     updateCountLabel();
-                    Toast.makeText(MainActivity.this, (added ? "Added to" : "Removed from") + " favourites: " + channel.name, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, AppLanguage.get(added ? R.string.ui_favourite_added : R.string.ui_favourite_removed, AppLanguage.bidi(channel.name)), Toast.LENGTH_SHORT).show();
                     return true;
                 });
             }
