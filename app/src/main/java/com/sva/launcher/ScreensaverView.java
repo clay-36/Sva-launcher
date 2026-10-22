@@ -20,6 +20,7 @@ final class ScreensaverView extends View {
     private final SharedPreferences prefs;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final android.text.TextPaint text = new android.text.TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private final android.util.LruCache<String, android.text.StaticLayout> informationLayouts = new android.util.LruCache<>(16);
     private float gradientHeight = -1f;
     private Shader gradientShader;
     private final List<String> urls = new ArrayList<>();
@@ -94,7 +95,7 @@ final class ScreensaverView extends View {
                 current = photoWindow.get(currentKey);
                 artScene = makeScene();
                 changedAt = SystemClock.uptimeMillis();
-                status = hasSavedPhoto || album.isEmpty() ? "" : "Loading your photographs…";
+                status = hasSavedPhoto || album.isEmpty() ? "" : AppLanguage.get(R.string.ui_loading_your_photographs);
                 if (hasSavedPhoto) frame = 1;
                 if (!cached.isEmpty()) {
                     setUrls(cached);
@@ -111,7 +112,7 @@ final class ScreensaverView extends View {
                 });
             } catch (Exception ignored) {
                 main.post(() -> {
-                    if (!stopped) status = frame > 0 ? "" : "Album unavailable · showing landscape wallpaper";
+                    if (!stopped) status = frame > 0 ? "" : AppLanguage.get(R.string.ui_album_unavailable_showing_landscape_wallpaper);
                 });
             }
         });
@@ -168,7 +169,7 @@ final class ScreensaverView extends View {
                 if (loaded != null) switchTo(key, loaded);
                 else {
                     index = (index + candidates.size()) % urls.size();
-                    if (frame == 0) status = "Photos unavailable · showing landscape wallpaper";
+                    if (frame == 0) status = AppLanguage.get(R.string.ui_photos_unavailable_showing_landscape_wallpaper);
                     scheduleNext();
                 }
             });
@@ -264,8 +265,8 @@ final class ScreensaverView extends View {
         if (minute != clockMinute) {
             clockMinute = minute;
             clockLabel = new SimpleDateFormat(android.text.format.DateFormat.is24HourFormat(getContext())
-                    ? "HH:mm" : "h:mm a", Locale.getDefault()).format(new Date(now));
-            dateLabel = new SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(new Date(now));
+                    ? "HH:mm" : "h:mm a", AppLanguage.locale()).format(new Date(now));
+            dateLabel = new SimpleDateFormat("EEE, d MMM", AppLanguage.locale()).format(new Date(now));
             updateInformation(now);
         }
         float drift = (float) Math.sin(time / 35) * w * .008f;
@@ -273,12 +274,13 @@ final class ScreensaverView extends View {
         float columnWidth = w * .275f;
         int foreground = paperTheme ? 0xEE3D3931 : 0xEEF4F7F5;
         int secondary = paperTheme ? 0xCC3D3931 : 0xCCDCE4E1;
+        boolean rtl = getResources().getConfiguration().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
         if (showClock) informationColumn(canvas, clockLabel, dateLabel,
-                w * .05f + drift, h, columnWidth, Paint.Align.LEFT, foreground, secondary);
+                w * (rtl ? .95f : .05f) + drift, h, columnWidth, rtl ? Paint.Align.RIGHT : Paint.Align.LEFT, foreground, secondary);
         if (showWeather) informationColumn(canvas, weatherLabel, weatherDetail,
                 w * .5f + drift, h, columnWidth, Paint.Align.CENTER, foreground, secondary);
         if (showEvents) informationColumn(canvas, eventLabel, eventDetail,
-                w * .95f + drift, h, columnWidth, Paint.Align.RIGHT, foreground, secondary);
+                w * (rtl ? .05f : .95f) + drift, h, columnWidth, rtl ? Paint.Align.LEFT : Paint.Align.RIGHT, foreground, secondary);
     }
 
     private void informationColumn(Canvas canvas, String title, String detail, float x, float h,
@@ -302,12 +304,31 @@ final class ScreensaverView extends View {
         text.setTypeface(LiquidTheme.font(getContext()));
         String fitted = android.text.TextUtils.ellipsize(value, text,
                 Math.max(1, width), android.text.TextUtils.TruncateAt.END).toString();
-        canvas.drawText(fitted, x, y, text);
+        // StaticLayout shapes and orders mixed Arabic/Urdu and Latin text as a paragraph.
+        Paint.Align alignment = text.getTextAlign();
+        float left = alignment == Paint.Align.RIGHT ? x - width : alignment == Paint.Align.CENTER ? x - width / 2f : x;
+        text.setTextAlign(Paint.Align.LEFT);
+        boolean rtl = getResources().getConfiguration().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+        android.text.Layout.Alignment paragraph = alignment == Paint.Align.CENTER ? android.text.Layout.Alignment.ALIGN_CENTER
+                : ((alignment == Paint.Align.RIGHT) == rtl ? android.text.Layout.Alignment.ALIGN_NORMAL : android.text.Layout.Alignment.ALIGN_OPPOSITE);
+        String key = fitted + "|" + size + "|" + width + "|" + color + "|" + alignment + "|" + rtl;
+        android.text.StaticLayout layout = informationLayouts.get(key);
+        if (layout == null) {
+            layout = android.text.StaticLayout.Builder.obtain(fitted, 0, fitted.length(), new android.text.TextPaint(text), Math.max(1, (int)width))
+                    .setAlignment(paragraph).setTextDirection(rtl ? android.text.TextDirectionHeuristics.RTL : android.text.TextDirectionHeuristics.LTR)
+                    .setIncludePad(false).setMaxLines(1).build();
+            informationLayouts.put(key, layout);
+        }
+        canvas.save();
+        canvas.translate(left, y - layout.getLineBaseline(0));
+        layout.draw(canvas);
+        canvas.restore();
+        text.setTextAlign(alignment);
     }
 
     private void updateInformation(long now) {
-        weatherLabel = "Weather unavailable";
-        weatherDetail = "Set up weather in Launcher Settings";
+        weatherLabel = AppLanguage.get(R.string.ui_weather_unavailable);
+        weatherDetail = AppLanguage.get(R.string.ui_set_up_weather_in_launcher_settings);
         try {
             WeatherRepository.Forecast forecast = WeatherRepository.Forecast.fromJson(
                     new org.json.JSONObject(prefs.getString("weatherCache", "")));
@@ -319,8 +340,8 @@ final class ScreensaverView extends View {
                 weatherDetail = forecast.location;
             }
         } catch (Exception ignored) { }
-        eventLabel = "No upcoming events";
-        eventDetail = "Your calendar";
+        eventLabel = AppLanguage.get(R.string.ui_no_upcoming_events);
+        eventDetail = AppLanguage.get(R.string.ui_your_calendar);
         try {
             org.json.JSONArray events = new org.json.JSONArray(prefs.getString("publicCalendarEvents", "[]"));
             org.json.JSONObject nextEvent = null;
@@ -332,11 +353,11 @@ final class ScreensaverView extends View {
                 if (start < earliest) { earliest = start; nextEvent = event; }
             }
             if (nextEvent != null) {
-                eventLabel = nextEvent.optString("title", "Calendar event").replaceAll("\\s+", " ");
+                eventLabel = nextEvent.optString("title", AppLanguage.get(R.string.ui_calendar_event)).replaceAll("\\s+", " ");
                 boolean allDay = nextEvent.optBoolean("allDay", false);
-                eventDetail = (earliest <= now ? "Now · " : "Up next · ")
-                        + new SimpleDateFormat(allDay ? "EEE, d MMM" : "EEE · h:mm a", Locale.getDefault())
-                        .format(new Date(earliest)) + (allDay ? " · All day" : "");
+                eventDetail = (earliest <= now ? AppLanguage.get(R.string.ui_now) : AppLanguage.get(R.string.ui_up_next_ed0a8b3))
+                        + new SimpleDateFormat(allDay ? "EEE, d MMM" : "EEE · h:mm a", AppLanguage.locale())
+                        .format(new Date(earliest)) + (allDay ? AppLanguage.get(R.string.ui_all_day_124b6f9) : "");
             }
         } catch (Exception ignored) { }
     }

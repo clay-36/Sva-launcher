@@ -24,7 +24,7 @@ final class GooglePhotosAlbumRepository {
 
     static List<String> fetchImageUrls(String shareUrl) throws Exception {
         URL requested = new URL(shareUrl);
-        if (!isPhotosHost(requested.getHost())) throw new IllegalArgumentException("Enter a Google Photos shared album link.");
+        if (!isPhotosHost(requested.getHost())) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_enter_a_google_photos_shared_album_link, "Enter a Google Photos shared album link."));
 
         HttpURLConnection connection = (HttpURLConnection) requested.openConnection();
         connection.setInstanceFollowRedirects(true);
@@ -35,8 +35,8 @@ final class GooglePhotosAlbumRepository {
         connection.setRequestProperty("Accept-Encoding", "identity");
         try {
             int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) throw new IllegalStateException("Google Photos returned HTTP " + status + ".");
-            if (!isPhotosHost(connection.getURL().getHost())) throw new IllegalArgumentException("The link did not open a Google Photos album.");
+            if (status < 200 || status >= 300) throw new IllegalStateException(AppLanguage.text(R.string.ui_google_photos_returned_http_1_s, "Google Photos returned HTTP %1$s.", status));
+            if (!isPhotosHost(connection.getURL().getHost())) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_the_link_did_not_open_a_google_photos_album, "The link did not open a Google Photos album."));
             String html;
             try (InputStream input = connection.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];
@@ -44,7 +44,7 @@ final class GooglePhotosAlbumRepository {
                 int count;
                 while ((count = input.read(buffer)) != -1) {
                     total += count;
-                    if (total > MAX_PAGE_BYTES) throw new IllegalStateException("The Google Photos album page is too large to read.");
+                    if (total > MAX_PAGE_BYTES) throw new IllegalStateException(AppLanguage.text(R.string.ui_the_google_photos_album_page_is_too_large_to_read, "The Google Photos album page is too large to read."));
                     output.write(buffer, 0, count);
                 }
                 html = new String(output.toByteArray(), StandardCharsets.UTF_8);

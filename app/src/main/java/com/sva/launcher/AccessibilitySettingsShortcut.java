@@ -21,13 +21,13 @@ final class AccessibilitySettingsShortcut {
             return Destination.ACCESSIBILITY;
         }
         if (tryStart(launcher, Settings.ACTION_SETTINGS)) {
-            String instructions = "Find Accessibility in your TV’s settings and enable Sva Launcher.";
+            String instructions = AppLanguage.get(R.string.ui_find_accessibility_in_your_tv_s_settings_and_enable_sva_launcher);
             feedback.setText(instructions);
             feedback.setVisibility(View.VISIBLE);
             Toast.makeText(feedback.getContext(), instructions, Toast.LENGTH_LONG).show();
             return Destination.GENERAL_SETTINGS;
         }
-        feedback.setText("Open your TV’s Settings manually, find Accessibility, and enable Sva Launcher.");
+        feedback.setText(AppLanguage.get(R.string.ui_open_your_tv_s_settings_manually_find_accessibility_and_enable_s));
         feedback.setVisibility(View.VISIBLE);
         return Destination.UNAVAILABLE;
     }

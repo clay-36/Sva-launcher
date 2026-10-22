@@ -101,7 +101,7 @@ final class StreamOptions {
             }
             return new JSONObject().put("keys", keys).put("type", "temporary").toString().getBytes(StandardCharsets.UTF_8);
         } catch (Exception ignored) {
-            throw new IllegalArgumentException("Invalid ClearKey configuration. Supply valid 128-bit KID/key pairs or a JWK key set.");
+            throw new IllegalArgumentException(AppLanguage.text(R.string.ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair, "Invalid ClearKey configuration. Supply valid 128-bit KID/key pairs or a JWK key set."));
         }
     }
 

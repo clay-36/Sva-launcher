@@ -32,8 +32,10 @@ final class GameRepository {
     static final class ImportResult {
         int added, duplicates, skipped;
         String message() {
-            return added + " added · " + duplicates + " duplicate" + (duplicates == 1 ? "" : "s")
-                    + " · " + skipped + " skipped";
+            return AppLanguage.text(R.string.ui_import_counts, "%1$s · %2$s · %3$s",
+                    AppLanguage.quantity(R.plurals.import_added, added, "%1$d added", "%1$d added"),
+                    AppLanguage.quantity(R.plurals.import_duplicates, duplicates, "%1$d duplicate", "%1$d duplicates"),
+                    AppLanguage.quantity(R.plurals.import_skipped, skipped, "%1$d skipped", "%1$d skipped"));
         }
     }
 
@@ -90,7 +92,7 @@ final class GameRepository {
     synchronized ImportResult importTree(Uri tree) {
         ImportResult result = new ImportResult();
         try {
-            if (tree == null) throw new IllegalArgumentException("Missing folder");
+            if (tree == null) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_missing_folder, "Missing folder"));
             if ("file".equals(tree.getScheme())) {
                 walkFiles(new File(tree.getPath()), result, 0);
                 return result;
@@ -138,14 +140,14 @@ final class GameRepository {
         File destination = null;
         try (InputStream input = new BufferedInputStream(context.getContentResolver().openInputStream(uri));
              OutputStream output = new BufferedOutputStream(new FileOutputStream(temporary))) {
-            if (input == null) throw new IllegalStateException("Could not read file");
+            if (input == null) throw new IllegalStateException(AppLanguage.text(R.string.ui_could_not_read_file, "Could not read file"));
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] buffer = new byte[64 * 1024];
             byte[] header = new byte[4];
             int headerCount = 0, read, total = 0;
             while ((read = input.read(buffer)) != -1) {
                 total += read;
-                if (total > MAX_ROM_BYTES) throw new IllegalArgumentException("NES file is larger than 32 MB.");
+                if (total > MAX_ROM_BYTES) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_nes_file_is_larger_than_32_mb, "NES file is larger than 32 MB."));
                 if (headerCount < 4) {
                     int take = Math.min(4 - headerCount, read);
                     System.arraycopy(buffer, 0, header, headerCount, take);
@@ -156,11 +158,11 @@ final class GameRepository {
             }
             output.flush();
             if (headerCount != 4 || header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1a)
-                throw new IllegalArgumentException("Not an iNES file");
+                throw new IllegalArgumentException(AppLanguage.text(R.string.ui_not_an_ines_file, "Not an iNES file"));
             String id = hex(digest.digest());
             if (find(id) != null) { result.duplicates++; temporary.delete(); return; }
             destination = new File(roms, id + ".nes");
-            if (!temporary.renameTo(destination)) throw new IllegalStateException("Could not finish import");
+            if (!temporary.renameTo(destination)) throw new IllegalStateException(AppLanguage.text(R.string.ui_could_not_finish_import, "Could not finish import"));
             List<GameRecord> current = games();
             current.add(new GameRecord(id, cleanTitle(displayName), destination.getName(), null,
                     System.currentTimeMillis(), 0L));
@@ -194,13 +196,13 @@ final class GameRepository {
         try {
             try (InputStream input = context.getContentResolver().openInputStream(uri);
                  OutputStream output = new FileOutputStream(temporary)) {
-                if (input == null) throw new IllegalStateException("Could not read artwork");
+                if (input == null) throw new IllegalStateException(AppLanguage.text(R.string.ui_could_not_read_artwork, "Could not read artwork"));
                 copyBounded(input, output, MAX_ARTWORK_BYTES);
             }
             android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
             android.graphics.BitmapFactory.decodeFile(temporary.getAbsolutePath(), bounds);
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new IllegalArgumentException("Choose an image file.");
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_choose_an_image_file, "Choose an image file."));
             java.nio.file.Files.move(temporary.toPath(), destination.toPath(),
                     java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } finally { temporary.delete(); }
@@ -283,7 +285,7 @@ final class GameRepository {
         byte[] buffer = new byte[8192];
         int total = 0, count;
         while ((count = input.read(buffer)) != -1) {
-            if (count > maxBytes - total) throw new IllegalArgumentException("File exceeds the import size limit.");
+            if (count > maxBytes - total) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_file_exceeds_the_import_size_limit, "File exceeds the import size limit."));
             total += count;
             output.write(buffer, 0, count);
         }

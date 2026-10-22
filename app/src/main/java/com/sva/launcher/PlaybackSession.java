@@ -25,7 +25,7 @@ final class PlaybackSession {
             for (String key : payload.getExtras().keySet()) data.put(key, payload.getExtras().get(key));
         }
         File directory = new File(context.getCacheDir(), "playback-sessions");
-        if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Cannot save playback session.");
+        if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException(AppLanguage.text(R.string.ui_cannot_save_playback_session, "Cannot save playback session."));
         File[] old = directory.listFiles();
         long cutoff = System.currentTimeMillis() - RETENTION_MS;
         if (old != null) for (File file : old) if (file.lastModified() < cutoff) file.delete();
@@ -38,7 +38,7 @@ final class PlaybackSession {
             file.finishWrite(output);
         } catch (IOException error) {
             file.failWrite(output);
-            throw new IOException("Cannot save playback session.");
+            throw new IOException(AppLanguage.text(R.string.ui_cannot_save_playback_session, "Cannot save playback session."));
         }
         return new Intent(context, PlaybackActivity.class).putExtra(EXTRA, token);
     }
@@ -47,7 +47,7 @@ final class PlaybackSession {
         String token = launch.getStringExtra(EXTRA);
         if (token == null) return launch; // Existing direct playback callers remain supported.
         if (!token.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))
-            throw new IOException("Invalid playback session.");
+            throw new IOException(AppLanguage.text(R.string.ui_invalid_playback_session, "Invalid playback session."));
         AtomicFile file = new AtomicFile(new File(new File(context.getCacheDir(), "playback-sessions"), token + ".json"));
         JSONObject data = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
         Intent payload = new Intent();

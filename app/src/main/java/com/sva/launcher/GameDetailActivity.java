@@ -74,21 +74,21 @@ public final class GameDetailActivity extends MotionActivity {
 
         LinearLayout copy = new LinearLayout(this); copy.setOrientation(LinearLayout.VERTICAL);
         copy.setClipChildren(false); copy.setClipToPadding(false);
-        TextView eyebrow = GameUi.text(this, "NINTENDO ENTERTAINMENT SYSTEM", 12, true);
+        TextView eyebrow = GameUi.text(this, AppLanguage.get(R.string.ui_nintendo_entertainment_system), 12, true);
         eyebrow.setTextColor(LiquidTheme.accent(this));
         eyebrow.setLetterSpacing(.18f);
         copy.addView(eyebrow);
         TextView title = GameUi.text(this, game.title, 38, true); title.setMaxLines(2); title.setEllipsize(android.text.TextUtils.TruncateAt.END); LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2); titleParams.topMargin = GameUi.dp(this, 16); copy.addView(title, titleParams);
-        Button play = GameUi.button(this, "Play"); play.setOnClickListener(v -> play());
+        Button play = GameUi.button(this, AppLanguage.get(R.string.ui_play)); play.setOnClickListener(v -> play());
         LinearLayout.LayoutParams playParams = new LinearLayout.LayoutParams(GameUi.dp(this, 240), GameUi.dp(this, 64));
         playParams.setMargins(GameUi.dp(this, 4), GameUi.dp(this, 38), GameUi.dp(this, 4), GameUi.dp(this, 4));
         copy.addView(play, playParams);
         actions = new LinearLayout(this);
         actions.setClipChildren(false); actions.setClipToPadding(false);
         LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, GameUi.dp(this, 56)); actionsParams.topMargin = GameUi.dp(this, 18); copy.addView(actions, actionsParams);
-        addAction("Rename", this::rename);
-        addAction("Artwork", this::pickArtwork);
-        addAction("Remove", this::remove);
+        addAction(AppLanguage.get(R.string.ui_rename), this::rename);
+        addAction(AppLanguage.get(R.string.ui_artwork), this::pickArtwork);
+        addAction(AppLanguage.get(R.string.ui_remove), this::remove);
         root.addView(copy, new LinearLayout.LayoutParams(0, -2, 1f)); setContentView(root); play.requestFocus();
     }
 
@@ -153,10 +153,10 @@ public final class GameDetailActivity extends MotionActivity {
 
     private void rename() {
         EditText input = new EditText(this); input.setText(game.title); input.setSelectAllOnFocus(true);
-        AlertDialog dialog = new AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this)).setTitle("Game title").setView(input).setPositiveButton("Save", (d, w) -> {
+        AlertDialog dialog = new AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this)).setTitle(AppLanguage.get(R.string.ui_game_title)).setView(input).setPositiveButton(AppLanguage.get(R.string.ui_save), (d, w) -> {
             String value = input.getText().toString().trim(); if (value.isEmpty()) return;
-            try { repository.updateTitle(id, value); render(); } catch (Exception e) { Toast.makeText(this, "Could not save title.", Toast.LENGTH_LONG).show(); }
-        }).setNegativeButton("Cancel", null).create();
+            try { repository.updateTitle(id, value); render(); } catch (Exception e) { Toast.makeText(this, AppLanguage.get(R.string.ui_could_not_save_title), Toast.LENGTH_LONG).show(); }
+        }).setNegativeButton(AppLanguage.get(R.string.ui_cancel), null).create();
         Motion.dialog(dialog); dialog.show();
     }
 
@@ -168,14 +168,14 @@ public final class GameDetailActivity extends MotionActivity {
         super.onActivityResult(request, result, data);
         if (request != PICK_ART || result != RESULT_OK || data == null || data.getData() == null) return;
         try { repository.updateArtwork(id, data.getData()); render(); }
-        catch (Exception e) { Toast.makeText(this, "Could not save artwork.", Toast.LENGTH_LONG).show(); }
+        catch (Exception e) { Toast.makeText(this, AppLanguage.get(R.string.ui_could_not_save_artwork), Toast.LENGTH_LONG).show(); }
     }
 
     private void remove() {
-        AlertDialog dialog = new AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this)).setTitle("Remove " + game.title + "?")
-                .setMessage("Sva's imported copy, artwork, and battery save will be deleted. Your original file will not be changed.")
-                .setPositiveButton("Remove", (d, w) -> { try { repository.remove(id); finish(); } catch (Exception e) { Toast.makeText(this, "Could not remove game.", Toast.LENGTH_LONG).show(); } })
-                .setNegativeButton("Cancel", null).create();
+        AlertDialog dialog = new AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this)).setTitle(AppLanguage.get(R.string.ui_remove_1_s, game.title))
+                .setMessage(AppLanguage.get(R.string.ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you))
+                .setPositiveButton(AppLanguage.get(R.string.ui_remove), (d, w) -> { try { repository.remove(id); finish(); } catch (Exception e) { Toast.makeText(this, AppLanguage.get(R.string.ui_could_not_remove_game), Toast.LENGTH_LONG).show(); } })
+                .setNegativeButton(AppLanguage.get(R.string.ui_cancel), null).create();
         Motion.dialog(dialog); dialog.show();
     }
 }

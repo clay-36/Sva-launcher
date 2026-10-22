@@ -20,8 +20,8 @@ android {
         minSdk 26
         targetSdk 36
 
-        versionCode 9
-        versionName "4.1.4"
+        versionCode 10
+        versionName "4.1.5"
         testInstrumentationRunner "android.test.InstrumentationTestRunner"
 
         ndk {
@@ -33,6 +33,14 @@ android {
                 arguments "NDK_APPLICATION_MK:=src/main/jni/Application.mk"
             }
         }
+    }
+
+    bundle {
+        language { enableSplit = false }
+    }
+
+    lint {
+        disable 'UnusedQuantity', 'UnusedTranslation'
     }
 
     sourceSets {

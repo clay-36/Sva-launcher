@@ -6,7 +6,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 
-public final class ScreensaverPreviewActivity extends Activity {
+public final class ScreensaverPreviewActivity extends LocalizedActivity {
     private ScreensaverView slideshow;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);

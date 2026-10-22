@@ -41,6 +41,12 @@ final class YouTubeCard {
         }
     }
 
+    String displayTitle() {
+        if (!customTitle && ("YouTube video".equals(title) || "YouTube playlist".equals(title)))
+            return AppLanguage.get(VIDEO.equals(type) ? R.string.ui_youtube_video : R.string.ui_youtube_playlist);
+        return title;
+    }
+
     static YouTubeCard parse(String rawUrl) {
         if (rawUrl == null || rawUrl.trim().isEmpty()) return null;
         try {

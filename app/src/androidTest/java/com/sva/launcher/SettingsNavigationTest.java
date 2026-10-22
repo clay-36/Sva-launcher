@@ -65,7 +65,7 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
     public void testEverySectionOpensWithVisibleFooter() throws Exception {
         try {
             open();
-            for (int section = 0; section < 14; section++) {
+            for (int section = 0; section < ((Button[])field(screen, "tabs")).length; section++) {
                 select(section);
                 assertEquals(section, ((Integer)field(screen, "section")).intValue());
                 View detail = (View)field(screen, "detail");
@@ -84,6 +84,26 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
                     detail.getLocationOnScreen(content); save.getLocationOnScreen(button);
                     assertTrue("Save action clipped below the panel", button[1] + save.getHeight() <= content[1] + detail.getHeight());
                 }
+            }
+        } finally { close(); }
+    }
+
+    public void testPressingUpInChildCategoryReturnsToParentCategory() throws Exception {
+        try {
+            open();
+            Button[] tabs = (Button[]) field(screen, "tabs");
+            for (int section = 0; section < tabs.length; section++) {
+                select(section);
+                assertEquals(section, ((Integer) field(screen, "section")).intValue());
+                View first = (View) field(screen, "firstControl");
+                assertNotNull("Section " + section + " should have a firstControl", first);
+                assertTrue("Child control should have focus in section " + section, first.hasFocus());
+                for (int attempt = 0; attempt < 5 && !tabs[section].hasFocus(); attempt++) {
+                    getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_UP);
+                    getInstrumentation().waitForIdleSync();
+                }
+                assertTrue("Parent tab " + section + " (" + tabs[section].getText() + ") must have focus after pressing UP",
+                        tabs[section].hasFocus());
             }
         } finally { close(); }
     }
@@ -601,6 +621,48 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             android.os.SystemClock.sleep(20);
         }
         throw new AssertionError("App row did not appear: " + index);
+    }
+
+    public void testYouTubeSavedShortcutsTitleNavigation() throws Exception {
+        android.content.SharedPreferences prefs = getInstrumentation().getTargetContext().getSharedPreferences("launcher", 0);
+        String previous = prefs.getString("youtubeCards", null);
+        try {
+            prefs.edit().putString("youtubeCards", "[{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\"title\":\"Test Video\"}]").commit();
+            open();
+            select(8); // YouTube
+            Button[] tabs = (Button[]) field(screen, "tabs");
+            View detail = (View) field(screen, "detail");
+            View titleBtn = findText(detail, AppLanguage.get(com.sva.launcher.R.string.ui_title));
+            assertNotNull("Title button should exist in saved shortcuts", titleBtn);
+            View addBtn = (View) field(screen, "youtubeAddButton");
+            assertNotNull("Add to saved button should exist", addBtn);
+
+            getInstrumentation().runOnMainSync(() -> addBtn.requestFocus());
+            getInstrumentation().waitForIdleSync();
+            assertTrue(addBtn.hasFocus());
+
+            getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN);
+            getInstrumentation().waitForIdleSync();
+            assertTrue("Title button should receive focus when pressing DOWN from Add button", titleBtn.hasFocus());
+
+            getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
+            getInstrumentation().waitForIdleSync();
+            View artBtn = findText(detail, AppLanguage.get(com.sva.launcher.R.string.ui_art));
+            assertNotNull(artBtn);
+            assertTrue("Art button should receive focus when pressing RIGHT from Title", artBtn.hasFocus());
+
+            getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
+            getInstrumentation().waitForIdleSync();
+            assertTrue("Title button should receive focus when pressing LEFT from Art", titleBtn.hasFocus());
+
+            getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
+            getInstrumentation().waitForIdleSync();
+            assertTrue("Parent YouTube tab should receive focus when pressing LEFT from Title", tabs[8].hasFocus());
+        } finally {
+            if (previous != null) prefs.edit().putString("youtubeCards", previous).commit();
+            else prefs.edit().remove("youtubeCards").commit();
+            close();
+        }
     }
 
     private void chooseFirstPosition(int tab) throws Exception {

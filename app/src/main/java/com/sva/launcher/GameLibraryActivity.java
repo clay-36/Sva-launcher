@@ -56,21 +56,21 @@ public final class GameLibraryActivity extends MotionActivity {
         page.setBackgroundColor(Color.TRANSPARENT);
         heading = new LinearLayout(this); heading.setGravity(Gravity.CENTER_VERTICAL);
         heading.setClipChildren(false); heading.setClipToPadding(false);
-        TextView title = GameUi.text(this, "Games", 32, true); heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        Button addFiles = GameUi.button(this, "Add files"); addFiles.setOnClickListener(v -> pickFiles());
+        TextView title = GameUi.text(this, AppLanguage.get(R.string.ui_games), 32, true); heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        Button addFiles = GameUi.button(this, AppLanguage.get(R.string.ui_add_files)); addFiles.setOnClickListener(v -> pickFiles());
         LinearLayout.LayoutParams filesParams = new LinearLayout.LayoutParams(GameUi.dp(this, 142), GameUi.dp(this, 52));
         filesParams.setMargins(GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4));
         heading.addView(addFiles, filesParams);
-        Button addFolder = GameUi.button(this, "Add folder"); addFolder.setOnClickListener(v -> pickFolder());
+        Button addFolder = GameUi.button(this, AppLanguage.get(R.string.ui_add_folder)); addFolder.setOnClickListener(v -> pickFolder());
         LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(GameUi.dp(this, 142), GameUi.dp(this, 52));
         folderParams.setMargins(GameUi.dp(this, 8), GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4)); heading.addView(addFolder, folderParams);
         page.addView(heading, new LinearLayout.LayoutParams(-1, GameUi.dp(this, 70)));
-        TextView hint = GameUi.text(this, "Your local NES library · user-provided .nes files only", 14, false);
+        TextView hint = GameUi.text(this, AppLanguage.get(R.string.ui_your_local_nes_library_user_provided_nes_files_only), 14, false);
         hint.setTextColor(LiquidTheme.secondaryText(this)); page.addView(hint, new LinearLayout.LayoutParams(-1, GameUi.dp(this, 42)));
         ScrollView scroll = new ScrollView(this); scroll.setClipToPadding(false);
         grid = new GridLayout(this); grid.setColumnCount(5); grid.setClipChildren(false); grid.setClipToPadding(false);
         grid.setUseDefaultMargins(false); scroll.addView(grid); page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        empty = GameUi.text(this, "No games yet. Add your own .nes files to get started.", 18, false);
+        empty = GameUi.text(this, AppLanguage.get(R.string.ui_no_games_yet_add_your_own_nes_files_to_get_started), 18, false);
         empty.setGravity(Gravity.CENTER); page.addView(empty, new LinearLayout.LayoutParams(-1, 0, 1));
         screen.addView(page, new FrameLayout.LayoutParams(-1, -1));
         setContentView(screen); render();
@@ -201,7 +201,7 @@ public final class GameLibraryActivity extends MotionActivity {
         final List<Uri> files = request == PICK_FILES ? GameRepository.urisFromResult(data) : null;
         final Uri tree = request == PICK_FOLDER ? data.getData() : null;
         if (files != null && files.isEmpty() || request == PICK_FOLDER && tree == null) return;
-        Toast.makeText(this, "Importing games…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, AppLanguage.get(R.string.ui_importing_games), Toast.LENGTH_SHORT).show();
         new Thread(() -> {
             GameRepository.ImportResult imported = files != null ? repository.importUris(files) : repository.importTree(tree);
             runOnUiThread(() -> { if (isFinishing() || isDestroyed()) return; Toast.makeText(this, imported.message(), Toast.LENGTH_LONG).show(); render(); });

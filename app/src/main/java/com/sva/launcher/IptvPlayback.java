@@ -24,9 +24,9 @@ final class IptvPlayback {
         if (!request.drmType.isEmpty()) {
             boolean clearKey = "clearkey".equals(request.drmType);
             if (clearKey && StreamOptions.HLS.equals(request.mimeType))
-                throw new IllegalArgumentException("ClearKey playback requires a DASH stream.");
+                throw new IllegalArgumentException(AppLanguage.text(R.string.ui_clearkey_playback_requires_a_dash_stream, "ClearKey playback requires a DASH stream."));
             if (clearKey && request.clearKeyData.isEmpty() && request.licenseUrl.isEmpty())
-                throw new IllegalArgumentException("ClearKey needs inline keys or a license URL.");
+                throw new IllegalArgumentException(AppLanguage.text(R.string.ui_clearkey_needs_inline_keys_or_a_license_url, "ClearKey needs inline keys or a license URL."));
             if (clearKey && !request.clearKeyData.isEmpty()) StreamOptions.clearKeyResponse(request.clearKeyData);
             MediaItem.DrmConfiguration.Builder drm = new MediaItem.DrmConfiguration.Builder(
                     clearKey ? C.CLEARKEY_UUID : C.WIDEVINE_UUID);

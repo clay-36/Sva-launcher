@@ -44,7 +44,7 @@ class ScreensaverPhotoRepository {
         if (!force && !existing.isEmpty() && (cadence == 0 || same && cadence > 0
                 && System.currentTimeMillis() - updated < cadence)) return existing;
         List<String> urls = GooglePhotosAlbumRepository.fetchImageUrls(album);
-        if (urls.isEmpty()) throw new IOException("No photos found. Check that the album is publicly shared.");
+        if (urls.isEmpty()) throw new IOException(AppLanguage.text(R.string.ui_no_photos_found_check_that_the_album_is_publicly_shared, "No photos found. Check that the album is publicly shared."));
         prefs.edit().putString("screensaverCacheUrl", album)
                 .putString("screensaverCacheImages", new JSONArray(urls).toString())
                 .putLong("screensaverCacheUpdatedAt", System.currentTimeMillis()).apply();

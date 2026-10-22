@@ -9,13 +9,20 @@ public final class SvaApplication extends Application implements Application.Act
 
     @Override public void onCreate() {
         super.onCreate();
+        AppLanguage.initialize(this);
         guideReminders = new GuideReminders(this);
         registerActivityLifecycleCallbacks(this);
     }
 
     GuideReminders guideReminders() { return guideReminders; }
 
-    @Override public void onActivityResumed(Activity activity) { guideReminders.onResumed(activity); }
+    @Override public void onConfigurationChanged(android.content.res.Configuration config) {
+        super.onConfigurationChanged(config);
+        AppLanguage.invalidate();
+        AppLanguage.sync(this);
+    }
+
+    @Override public void onActivityResumed(Activity activity) { AppLanguage.sync(this); guideReminders.onResumed(activity); }
     @Override public void onActivityPaused(Activity activity) { guideReminders.onPaused(activity); }
     @Override public void onActivityCreated(Activity activity, Bundle state) { }
     @Override public void onActivityStarted(Activity activity) { }

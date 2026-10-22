@@ -45,6 +45,7 @@ jobs:
       - name: Check source hygiene
         run: |
           python3 scripts/audit-source.py
+          python3 scripts/check-localization.py
           python3 scripts/update-notices.py --check
       - name: Check native helpers
         run: ./scripts/check-native.sh

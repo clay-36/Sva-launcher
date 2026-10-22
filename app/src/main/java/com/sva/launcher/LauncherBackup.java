@@ -17,7 +17,7 @@ final class LauncherBackup {
     private static final int VERSION = 1;
     private static final Map<String, String> EXPECTED_TYPES = expectedTypes();
     private static final Set<String> EXCLUDED_PREFERENCES = new HashSet<>(Arrays.asList(
-            "publicCalendarEvents", CalendarFeedCache.KEY
+            "publicCalendarEvents", CalendarFeedCache.KEY, "appLanguageMigrated"
     ));
 
     private static Map<String, String> expectedTypes() {
@@ -26,7 +26,7 @@ final class LauncherBackup {
                 + "selectedApps wallpaper wallpaperAlbum wallpaperFolder photoFolderCacheUri photoFolderCacheImages "
                 + "googlePhotosCacheImages googlePhotosCacheUrl publicCalendarEvents publicCalendarUrl programmeReminders "
                 + "screensaverCacheImages screensaverCacheUrl screensaverAlbum screensaverCaption screensaverTheme "
-                + "weatherCache weatherLocationLabel weatherLocationMode youtubeCards liquidGlassMode navigationOrder");
+                + "appLanguage weatherCache weatherLocationLabel weatherLocationMode youtubeCards liquidGlassMode navigationOrder");
         register(types, "boolean", "24h customApps guideCollapsed showDate weatherFahrenheit weatherMph "
                 + "youtubeArtworkFeedFallbackTried hideLiveTvNavigation hideGamesNavigation hideEventsNavigation "
                 + "screensaverClock screensaverWeather screensaverEvents");
@@ -70,12 +70,12 @@ final class LauncherBackup {
                         SharedPreferences iptv, IptvRepository repository) throws Exception {
         if (backup == null || !"sva-launcher-backup".equals(backup.optString("format"))
                 || backup.optInt("version", -1) != VERSION) {
-            throw new IllegalArgumentException("This backup file is not supported.");
+            throw new IllegalArgumentException(AppLanguage.text(R.string.ui_this_backup_file_is_not_supported, "This backup file is not supported."));
         }
         JSONObject launcherValues = backup.optJSONObject("launcher");
         JSONObject iptvValues = backup.optJSONObject("iptv");
         if (launcherValues == null || iptvValues == null) {
-            throw new IllegalArgumentException("The backup file is missing launcher or IPTV data.");
+            throw new IllegalArgumentException(AppLanguage.text(R.string.ui_the_backup_file_is_missing_launcher_or_iptv_data, "The backup file is missing launcher or IPTV data."));
         }
 
         Map<String, Object> restoredLauncher = decodePreferences(launcherValues);
@@ -104,12 +104,12 @@ final class LauncherBackup {
             } else if (value instanceof Set) {
                 JSONArray strings = new JSONArray();
                 for (Object item : (Set<?>) value) {
-                    if (!(item instanceof String)) throw new IllegalArgumentException("Unsupported set in preferences.");
+                    if (!(item instanceof String)) throw new IllegalArgumentException(AppLanguage.text(R.string.ui_unsupported_set_in_preferences, "Unsupported set in preferences."));
                     strings.put(item);
                 }
                 typed.put("type", "string-set").put("value", strings);
             } else {
-                throw new IllegalArgumentException("Unsupported preference value: " + entry.getKey());
+                throw new IllegalArgumentException(AppLanguage.text(R.string.ui_unsupported_preference_value_1_s, "Unsupported preference value: %1$s", entry.getKey()));
             }
             result.put(entry.getKey(), typed);
         }
@@ -124,12 +124,12 @@ final class LauncherBackup {
             if (EXCLUDED_PREFERENCES.contains(key)) continue;
             JSONObject typed = encoded.optJSONObject(key);
             if (key.trim().isEmpty() || typed == null || !typed.has("value")) {
-                throw new IllegalArgumentException("The backup contains an invalid preference.");
+                throw new IllegalArgumentException(AppLanguage.text(R.string.ui_the_backup_contains_an_invalid_preference, "The backup contains an invalid preference."));
             }
             String type = typed.optString("type");
             String expected = EXPECTED_TYPES.get(key);
             if (expected != null && !expected.equals(type))
-                throw new IllegalArgumentException("The backup contains an incompatible preference type.");
+                throw new IllegalArgumentException(AppLanguage.text(R.string.ui_the_backup_contains_an_incompatible_preference_type, "The backup contains an incompatible preference type."));
             Object value;
             switch (type) {
                 case "string": value = typed.getString("value"); break;
@@ -139,7 +139,7 @@ final class LauncherBackup {
                 case "float":
                     float number = (float) typed.getDouble("value");
                     if (Float.isNaN(number) || Float.isInfinite(number))
-                        throw new IllegalArgumentException("The backup contains an invalid number.");
+                        throw new IllegalArgumentException(AppLanguage.text(R.string.ui_the_backup_contains_an_invalid_number, "The backup contains an invalid number."));
                     value = number; break;
                 case "string-set":
                     JSONArray array = typed.getJSONArray("value");
@@ -147,7 +147,7 @@ final class LauncherBackup {
                     for (int i = 0; i < array.length(); i++) strings.add(array.getString(i));
                     value = strings;
                     break;
-                default: throw new IllegalArgumentException("The backup contains an unknown preference type.");
+                default: throw new IllegalArgumentException(AppLanguage.text(R.string.ui_the_backup_contains_an_unknown_preference_type, "The backup contains an unknown preference type."));
             }
             result.put(key, value);
         }
@@ -168,6 +168,6 @@ final class LauncherBackup {
                 editor.putStringSet(entry.getKey(), strings);
             }
         }
-        if (!editor.commit()) throw new IllegalStateException("Could not save restored settings.");
+        if (!editor.commit()) throw new IllegalStateException(AppLanguage.text(R.string.ui_could_not_save_restored_settings, "Could not save restored settings."));
     }
 }

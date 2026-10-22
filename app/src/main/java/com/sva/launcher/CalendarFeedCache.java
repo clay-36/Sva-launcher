@@ -57,24 +57,25 @@ final class CalendarFeedCache {
                 succeeded++;
             } catch (Exception failure) {
                 // Exception messages can include private tokens/URLs; expose only a safe category.
-                errors.add("Source " + (i + 1) + ": " + safeError(failure));
+                errors.add(AppLanguage.text(R.string.ui_source_1_s_2_s, "Source %1$s: %2$s", (i + 1), safeError(failure)));
             }
         }
         return new RefreshResult(succeeded, errors);
     }
 
     private static String safeError(Exception error) {
-        if (error instanceof java.net.SocketTimeoutException) return "connection timed out";
-        if (error instanceof java.net.UnknownHostException) return "host unavailable";
-        if (error instanceof javax.net.ssl.SSLException) return "secure connection failed";
+        if (error instanceof java.net.SocketTimeoutException) return AppLanguage.text(R.string.ui_connection_timed_out, "connection timed out");
+        if (error instanceof java.net.UnknownHostException) return AppLanguage.text(R.string.ui_host_unavailable, "host unavailable");
+        if (error instanceof javax.net.ssl.SSLException) return AppLanguage.text(R.string.ui_secure_connection_failed, "secure connection failed");
+        if (error instanceof PublicCalendarRepository.HttpFeedException) return error.getMessage();
         String message = error.getMessage();
         if (message != null && (message.matches("Calendar feed returned HTTP [0-9]{3}\\.")
-                || message.equals("Calendar feed is larger than 6 MB.")
-                || message.equals("This link did not return an iCalendar feed.")
-                || message.equals("HTTP calendars must stay on your local network.")
-                || message.equals("Calendar redirect is not allowed.")
-                || message.equals("Calendar redirect limit exceeded or destination missing."))) return message;
-        return "could not read this calendar";
+                || message.equals(AppLanguage.text(R.string.ui_calendar_feed_is_larger_than_6_mb, "Calendar feed is larger than 6 MB."))
+                || message.equals(AppLanguage.text(R.string.ui_this_link_did_not_return_an_icalendar_feed, "This link did not return an iCalendar feed."))
+                || message.equals(AppLanguage.text(R.string.ui_http_calendars_must_stay_on_your_local_network, "HTTP calendars must stay on your local network."))
+                || message.equals(AppLanguage.text(R.string.ui_calendar_redirect_is_not_allowed, "Calendar redirect is not allowed."))
+                || message.equals(AppLanguage.text(R.string.ui_calendar_redirect_limit_exceeded_or_destination_missing, "Calendar redirect limit exceeded or destination missing.")))) return message;
+        return AppLanguage.text(R.string.ui_could_not_read_this_calendar, "could not read this calendar");
     }
 
     List<PublicCalendarRepository.Event> merged(List<String> urls, long now) {
@@ -103,7 +104,7 @@ final class CalendarFeedCache {
                         .put("events", encodeEvents(entry.getValue().events)));
             }
             return new JSONObject().put("version", VERSION).put("sources", entries).toString();
-        } catch (Exception failure) { throw new IllegalStateException("Could not cache calendars.", failure); }
+        } catch (Exception failure) { throw new IllegalStateException(AppLanguage.text(R.string.ui_could_not_cache_calendars, "Could not cache calendars."), failure); }
     }
 
     static JSONArray encodeEvents(List<PublicCalendarRepository.Event> events) throws Exception {
@@ -133,8 +134,7 @@ final class CalendarFeedCache {
         final List<String> errors;
         RefreshResult(int succeeded, List<String> errors) { this.succeeded = succeeded; this.errors = errors; }
         String message(int eventCount) {
-            return succeeded + " sources refreshed · " + errors.size() + " failed · " + eventCount + " events cached"
-                    + (errors.isEmpty() ? "." : ".\n" + String.join("\n", errors));
+            return AppLanguage.text(R.string.ui_1_s_sources_refreshed_2_s_failed_3_s_events_cached_4_s, "%1$s sources refreshed · %2$s failed · %3$s events cached%4$s", succeeded, errors.size(), eventCount, (errors.isEmpty() ? "." : ".\n" + String.join("\n", errors)));
         }
     }
 
