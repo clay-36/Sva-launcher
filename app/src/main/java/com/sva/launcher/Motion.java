@@ -134,7 +134,7 @@ final class Motion {
         State s = state(view);
         if (s.interaction) return;
         s.interaction = true;
-        float z = LiquidTheme.dp(view.getContext(), contained ? 4 : 8);
+        float z = 0;
         float focusScale = contained ? 1.02f : 1.08f;
         float pressScale = contained ? 1.01f : 1.03f;
         StateListAnimator states = new StateListAnimator();

@@ -1,5 +1,9 @@
 package com.sva.launcher;
 
+import android.animation.Animator;
+import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
+import android.graphics.drawable.ColorDrawable;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -203,6 +207,13 @@ public final class MainActivity extends LocalizedActivity {
     private TextView weatherSymbol, homeCalendarEyebrow, homeCalendarTitle, homeCalendarSubtitle;
     private LinearLayout timeCard, weatherCard, homeCalendarCard;
     private View clockDivider;
+    private View timeRule, eventRule, calendarDivider;
+    private TextView calendarIcon;
+    private NavigationGlyph calendarEventGlyph;
+    private LinearLayout widgetHeader;
+    private Animator currentWidgetThemeAnimator;
+    private HeaderWidgetThemes currentWidgetThemes;
+    private final LruCache<String, HeaderWidgetThemes> widgetThemeCache = new LruCache<>(12);
     private LinearLayout nowPlayingSection, nowPlayingCard;
     private Button musicToggle;
     private ImageView musicArtwork;
@@ -652,25 +663,25 @@ public final class MainActivity extends LocalizedActivity {
         heroFrame.addView(slideB, new FrameLayout.LayoutParams(-1, -1));
         showCachedBackgroundImmediately();
         GradientDrawable shadow = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                light ? new int[]{0x22FFFFFF, 0x05FFFFFF, 0x18FFFFFF, 0x55E9F1EE}
+                light ? new int[]{0x00000000, 0x00000000, 0x00000000, 0x00000000}
                       : new int[]{0x33000000, 0x09000000, 0x23000000, 0x9B031013});
         View shade = new View(this);
         shade.setBackground(shadow);
         heroFrame.addView(shade, new FrameLayout.LayoutParams(-1, -1));
         View sideShade = new View(this);
         sideShade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                light ? new int[]{0x55E9F1EE, 0x22E9F1EE, 0x00000000}
+                light ? new int[]{0x00000000, 0x00000000, 0x00000000}
                       : new int[]{0xB5000D10, 0x44000D10, 0x00000000}));
         heroFrame.addView(sideShade, new FrameLayout.LayoutParams(-1, -1));
         View bottomFade = new View(this);
         bottomFade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                light ? new int[]{0x00E9F1EE, 0x18E9F1EE, 0xCCE9F1EE}
+                light ? new int[]{0x00000000, 0x00000000, 0x00000000}
                       : new int[]{0x00030C0E, 0x18030C0E, 0xE5030C0E}));
         heroFrame.addView(bottomFade, new FrameLayout.LayoutParams(-1, -1));
         scene.addView(heroFrame, new FrameLayout.LayoutParams(-1, -1));
         browsingShade = new View(this);
         browsingShade.setBackgroundColor(light ? 0xFFE9F1EE : 0xFF071417);
-        browsingShade.setAlpha(light ? 0.50f : 0f);
+        browsingShade.setAlpha(0f);
         scene.addView(browsingShade, new FrameLayout.LayoutParams(-1, -1));
         LinearLayout tabShell = new LinearLayout(this);
         tabShell.setOrientation(LinearLayout.VERTICAL);
@@ -882,17 +893,18 @@ public final class MainActivity extends LocalizedActivity {
         homeCalendarCard.setGravity(Gravity.CENTER_VERTICAL);
         homeCalendarCard.setPadding(dp(12), dp(6), dp(12), dp(6));
         homeCalendarCard.setElevation(0);
-        TextView calendarIcon = label("", 26, light ? LiquidTheme.accent(this) : 0xFF81B8F2, true);
-        NavigationGlyph eventGlyph = new NavigationGlyph(TAB_EVENTS);
-        eventGlyph.setBounds(0, 0, dp(27), dp(27));
-        eventGlyph.setGlyphColor(light ? LiquidTheme.accent(this) : 0xFF81B8F2);
-        calendarIcon.setCompoundDrawables(null, eventGlyph, null, null);
+        calendarIcon = label("", 26, light ? LiquidTheme.accent(this) : 0xFF81B8F2, true);
+        calendarEventGlyph = new NavigationGlyph(TAB_EVENTS);
+        calendarEventGlyph.setBounds(0, 0, dp(27), dp(27));
+        calendarEventGlyph.setGlyphColor(light ? LiquidTheme.accent(this) : 0xFF81B8F2);
+        calendarIcon.setCompoundDrawables(null, calendarEventGlyph, null, null);
         calendarIcon.setGravity(Gravity.CENTER);
         homeCalendarCard.addView(calendarIcon, new LinearLayout.LayoutParams(dp(44), dp(46)));
-        View calendarDivider = new View(this);
+        calendarDivider = new View(this);
         calendarDivider.setBackgroundColor(light ? LiquidTheme.border(this) : 0x558FADB2);
         LinearLayout.LayoutParams calendarDividerParams = new LinearLayout.LayoutParams(dp(1), dp(36));
         calendarDividerParams.setMargins(dp(6), 0, dp(10), 0);
+        homeCalendarCard.addView(calendarDivider, calendarDividerParams);
 
         LinearLayout calendarCopy = new LinearLayout(this);
         calendarCopy.setOrientation(LinearLayout.VERTICAL);
@@ -982,32 +994,32 @@ public final class MainActivity extends LocalizedActivity {
         nowPlayingSection.addView(nowPlayingCard, new LinearLayout.LayoutParams(weatherWidth, dp(68)));
         weatherStack.addView(nowPlayingSection);
 
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setClipChildren(false);
-        header.setClipToPadding(false);
-        header.setPadding(dp(14), dp(4), dp(10), dp(4));
-        header.setBackgroundColor(Color.TRANSPARENT);
+        widgetHeader = new LinearLayout(this);
+        widgetHeader.setGravity(Gravity.CENTER_VERTICAL);
+        widgetHeader.setClipChildren(false);
+        widgetHeader.setClipToPadding(false);
+        widgetHeader.setPadding(dp(14), dp(4), dp(10), dp(4));
+        widgetHeader.setBackgroundColor(Color.TRANSPARENT);
         LinearLayout.LayoutParams timeCardParams = new LinearLayout.LayoutParams(0, -1, 28);
         timeCardParams.setMargins(dp(2), dp(2), dp(2), dp(2));
-        header.addView(timeCard, timeCardParams);
-        View timeRule = new View(this);
+        widgetHeader.addView(timeCard, timeCardParams);
+        timeRule = new View(this);
         timeRule.setBackgroundColor(light ? LiquidTheme.border(this) : 0x55CDD0D4);
-        header.addView(timeRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
+        widgetHeader.addView(timeRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
         LinearLayout.LayoutParams weatherCardParams = new LinearLayout.LayoutParams(0, -1, 40);
         weatherCardParams.setMargins(dp(2), dp(2), dp(2), dp(2));
-        header.addView(weatherCard, weatherCardParams);
-        View eventRule = new View(this);
+        widgetHeader.addView(weatherCard, weatherCardParams);
+        eventRule = new View(this);
         eventRule.setBackgroundColor(light ? LiquidTheme.border(this) : 0x55CDD0D4);
-        header.addView(eventRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
+        widgetHeader.addView(eventRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
         LinearLayout.LayoutParams eventCardParams = new LinearLayout.LayoutParams(0, -1, 32);
         eventCardParams.setMargins(dp(2), dp(2), dp(2), dp(2));
-        header.addView(homeCalendarCard, eventCardParams);
+        widgetHeader.addView(homeCalendarCard, eventCardParams);
         FrameLayout topBar = new FrameLayout(this);
         topBar.setClipChildren(false);
         topBar.setClipToPadding(false);
         topBar.setPadding(dp(20), dp(16), dp(20), 0);
-        topBar.addView(header, new FrameLayout.LayoutParams(-1, topCardHeight));
+        topBar.addView(widgetHeader, new FrameLayout.LayoutParams(-1, topCardHeight));
         FrameLayout.LayoutParams musicParams = new FrameLayout.LayoutParams(weatherWidth, -2, Gravity.END | Gravity.TOP);
         musicParams.topMargin = topCardHeight + dp(8);
         topBar.addView(weatherStack, musicParams);
@@ -1166,12 +1178,12 @@ public final class MainActivity extends LocalizedActivity {
         youtubeRow = new RecyclerView(this);
         youtubeRow.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         youtubeRow.setHorizontalScrollBarEnabled(false);
-        youtubeRow.setPadding(dp(8), dp(10), dp(8), dp(10));
-        youtubeRow.setClipChildren(true); youtubeRow.setClipToPadding(false);
+        youtubeRow.setPadding(dp(12), dp(12), dp(12), dp(12));
+        youtubeRow.setClipChildren(false); youtubeRow.setClipToPadding(false);
         youtubeRow.setItemAnimator(null);
         savedCardAdapter = new SavedCardAdapter();
         youtubeRow.setAdapter(savedCardAdapter);
-        youtubeSection.addView(youtubeRow, new LinearLayout.LayoutParams(-1, dp(230)));
+        youtubeSection.addView(youtubeRow, new LinearLayout.LayoutParams(-1, dp(238)));
         savedContent.addView(youtubeSection, youtubeSectionParams);
         youtubeEmpty = label(AppLanguage.get(R.string.ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin), 17, MUTED, false);
         youtubeEmpty.setPadding(dp(8), dp(16), 0, dp(16));
@@ -1561,7 +1573,7 @@ public final class MainActivity extends LocalizedActivity {
         } finally {
             switchingTabs = false;
         }
-        browsingShade.setAlpha(selectedTab == TAB_HOME ? (LiquidTheme.isLight(this) ? .50f : 0f)
+        browsingShade.setAlpha(selectedTab == TAB_HOME ? 0f
                 : (LiquidTheme.isLight(this) ? .88f : .65f));
         View selectedPage = tabPages[selectedTab];
         if (selectedPage != null) {
@@ -2335,6 +2347,309 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
     }
 
+    static final class RegionTheme {
+        final boolean isLight;
+        final int primaryText;
+        final int secondaryText;
+        final int accentColor;
+        final int dividerColor;
+        final int shadowColor;
+        final float shadowRadius;
+
+        RegionTheme(boolean isLight, int primaryText, int secondaryText, int accentColor, int dividerColor, int shadowColor, float shadowRadius) {
+            this.isLight = isLight;
+            this.primaryText = primaryText;
+            this.secondaryText = secondaryText;
+            this.accentColor = accentColor;
+            this.dividerColor = dividerColor;
+            this.shadowColor = shadowColor;
+            this.shadowRadius = shadowRadius;
+        }
+    }
+
+    static final class HeaderWidgetThemes {
+        final RegionTheme clock;
+        final RegionTheme weather;
+        final RegionTheme calendar;
+
+        HeaderWidgetThemes(RegionTheme clock, RegionTheme weather, RegionTheme calendar) {
+            this.clock = clock;
+            this.weather = weather;
+            this.calendar = calendar;
+        }
+    }
+
+    private RegionTheme lightRegionTheme() {
+        return new RegionTheme(true, 0xFF101820, 0xFF3C4B5A, 0xFF087D91, 0x38000000, 0x33FFFFFF, 2f);
+    }
+
+    private RegionTheme darkRegionTheme() {
+        return new RegionTheme(false, Color.WHITE, 0xFFCCD0D6, 0xFF7BE7F4, 0x55CDD0D4, 0xAA000000, 3.5f);
+    }
+
+    private RegionTheme analyzeRegionLuminance(android.graphics.Bitmap bitmap, float leftFrac, float topFrac, float rightFrac, float bottomFrac) {
+        if (bitmap == null || bitmap.isRecycled() || bitmap.getWidth() <= 0 || bitmap.getHeight() <= 0) {
+            return LiquidTheme.isLight(this) ? lightRegionTheme() : darkRegionTheme();
+        }
+
+        int bmW = bitmap.getWidth();
+        int bmH = bitmap.getHeight();
+
+        int startX = Math.max(0, Math.min(bmW - 1, Math.round(leftFrac * bmW)));
+        int endX = Math.max(startX + 1, Math.min(bmW, Math.round(rightFrac * bmW)));
+        int startY = Math.max(0, Math.min(bmH - 1, Math.round(topFrac * bmH)));
+        int endY = Math.max(startY + 1, Math.min(bmH, Math.round(bottomFrac * bmH)));
+
+        int stepX = Math.max(1, (endX - startX) / 16);
+        int stepY = Math.max(1, (endY - startY) / 16);
+
+        double totalLuminance = 0;
+        double sumSqLuminance = 0;
+        int count = 0;
+
+        for (int y = startY; y < endY; y += stepY) {
+            for (int x = startX; x < endX; x += stepX) {
+                int pixel = bitmap.getPixel(x, y);
+                int r = (pixel >> 16) & 0xFF;
+                int g = (pixel >> 8) & 0xFF;
+                int b = pixel & 0xFF;
+
+                double lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                totalLuminance += lum;
+                sumSqLuminance += lum * lum;
+                count++;
+            }
+        }
+
+        if (count == 0) return LiquidTheme.isLight(this) ? lightRegionTheme() : darkRegionTheme();
+
+        double avgLum = totalLuminance / count;
+        double variance = (sumSqLuminance / count) - (avgLum * avgLum);
+        boolean isComplex = variance > 0.025;
+
+        boolean isLightBackground = avgLum > 0.52;
+
+        if (isLightBackground) {
+            int primary = 0xFF101820;
+            int secondary = 0xFF3C4B5A;
+            int accent = 0xFF087D91;
+            int divider = 0x38000000;
+            int shadow = isComplex ? 0x55FFFFFF : 0x22FFFFFF;
+            float shadowRadius = isComplex ? 4f : 2f;
+            return new RegionTheme(true, primary, secondary, accent, divider, shadow, shadowRadius);
+        } else {
+            int primary = Color.WHITE;
+            int secondary = 0xFFCCD0D6;
+            int accent = 0xFF7BE7F4;
+            int divider = 0x55CDD0D4;
+            int shadow = isComplex ? 0xEE000000 : 0xAA000000;
+            float shadowRadius = isComplex ? 5f : 3.5f;
+            return new RegionTheme(false, primary, secondary, accent, divider, shadow, shadowRadius);
+        }
+    }
+
+    private HeaderWidgetThemes analyzeHeaderWidgetThemes(android.graphics.Bitmap bitmap) {
+        if (bitmap == null || bitmap.isRecycled()) {
+            RegionTheme fallback = LiquidTheme.isLight(this) ? lightRegionTheme() : darkRegionTheme();
+            return new HeaderWidgetThemes(fallback, fallback, fallback);
+        }
+
+        float clockLeft = 0.02f, clockRight = 0.32f;
+        float weatherLeft = 0.32f, weatherRight = 0.68f;
+        float calendarLeft = 0.68f, calendarRight = 0.98f;
+        float topFrac = 0.0f, bottomFrac = 0.30f;
+
+        if (widgetHeader != null && widgetHeader.getWidth() > 0) {
+            float hW = widgetHeader.getWidth();
+            if (timeCard != null && timeCard.getWidth() > 0) {
+                clockLeft = Math.max(0f, (float) timeCard.getLeft() / hW);
+                clockRight = Math.min(1f, (float) timeCard.getRight() / hW);
+            }
+            if (weatherCard != null && weatherCard.getWidth() > 0) {
+                weatherLeft = Math.max(0f, (float) weatherCard.getLeft() / hW);
+                weatherRight = Math.min(1f, (float) weatherCard.getRight() / hW);
+            }
+            if (homeCalendarCard != null && homeCalendarCard.getWidth() > 0) {
+                calendarLeft = Math.max(0f, (float) homeCalendarCard.getLeft() / hW);
+                calendarRight = Math.min(1f, (float) homeCalendarCard.getRight() / hW);
+            }
+        }
+
+        RegionTheme clockTheme = analyzeRegionLuminance(bitmap, clockLeft, topFrac, clockRight, bottomFrac);
+        RegionTheme weatherTheme = analyzeRegionLuminance(bitmap, weatherLeft, topFrac, weatherRight, bottomFrac);
+        RegionTheme calendarTheme = analyzeRegionLuminance(bitmap, calendarLeft, topFrac, calendarRight, bottomFrac);
+
+        return new HeaderWidgetThemes(clockTheme, weatherTheme, calendarTheme);
+    }
+
+    private void updateWidgetThemesForBitmap(android.graphics.Bitmap bitmap, String key) {
+        if (bitmap == null || bitmap.isRecycled()) {
+            RegionTheme fallback = LiquidTheme.isLight(this) ? lightRegionTheme() : darkRegionTheme();
+            applyOrAnimateWidgetThemes(new HeaderWidgetThemes(fallback, fallback, fallback));
+            return;
+        }
+
+        if (key != null) {
+            HeaderWidgetThemes cached = widgetThemeCache.get(key);
+            if (cached != null) {
+                applyOrAnimateWidgetThemes(cached);
+                return;
+            }
+        }
+
+        lifecycleWork.execute(ioWorker, () -> {
+            if (bitmap.isRecycled()) return;
+            HeaderWidgetThemes themes = analyzeHeaderWidgetThemes(bitmap);
+            if (key != null) widgetThemeCache.put(key, themes);
+            lifecycleWork.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                applyOrAnimateWidgetThemes(themes);
+            });
+        });
+    }
+
+    private void applyOrAnimateWidgetThemes(HeaderWidgetThemes themes) {
+        if (themes == null) return;
+        currentWidgetThemes = themes;
+
+        if (clock == null || weatherTemperature == null || homeCalendarTitle == null) return;
+
+        if (currentWidgetThemeAnimator != null) {
+            currentWidgetThemeAnimator.cancel();
+            currentWidgetThemeAnimator = null;
+        }
+
+        if (!ValueAnimator.areAnimatorsEnabled()) {
+            applyWidgetThemesInstantly(themes);
+            return;
+        }
+
+        int startClockPrimary = clock.getCurrentTextColor();
+        int startClockSecondary = date.getCurrentTextColor();
+        int startClockPeriod = clockPeriod.getCurrentTextColor();
+        int startTimeRule = timeRule != null && timeRule.getBackground() instanceof ColorDrawable
+                ? ((ColorDrawable) timeRule.getBackground()).getColor() : 0;
+
+        int startWeatherPrimary = weatherTemperature.getCurrentTextColor();
+        int startWeatherSecondary = weatherCondition.getCurrentTextColor();
+        int startWeatherSymbol = weatherSymbol.getCurrentTextColor();
+        int startEventRule = eventRule != null && eventRule.getBackground() instanceof ColorDrawable
+                ? ((ColorDrawable) eventRule.getBackground()).getColor() : 0;
+
+        int startCalendarPrimary = homeCalendarTitle.getCurrentTextColor();
+        int startCalendarSecondary = homeCalendarEyebrow.getCurrentTextColor();
+        int startCalendarGlyph = calendarEventGlyph != null ? calendarEventGlyph.getGlyphColor() : 0;
+        int startCalendarDivider = calendarDivider != null && calendarDivider.getBackground() instanceof ColorDrawable
+                ? ((ColorDrawable) calendarDivider.getBackground()).getColor() : 0;
+
+        ArgbEvaluator evaluator = new ArgbEvaluator();
+        ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
+        animator.setDuration(350);
+        animator.addUpdateListener(a -> {
+            float f = a.getAnimatedFraction();
+
+            // Clock region
+            int clockPrimary = (int) evaluator.evaluate(f, startClockPrimary, themes.clock.primaryText);
+            int clockSecondary = (int) evaluator.evaluate(f, startClockSecondary, themes.clock.secondaryText);
+            int clockPeriodCol = (int) evaluator.evaluate(f, startClockPeriod, themes.clock.secondaryText);
+            clock.setTextColor(clockPrimary);
+            date.setTextColor(clockSecondary);
+            clockPeriod.setTextColor(clockPeriodCol);
+            if (timeRule != null) timeRule.setBackgroundColor((int) evaluator.evaluate(f, startTimeRule, themes.clock.dividerColor));
+
+            // Weather region
+            int weatherPrimary = (int) evaluator.evaluate(f, startWeatherPrimary, themes.weather.primaryText);
+            int weatherSecondary = (int) evaluator.evaluate(f, startWeatherSecondary, themes.weather.secondaryText);
+            int weatherSymCol = (int) evaluator.evaluate(f, startWeatherSymbol, themes.weather.isLight ? 0xFFE67E22 : 0xFFFFBD38);
+            weatherTemperature.setTextColor(weatherPrimary);
+            weatherCondition.setTextColor(weatherSecondary);
+            weatherDetails.setTextColor(weatherSecondary);
+            weatherLocation.setTextColor(weatherSecondary);
+            weatherMetrics.setTextColor(weatherPrimary);
+            weatherSymbol.setTextColor(weatherSymCol);
+            if (eventRule != null) eventRule.setBackgroundColor((int) evaluator.evaluate(f, startEventRule, themes.weather.dividerColor));
+
+            // Calendar region
+            int calendarPrimary = (int) evaluator.evaluate(f, startCalendarPrimary, themes.calendar.primaryText);
+            int calendarSecondary = (int) evaluator.evaluate(f, startCalendarSecondary, themes.calendar.secondaryText);
+            int calendarAccent = (int) evaluator.evaluate(f, startCalendarGlyph, themes.calendar.accentColor);
+            int calendarDiv = (int) evaluator.evaluate(f, startCalendarDivider, themes.calendar.dividerColor);
+            homeCalendarTitle.setTextColor(calendarPrimary);
+            homeCalendarEyebrow.setTextColor(calendarSecondary);
+            homeCalendarSubtitle.setTextColor(calendarSecondary);
+            if (calendarEventGlyph != null) {
+                calendarEventGlyph.setGlyphColor(calendarAccent);
+                if (calendarIcon != null) calendarIcon.invalidate();
+            }
+            if (calendarDivider != null) calendarDivider.setBackgroundColor(calendarDiv);
+        });
+
+        applyShadowLayer(clock, themes.clock);
+        applyShadowLayer(clockPeriod, themes.clock);
+        applyShadowLayer(date, themes.clock);
+
+        applyShadowLayer(weatherTemperature, themes.weather);
+        applyShadowLayer(weatherCondition, themes.weather);
+        applyShadowLayer(weatherDetails, themes.weather);
+        applyShadowLayer(weatherLocation, themes.weather);
+        applyShadowLayer(weatherMetrics, themes.weather);
+
+        applyShadowLayer(homeCalendarTitle, themes.calendar);
+        applyShadowLayer(homeCalendarEyebrow, themes.calendar);
+        applyShadowLayer(homeCalendarSubtitle, themes.calendar);
+
+        currentWidgetThemeAnimator = animator;
+        animator.start();
+    }
+
+    private void applyShadowLayer(TextView tv, RegionTheme theme) {
+        if (tv == null || theme == null) return;
+        tv.setShadowLayer(dp(Math.round(theme.shadowRadius)), 0, dp(1), theme.shadowColor);
+    }
+
+    private void applyWidgetThemesInstantly(HeaderWidgetThemes themes) {
+        if (themes == null) return;
+
+        // Clock
+        if (clock != null) clock.setTextColor(themes.clock.primaryText);
+        if (date != null) date.setTextColor(themes.clock.secondaryText);
+        if (clockPeriod != null) clockPeriod.setTextColor(themes.clock.secondaryText);
+        if (timeRule != null) timeRule.setBackgroundColor(themes.clock.dividerColor);
+
+        // Weather
+        if (weatherTemperature != null) weatherTemperature.setTextColor(themes.weather.primaryText);
+        if (weatherCondition != null) weatherCondition.setTextColor(themes.weather.secondaryText);
+        if (weatherDetails != null) weatherDetails.setTextColor(themes.weather.secondaryText);
+        if (weatherLocation != null) weatherLocation.setTextColor(themes.weather.secondaryText);
+        if (weatherMetrics != null) weatherMetrics.setTextColor(themes.weather.primaryText);
+        if (weatherSymbol != null) weatherSymbol.setTextColor(themes.weather.isLight ? 0xFFE67E22 : 0xFFFFBD38);
+        if (eventRule != null) eventRule.setBackgroundColor(themes.weather.dividerColor);
+
+        // Calendar
+        if (homeCalendarTitle != null) homeCalendarTitle.setTextColor(themes.calendar.primaryText);
+        if (homeCalendarEyebrow != null) homeCalendarEyebrow.setTextColor(themes.calendar.secondaryText);
+        if (homeCalendarSubtitle != null) homeCalendarSubtitle.setTextColor(themes.calendar.secondaryText);
+        if (calendarEventGlyph != null) {
+            calendarEventGlyph.setGlyphColor(themes.calendar.accentColor);
+            if (calendarIcon != null) calendarIcon.invalidate();
+        }
+        if (calendarDivider != null) calendarDivider.setBackgroundColor(themes.calendar.dividerColor);
+
+        applyShadowLayer(clock, themes.clock);
+        applyShadowLayer(clockPeriod, themes.clock);
+        applyShadowLayer(date, themes.clock);
+
+        applyShadowLayer(weatherTemperature, themes.weather);
+        applyShadowLayer(weatherCondition, themes.weather);
+        applyShadowLayer(weatherDetails, themes.weather);
+        applyShadowLayer(weatherLocation, themes.weather);
+        applyShadowLayer(weatherMetrics, themes.weather);
+
+        applyShadowLayer(homeCalendarTitle, themes.calendar);
+        applyShadowLayer(homeCalendarEyebrow, themes.calendar);
+        applyShadowLayer(homeCalendarSubtitle, themes.calendar);
+    }
+
     private TextView label(String value, float size, int color, boolean bold) {
         TextView v = new TextView(this);
         v.setText(value);
@@ -2540,6 +2855,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         weatherMetrics.setText("≋  " + AppLanguage.number(Math.round(wind)) + windUnit
                 + (weatherForecast.humidity >= 0 ? "    💧 " + weatherForecast.humidity + "%" : ""));
         weatherPanel.setContentDescription(AppLanguage.get(R.string.ui_1_s_2_s_3_s_wind_4_s_5_s, weatherTemperature.getText(), weatherCondition.getText(), weatherForecast.location, Math.round(wind), windUnit));
+        if (currentWidgetThemes != null) {
+            applyWidgetThemesInstantly(currentWidgetThemes);
+        }
     }
 
     private void showWeatherForecast() {
@@ -3211,8 +3529,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         public Holder onCreateViewHolder(ViewGroup parent, int type) {
             FrameLayout host = new FrameLayout(MainActivity.this);
             host.setClipChildren(false); host.setClipToPadding(false);
-            host.setPadding(dp(4), dp(4), dp(14), dp(8));
-            host.setLayoutParams(new RecyclerView.LayoutParams(dp(258), dp(210)));
+            host.setPadding(dp(10), dp(10), dp(14), dp(10));
+            host.setLayoutParams(new RecyclerView.LayoutParams(dp(264), dp(218)));
             return new Holder(host);
         }
         public void onBindViewHolder(Holder holder, int position) {
@@ -4024,6 +4342,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (bitmap == null) return;
         backgroundBitmapCache.put(url, bitmap);
         slideA.setImageBitmap(bitmap);
+        updateWidgetThemesForBitmap(bitmap, url);
         slideA.setTag(uri);
         slideA.setVisibility(View.VISIBLE);
         slideA.setAlpha(1f);
@@ -4148,6 +4467,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 glassBackdrop.prepare(bitmap, true, () -> {
                 if (generation != backgroundImageGeneration || !screenActive || isFinishing()) return;
                 incoming.setImageBitmap(bitmap);
+                updateWidgetThemesForBitmap(bitmap, photo.uri.toString());
                 incoming.setTag(photo.uri);
                 incoming.setVisibility(View.VISIBLE);
                 incoming.setAlpha(0f);
@@ -6165,6 +6485,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 glassBackdrop.prepare(bitmap, false, () -> {
                     wallpaperImage.setImageBitmap(bitmap);
                     wallpaperImage.setVisibility(View.VISIBLE);
+                    updateWidgetThemesForBitmap(bitmap, uriValue == null ? "default-wallpaper" : uriValue);
                 });
             });
         });
@@ -6375,6 +6696,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             canvas.restoreToCount(save);
         }
 
+        int getGlyphColor() { return glyphColor; }
         @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); invalidateSelf(); }
         @Override public void setColorFilter(android.graphics.ColorFilter filter) { paint.setColorFilter(filter); invalidateSelf(); }
         @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
