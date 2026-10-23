@@ -2384,7 +2384,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private RegionTheme darkRegionTheme() {
-        return new RegionTheme(false, Color.WHITE, 0xFFCCD0D6, 0xFF7BE7F4, 0x55CDD0D4, 0xAA000000, 3.5f);
+        return new RegionTheme(false, Color.WHITE, 0xFFCCD0D6, 0xFF81B8F2, 0x55CDD0D4, 0xAA000000, 3.5f);
     }
 
     private RegionTheme analyzeRegionLuminance(android.graphics.Bitmap bitmap, float leftFrac, float topFrac, float rightFrac, float bottomFrac) {
@@ -2449,7 +2449,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private HeaderWidgetThemes analyzeHeaderWidgetThemes(android.graphics.Bitmap bitmap) {
-        if (bitmap == null || bitmap.isRecycled()) {
+        if (!LiquidTheme.isLight(this) || bitmap == null || bitmap.isRecycled()) {
             RegionTheme fallback = LiquidTheme.isLight(this) ? lightRegionTheme() : darkRegionTheme();
             return new HeaderWidgetThemes(fallback, fallback, fallback);
         }
