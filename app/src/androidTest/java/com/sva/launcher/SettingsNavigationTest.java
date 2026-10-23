@@ -78,7 +78,7 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
                 assertTrue("Section label clipped", text.getHeight() <= tab.getHeight() - tab.getCompoundPaddingTop() - tab.getCompoundPaddingBottom());
                 // These pages contain fixed Save/Discard actions below their scrolling form.
                 if (section == 0 || section == 5) {
-                    View save = findText(detail, "Save changes");
+                    View save = findText(detail, AppLanguage.get(R.string.ui_save_changes));
                     assertNotNull(save);
                     int[] content = new int[2], button = new int[2];
                     detail.getLocationOnScreen(content); save.getLocationOnScreen(button);
@@ -108,6 +108,44 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
         } finally { close(); }
     }
 
+    public void testAppearanceUpFromBottomVisitsOffscreenControlsBeforeParent() throws Exception {
+        android.content.SharedPreferences prefs = getInstrumentation().getTargetContext().getSharedPreferences("launcher", 0);
+        String previous = prefs.getString(LiquidTheme.PREF_MODE, null);
+        try {
+            for (String theme : new String[]{LiquidTheme.DARK, LiquidTheme.LIGHT}) {
+                prefs.edit().putString(LiquidTheme.PREF_MODE, theme).commit();
+                open(); select(3);
+                View first = (View)field(screen, "firstControl");
+                View parent = first;
+                while (!(parent instanceof android.widget.ScrollView)) parent = (View)parent.getParent();
+                android.widget.ScrollView scroll = (android.widget.ScrollView)parent;
+                java.util.ArrayList<View> controls = scroll.getChildAt(0).getFocusables(View.FOCUS_FORWARD);
+                controls.removeIf(view -> !view.isEnabled() || !view.isFocusable());
+                assertTrue("Appearance must contain a scrolling form", controls.size() > 6);
+                assertSame(first, controls.get(0));
+                for (int i = 1; i < controls.size(); i++) {
+                    remote(android.view.KeyEvent.KEYCODE_DPAD_DOWN);
+                    assertSame("Down must visit each Appearance control", controls.get(i), dialog.getCurrentFocus());
+                }
+                assertTrue("Fixture must reach the bottom of the form", scroll.getScrollY() > 0);
+                Button rail = ((Button[])field(screen, "tabs"))[3];
+                for (int i = controls.size() - 2; i >= 0; i--) {
+                    remote(android.view.KeyEvent.KEYCODE_DPAD_UP);
+                    assertSame("Up must reveal the previous control instead of returning to the rail, index=" + i,
+                            controls.get(i), dialog.getCurrentFocus());
+                    assertFalse(rail.hasFocus());
+                }
+                remote(android.view.KeyEvent.KEYCODE_DPAD_UP);
+                assertTrue("Only Up from the first control returns to Appearance", rail.hasFocus());
+                close(); getInstrumentation().waitForIdleSync();
+            }
+        } finally {
+            close();
+            if (previous == null) prefs.edit().remove(LiquidTheme.PREF_MODE).commit();
+            else prefs.edit().putString(LiquidTheme.PREF_MODE, previous).commit();
+        }
+    }
+
     public void testAllSectionsInLightTheme() throws Exception {
         android.content.SharedPreferences prefs = getInstrumentation().getTargetContext().getSharedPreferences("launcher", 0);
         String previous = prefs.getString(LiquidTheme.PREF_MODE, LiquidTheme.SYSTEM);
@@ -123,13 +161,13 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             for (int section : new int[]{0, 5}) {
                 select(section);
                 View detail = (View) field(screen, "detail");
-                View discard = findText(detail, "Discard edits");
-                View save = findText(detail, "Save changes");
+                View discard = findText(detail, AppLanguage.get(R.string.ui_discard_edits));
+                View save = findText(detail, AppLanguage.get(R.string.ui_save_changes));
                 getInstrumentation().runOnMainSync(discard::requestFocus);
-                getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
+                remote(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
                 getInstrumentation().waitForIdleSync();
                 assertTrue("Left from Discard must reach Save; focus=" + focusDescription(), save.hasFocus());
-                getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
+                remote(android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
                 getInstrumentation().waitForIdleSync();
                 assertTrue("Right from Save must reach Discard", discard.hasFocus());
             }
@@ -150,9 +188,9 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
                         first.requestFocus(); first.setSelection(0);
                     });
                     View detail = (View) field(screen, "detail");
-                    View save = findText(detail, "Save changes");
-                    View discard = findText(detail, "Discard edits");
-                    View refresh = findText(detail, "Refresh channels");
+                    View save = findText(detail, AppLanguage.get(R.string.ui_save_changes));
+                    View discard = findText(detail, AppLanguage.get(R.string.ui_discard_edits));
+                    View refresh = findText(detail, AppLanguage.get(R.string.ui_refresh_channels));
                     for (int step = 0; step < 40 && dialog.getCurrentFocus() != save
                             && dialog.getCurrentFocus() != discard && dialog.getCurrentFocus() != refresh; step++) {
                         remote(android.view.KeyEvent.KEYCODE_DPAD_DOWN);
@@ -187,6 +225,11 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
     }
 
     private void remote(int key) {
+        // Horizontal routes below use LTR logical order; mirror their physical keys in RTL.
+        if (AppLanguage.context().getResources().getConfiguration().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
+            if (key == android.view.KeyEvent.KEYCODE_DPAD_LEFT) key = android.view.KeyEvent.KEYCODE_DPAD_RIGHT;
+            else if (key == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) key = android.view.KeyEvent.KEYCODE_DPAD_LEFT;
+        }
         getInstrumentation().sendKeyDownUpSync(key);
         getInstrumentation().waitForIdleSync();
     }
@@ -228,12 +271,12 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
         try {
             getInstrumentation().waitForIdleSync();
             View decor = screensaver.getWindow().getDecorView();
-            assertNotNull(findText(decor, "Photo source"));
-            assertNotNull(findText(decor, "Atmosphere"));
-            assertNotNull(findText(decor, "Save changes"));
-            assertNotNull(findText(decor, "Preview"));
+            assertNotNull(findText(decor, AppLanguage.get(R.string.ui_photo_source)));
+            assertNotNull(findText(decor, AppLanguage.get(R.string.ui_atmosphere)));
+            assertNotNull(findText(decor, AppLanguage.get(R.string.ui_save_changes)));
+            assertNotNull(findText(decor, AppLanguage.get(R.string.ui_preview)));
             assertFalse("Screensaver settings must not begin text editing on entry", screensaver.getCurrentFocus() instanceof EditText);
-            View preview = findText(decor, "Preview");
+            View preview = findText(decor, AppLanguage.get(R.string.ui_preview));
             int[] location = new int[2]; preview.getLocationOnScreen(location);
             assertTrue("Preview action clipped", location[1] + preview.getHeight() <= decor.getHeight());
         } finally { getInstrumentation().runOnMainSync(screensaver::finish); }
@@ -241,7 +284,7 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
                 new Intent(context, ControllerSettingsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         try {
             getInstrumentation().waitForIdleSync();
-            assertNotNull(findText(controllers.getWindow().getDecorView(), "Refresh controllers"));
+            assertNotNull(findText(controllers.getWindow().getDecorView(), AppLanguage.get(R.string.ui_refresh_controllers)));
             android.view.InputDevice device = android.view.InputDevice.getDevice(-1);
             if (device == null) {
                 int[] ids = android.view.InputDevice.getDeviceIds();
@@ -253,7 +296,7 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
                 try {
                     Method begin = ControllerSettingsActivity.class.getDeclaredMethod("begin", android.view.InputDevice.class);
                     begin.setAccessible(true); begin.invoke(controllers, selected);
-                    assertNotNull(findText(controllers.getWindow().getDecorView(), "Button 1 of " + ControllerProfile.NAMES.length + "\n\n" + ControllerProfile.NAMES[0]));
+                    assertNotNull(findText(controllers.getWindow().getDecorView(), AppLanguage.get(R.string.ui_button_1_s_of_2_s_3_s, 1, ControllerProfile.NAMES.length, ControllerProfile.names()[0])));
                     Method back = ControllerSettingsActivity.class.getDeclaredMethod("handleBack");
                     back.setAccessible(true); back.invoke(controllers);
                     assertNull(field(controllers, "mappingDevice"));
@@ -277,10 +320,10 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
                 try {
                     Method select = MainActivity.class.getDeclaredMethod("selectTab", int.class, boolean.class);
                     select.setAccessible(true); select.invoke(activity, 2, false);
-                    View row = findDescription((View)field(screen, "detail"), "Show Games in navigation, On");
+                    View row = findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_games_in_navigation), AppLanguage.get(R.string.ui_on)));
                     assertNotNull(row); row.performClick();
                     assertEquals(0, ((Integer)field(activity, "activeTab")).intValue());
-                    row = findDescription((View)field(screen, "detail"), "Show Events in navigation, On");
+                    row = findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_events_in_navigation), AppLanguage.get(R.string.ui_on)));
                     assertNotNull(row); row.performClick();
                 } catch (Exception e) { throw new AssertionError(e); }
             });
@@ -303,8 +346,8 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
                 try {
                     Method rebuild = MainActivity.class.getDeclaredMethod("rebuildNavigationButtons");
                     rebuild.setAccessible(true); rebuild.invoke(activity);
-                    findDescription((View)field(screen, "detail"), "Show Games in navigation, Off").performClick();
-                    findDescription((View)field(screen, "detail"), "Show Events in navigation, Off").performClick();
+                    findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_games_in_navigation), AppLanguage.get(R.string.ui_off))).performClick();
+                    findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_events_in_navigation), AppLanguage.get(R.string.ui_off))).performClick();
                 } catch (Exception e) { throw new AssertionError(e); }
             });
             assertTrue(bar.indexOfChild(buttons[2]) >= 0); assertTrue(bar.indexOfChild(buttons[3]) >= 0);
@@ -344,7 +387,7 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             View moved = ((View)field(screen, "detail")).findViewWithTag("navigation-order-4");
             assertTrue("Focus must follow the moved category", moved.hasFocus());
             getInstrumentation().runOnMainSync(() -> {
-                try { findDescription((View)field(screen, "detail"), "Show Events in navigation, On").performClick(); }
+                try { findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_events_in_navigation), AppLanguage.get(R.string.ui_on))).performClick(); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
             assertEquals(java.util.Arrays.asList(0, 4, 1, 2), barOrder());
@@ -354,12 +397,12 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             assertEquals("events,saved,live_tv,games", prefs.getString(NavigationPreferences.ORDER, ""));
             assertEquals("Moving a hidden item must not reveal it", java.util.Arrays.asList(0, 4, 1, 2), barOrder());
             getInstrumentation().runOnMainSync(() -> {
-                try { findDescription((View)field(screen, "detail"), "Show Events in navigation, Off").performClick(); }
+                try { findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_events_in_navigation), AppLanguage.get(R.string.ui_off))).performClick(); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
             assertEquals(java.util.Arrays.asList(0, 3, 4, 1, 2), barOrder());
             getInstrumentation().runOnMainSync(() -> {
-                try { findText((View)field(screen, "detail"), "Reset item order").performClick(); }
+                try { findText((View)field(screen, "detail"), AppLanguage.get(R.string.ui_reset_item_order)).performClick(); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
             assertEquals(java.util.Arrays.asList(0, 1, 2, 3, 4), barOrder());
@@ -390,7 +433,7 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             EditText input = (EditText)field(screen, "calendarUrlField");
             String urls = feeds.url("a") + "\n" + feeds.url("b");
             getInstrumentation().runOnMainSync(() -> { input.setText(urls + "\n" + feeds.url("a")); input.setSelection(input.length()); });
-            View save = findText((View)field(screen, "detail"), "Save calendar and refresh");
+            View save = findText((View)field(screen, "detail"), AppLanguage.get(R.string.ui_save_calendar_and_refresh));
             for (int i = 0; i < 30 && !save.hasFocus(); i++) remote(android.view.KeyEvent.KEYCODE_DPAD_DOWN);
             assertTrue("Remote must leave multiline calendar input and reach Save", save.hasFocus());
             remote(android.view.KeyEvent.KEYCODE_DPAD_CENTER);
@@ -401,23 +444,24 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             EditText current = (EditText)field(screen, "calendarUrlField");
             assertEquals(urls, current.getText().toString());
             getInstrumentation().runOnMainSync(() -> current.setText(urls + "\nftp://example.com/invalid"));
-            activateCalendarAction("Save calendar and refresh");
+            activateCalendarAction(AppLanguage.get(R.string.ui_save_calendar_and_refresh));
             assertEquals("Invalid lines must not change saved sources", urls, prefs.getString("publicCalendarUrl", ""));
-            assertTrue(((android.widget.TextView)field(screen, "calendarFeedback")).getText().toString().startsWith("Line 3:"));
+            assertEquals(AppLanguage.get(R.string.ui_line_1_s_use_an_https_calendar_url_or_an_http_url_on_your_local, 3),
+                    ((android.widget.TextView)field(screen, "calendarFeedback")).getText().toString());
             getInstrumentation().runOnMainSync(() -> current.setText(urls));
             feeds.failB = true; feeds.emptyA = true;
-            activateCalendarAction("Refresh saved calendar now");
+            activateCalendarAction(AppLanguage.get(R.string.ui_refresh_saved_calendar_now));
             waitForCalendarRefresh();
             assertEquals("Failed B retains its cache; empty A removes its old events", 2,
                     new org.json.JSONArray(prefs.getString("publicCalendarEvents", "[]")).length());
-            assertTrue(((android.widget.TextView)field(screen, "calendarFeedback")).getText().toString().contains("Source 2"));
+            assertTrue(((android.widget.TextView)field(screen, "calendarFeedback")).getText().toString().contains(AppLanguage.get(R.string.ui_source_1_s_2_s, 2, new PublicCalendarRepository.HttpFeedException(503).getMessage())));
             // Removing A keeps B's cache even while B still fails.
             getInstrumentation().runOnMainSync(() -> current.setText(feeds.url("b")));
-            activateCalendarAction("Save calendar and refresh"); waitForCalendarRefresh();
+            activateCalendarAction(AppLanguage.get(R.string.ui_save_calendar_and_refresh)); waitForCalendarRefresh();
             assertFalse(prefs.getString(CalendarFeedCache.KEY, "").contains(feeds.url("a")));
             assertEquals(2, new org.json.JSONArray(prefs.getString("publicCalendarEvents", "[]")).length());
             getInstrumentation().runOnMainSync(() -> current.setText(""));
-            activateCalendarAction("Save calendar and refresh");
+            activateCalendarAction(AppLanguage.get(R.string.ui_save_calendar_and_refresh));
             assertFalse(prefs.contains("publicCalendarUrl")); assertFalse(prefs.contains(CalendarFeedCache.KEY));
             // Draft survives section switches, then existing Discard logic restores saved values.
             getInstrumentation().runOnMainSync(() -> current.setText(urls));
@@ -434,9 +478,9 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             for (int attempt = 0; attempt < 100 && !discarded; attempt++) {
                 android.view.accessibility.AccessibilityNodeInfo root = getInstrumentation().getUiAutomation().getRootInActiveWindow();
                 if (root != null) {
-                    java.util.List<android.view.accessibility.AccessibilityNodeInfo> actions = root.findAccessibilityNodeInfosByText("Discard");
+                    java.util.List<android.view.accessibility.AccessibilityNodeInfo> actions = root.findAccessibilityNodeInfosByText(AppLanguage.get(R.string.ui_discard));
                     for (android.view.accessibility.AccessibilityNodeInfo node : actions) {
-                        if ("Discard".contentEquals(node.getText() == null ? "" : node.getText())) {
+                        if (AppLanguage.get(R.string.ui_discard).contentEquals(node.getText() == null ? "" : node.getText())) {
                             discarded = node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK); break;
                         }
                     }
@@ -484,10 +528,10 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             open(); select(9); feeds.hold = true;
             EditText input = (EditText)field(screen, "calendarUrlField");
             getInstrumentation().runOnMainSync(() -> input.setText(feeds.url("a")));
-            activateCalendarAction("Save calendar and refresh");
+            activateCalendarAction(AppLanguage.get(R.string.ui_save_calendar_and_refresh));
             assertTrue(feeds.entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
             getInstrumentation().runOnMainSync(() -> input.setText(clear ? "" : feeds.url("b")));
-            activateCalendarAction("Save calendar and refresh");
+            activateCalendarAction(AppLanguage.get(R.string.ui_save_calendar_and_refresh));
             feeds.release.countDown();
             assertTrue(feeds.completed.await(5, java.util.concurrent.TimeUnit.SECONDS));
             // Drain the same executor: all earlier work must have posted its result first.
@@ -645,17 +689,17 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             getInstrumentation().waitForIdleSync();
             assertTrue("Title button should receive focus when pressing DOWN from Add button", titleBtn.hasFocus());
 
-            getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
+            remote(android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
             getInstrumentation().waitForIdleSync();
             View artBtn = findText(detail, AppLanguage.get(com.sva.launcher.R.string.ui_art));
             assertNotNull(artBtn);
             assertTrue("Art button should receive focus when pressing RIGHT from Title", artBtn.hasFocus());
 
-            getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
+            remote(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
             getInstrumentation().waitForIdleSync();
             assertTrue("Title button should receive focus when pressing LEFT from Art", titleBtn.hasFocus());
 
-            getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
+            remote(android.view.KeyEvent.KEYCODE_DPAD_LEFT);
             getInstrumentation().waitForIdleSync();
             assertTrue("Parent YouTube tab should receive focus when pressing LEFT from Title", tabs[8].hasFocus());
         } finally {

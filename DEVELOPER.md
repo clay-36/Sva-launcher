@@ -161,6 +161,11 @@ python3 scripts/audit-source.py --history
 python3 scripts/check-apk.py app/build/outputs/apk/release/app-release-unsigned.apk
 ```
 
+### Performance checks
+
+See [UI performance](docs/PERFORMANCE.md) for the optimization details, large-data
+regression scenarios, and repeatable release startup measurements.
+
 ### Connected Device & Instrumentation Tests
 
 When an Android TV device or emulator is running:

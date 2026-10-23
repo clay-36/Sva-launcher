@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 /** A recycled channel list and a single logical time window, designed for a TV remote. */
 @UnstableApi
 public final class GuideActivity extends MotionActivity {
+    private static final Object TIMELINE_PAYLOAD = new Object();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final LifecycleWork lifecycleWork = new LifecycleWork(this, handler);
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -290,7 +291,7 @@ public final class GuideActivity extends MotionActivity {
         finishPan(); windowStart = origin; renderedWindowStart = origin; updateRenderBounds();
         anchor = System.currentTimeMillis(); channelFocused = false;
         navigationTime = anchor;
-        adapter.notifyDataSetChanged(); ruler.invalidate(); updateDetails(); focusSelection(); Motion.reveal(list);
+        refreshTimelineRows(); ruler.invalidate(); updateDetails(); focusSelection(); Motion.reveal(list);
     }
     private void updateRenderBounds() {
         renderFrom = Math.min((long)renderedWindowStart, windowStart) - GuideTimeline.HALF_HOUR;
@@ -308,12 +309,16 @@ public final class GuideActivity extends MotionActivity {
         }
         ruler.invalidate();
     }
+    private void refreshTimelineRows() {
+        // Payloads update visible timelines and invalidate cached rows without rebinding logos.
+        adapter.notifyItemRangeChanged(0, channels.size(), TIMELINE_PAYLOAD);
+    }
     private void panTo(long next) {
         if (timelinePan != null) { timelinePan.cancel(); timelinePan = null; }
         double previous = renderedWindowStart; windowStart = next;
         boolean smooth = Motion.enabled() && Math.abs(next - previous) <= 2 * GuideTimeline.HALF_HOUR;
         if (!smooth) renderedWindowStart = next;
-        updateRenderBounds(); adapter.notifyDataSetChanged(); ruler.invalidate();
+        updateRenderBounds(); refreshTimelineRows(); ruler.invalidate();
         if (!smooth) { Motion.reveal(list); return; }
         android.animation.ValueAnimator animation = android.animation.ValueAnimator.ofFloat(0f, 1f);
         timelinePan = animation; animation.setDuration(Motion.SCREEN); animation.setInterpolator(Motion.EASING);
@@ -431,8 +436,11 @@ public final class GuideActivity extends MotionActivity {
             if (code == KeyEvent.KEYCODE_DPAD_DOWN) { focusSelection(); return true; }
             Button[] controls = {backButton, categoryButton, nowButton};
             int index = focused == backButton ? 0 : focused == categoryButton ? 1 : 2;
-            if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT)
-                controls[Math.max(0, Math.min(2, index + (code == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1)))].requestFocus();
+            if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                int step = code == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1;
+                if (toolbar.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) step = -step;
+                controls[Math.max(0, Math.min(2, index + step))].requestFocus();
+            }
             return true;
         }
         return super.dispatchKeyEvent(event);
@@ -503,7 +511,11 @@ public final class GuideActivity extends MotionActivity {
         Motion.dialog(dialog); dialog.show();
         for (int which : new int[]{AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL}) {
             Button button = dialog.getButton(which);
-            if (button != null) { button.setTypeface(LiquidTheme.font(this)); button.setTextColor(LiquidTheme.accent(this)); }
+            if (button != null) {
+                style(button);
+                button.setTypeface(LiquidTheme.font(this));
+                button.setTextColor(LiquidTheme.text(this));
+            }
         }
     }
     private void refreshBadges() {
@@ -523,6 +535,10 @@ public final class GuideActivity extends MotionActivity {
         @Override public int getItemCount() { return channels.size(); }
         @Override public Row onCreateViewHolder(ViewGroup parent, int type) { return new Row(); }
         @Override public void onBindViewHolder(Row row, int position) { row.bind(position); }
+        @Override public void onBindViewHolder(Row row, int position, List<Object> payloads) {
+            if (!payloads.isEmpty() && payloads.contains(TIMELINE_PAYLOAD)) row.bindTimeline(position);
+            else row.bind(position);
+        }
     }
     private final class Row extends RecyclerView.ViewHolder {
         final LinearLayout channel;
@@ -557,6 +573,9 @@ public final class GuideActivity extends MotionActivity {
             logos.load(c.logoUrl, logo, fallback);
             configure(channel, new Target(position, null));
             channel.setContentDescription(AppLanguage.get(R.string.ui_watch_1_s_2_s, c.name, (isFav ? AppLanguage.get(R.string.ui_favourite) : "")));
+            bindTimeline(position);
+        }
+        void bindTimeline(int position) {
             int childIndex = 0;
             for (GuideTimeline.Slot slot : slots(position)) {
                 if (slot.end <= renderFrom || slot.start >= renderTo) continue;

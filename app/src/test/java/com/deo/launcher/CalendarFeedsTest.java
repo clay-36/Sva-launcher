@@ -168,6 +168,37 @@ public final class CalendarFeedsTest {
         assertEquals(NOW + 2 * 60 * 60 * 1000, event.startMs);
     }
 
+    @Test public void recurringOverridesReplaceOriginalBeforeMergingAndCaching() {
+        String series = "BEGIN:VEVENT\nUID:weekly\nSUMMARY:Original\nDTSTART:20261021T100000Z\nRRULE:FREQ=DAILY;COUNT=3\nEND:VEVENT\n";
+        for (String start : Arrays.asList("20261021T080000Z", "20261021T120000Z")) {
+            String override = "BEGIN:VEVENT\nUID:weekly\nRECURRENCE-ID:20261021T100000Z\nSUMMARY:Moved\nDTSTART:" + start + "\nEND:VEVENT\n";
+            for (String entries : Arrays.asList(series + override, override + series)) {
+                CalendarFeedCache cache = cache();
+                List<String> urls = Arrays.asList(A, B);
+                cache.refresh(urls, NOW, url -> feed(entries));
+                List<PublicCalendarRepository.Event> events = cache.merged(urls, NOW);
+                assertEquals(3, events.size());
+                assertEquals("Moved", events.get(0).title);
+                assertEquals(start.contains("080000") ? NOW - 7200000 : NOW + 7200000, events.get(0).startMs);
+                assertEquals(Long.toString(NOW), events.get(0).instance);
+                CalendarFeedCache restored = CalendarFeedCache.load(cache.encode(), String.join("\n", urls), "[]", 0);
+                assertEquals("Moved", restored.merged(urls, NOW).get(0).title);
+            }
+        }
+    }
+
+    @Test public void cancelledAndOutOfWindowOverridesSuppressOriginalOccurrences() {
+        String series = "BEGIN:VEVENT\nUID:weekly\nSUMMARY:Original\nDTSTART:20261021T100000Z\nRRULE:FREQ=DAILY;COUNT=2\nEND:VEVENT\n";
+        for (String properties : Arrays.asList("STATUS:CANCELLED\n", "DTSTART:20281021T120000Z\n")) {
+            String override = "BEGIN:VEVENT\nUID:weekly\nRECURRENCE-ID:20261021T100000Z\n" + properties + "END:VEVENT\n";
+            for (String entries : Arrays.asList(series + override, override + series)) {
+                List<PublicCalendarRepository.Event> events = PublicCalendarRepository.parse(feed(entries), NOW);
+                assertEquals(1, events.size());
+                assertEquals(NOW + 24 * 60 * 60 * 1000, events.get(0).startMs);
+            }
+        }
+    }
+
     @Test public void partialFailureKeepsOnlyFailedSourcesOldEventsAndTimestamp() throws Exception {
         CalendarFeedCache cache = cache(); List<String> urls = Arrays.asList(A, B);
         cache.refresh(urls, NOW, url -> feed(event(url, "Old")));

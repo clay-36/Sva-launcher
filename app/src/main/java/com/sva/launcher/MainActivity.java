@@ -115,7 +115,7 @@ public final class MainActivity extends LocalizedActivity {
     private static final String GOOGLE_PHOTOS_CACHE_IMAGES = "googlePhotosCacheImages";
     private static final String PHOTO_FOLDER_CACHE_URI = "photoFolderCacheUri";
     private static final String PHOTO_FOLDER_CACHE_IMAGES = "photoFolderCacheImages";
-    private static final int CALENDAR_CACHE_VERSION = 4;
+    private static final int CALENDAR_CACHE_VERSION = 5;
     private static final int PANEL = 0xF21B1B1B;
     private static final int PANEL_FOCUSED = 0xFF2A2A2A;
     private static final int MUTED = 0xFFB7B7B7;
@@ -151,8 +151,21 @@ public final class MainActivity extends LocalizedActivity {
     private ChannelLogoLoader logoLoader;
     private SharedPreferences preferences;
     private LinearLayout root, homeContent, liveContent, gamesContent, eventsContent, savedContent;
-    private LinearLayout appRow, youtubeRow, youtubeSection;
-    private GridLayout gameGrid, calendarMonthGrid;
+    private LinearLayout appRow, youtubeSection;
+    private RecyclerView youtubeRow;
+    private SavedCardAdapter savedCardAdapter;
+    private String renderedSavedSource;
+    private boolean retrySavedArtwork;
+    private android.os.Parcelable savedListState, gamesListState;
+    private RecyclerView gameGrid;
+    private GameCardAdapter gameAdapter;
+    private int gameLoadGeneration, gameFocusGeneration;
+    private int pendingGameFocus = RecyclerView.NO_POSITION;
+    private GridLayout calendarMonthGrid;
+    private String parsedCalendarSource, renderedCalendarSource;
+    private List<PublicCalendarRepository.Event> parsedCalendarEvents = Collections.emptyList();
+    private String liveStatus;
+    private boolean liveStatusVisible = true;
     private TextView calendarHeaderDate, calendarHeaderEvents;
     private Button previousMonthButton, nextMonthButton;
     private TextView gamesEmpty, youtubeEmpty, todayEmpty, monthTitle;
@@ -244,6 +257,8 @@ public final class MainActivity extends LocalizedActivity {
         preferences = getSharedPreferences("launcher", MODE_PRIVATE);
         if (state != null) {
             focusedPackage = state.getString("focusedPackage");
+            savedListState = state.getParcelable("savedListState");
+            gamesListState = state.getParcelable("gamesListState");
             activeTab = Math.max(TAB_HOME, Math.min(TAB_SAVED, state.getInt("activeTab", TAB_HOME)));
             for (int i = 0; i < tabScroll.length; i++) tabScroll[i] = state.getInt("tabScroll" + i, 0);
             tabScroll[TAB_HOME] = 0;
@@ -269,13 +284,13 @@ public final class MainActivity extends LocalizedActivity {
         updateClock();
         clockTick = new Runnable() {
             @Override public void run() {
-                updateClock();
-                refreshCachedProgrammeDisplay();
-                updateCalendarEventDisplay();
+                if (!screenActive) return;
+                if (activeTab == TAB_HOME) updateClock();
+                if (activeTab == TAB_TV) refreshCachedProgrammeDisplay();
+                if (activeTab == TAB_HOME || activeTab == TAB_EVENTS) updateCalendarEventDisplay();
                 handler.postDelayed(this, 30000);
             }
         };
-        handler.postDelayed(clockTick, 30000);
         guideRefreshTick = new Runnable() {
             @Override public void run() {
                 maybeRefreshLiveData();
@@ -319,6 +334,8 @@ public final class MainActivity extends LocalizedActivity {
         View selectedApp = appRow == null ? null : appRow.findFocus();
         if (selectedApp != null && selectedApp.getTag() instanceof String) focusedPackage = (String) selectedApp.getTag();
         outState.putString("focusedPackage", focusedPackage);
+        outState.putParcelable("savedListState", youtubeRow == null ? savedListState : youtubeRow.getLayoutManager().onSaveInstanceState());
+        outState.putParcelable("gamesListState", gameGrid == null ? gamesListState : gameGrid.getLayoutManager().onSaveInstanceState());
         outState.putInt("activeTab", activeTab);
         for (int i = 0; i < tabPages.length; i++)
             outState.putInt("tabScroll" + i, i == TAB_HOME ? 0
@@ -504,6 +521,10 @@ public final class MainActivity extends LocalizedActivity {
     @Override protected void onResume() {
         super.onResume();
         screenActive = true;
+        updateClock();
+        updateCalendarEventDisplay();
+        handler.removeCallbacks(clockTick);
+        handler.postDelayed(clockTick, 30000);
         Set<String> freshHidden = HiddenChannels.load(preferences);
         Set<String> freshFavorites = FavoriteChannels.load(preferences);
         if (!freshHidden.equals(hiddenChannelKeys) || !freshFavorites.equals(favoriteChannelKeys)) {
@@ -545,6 +566,7 @@ public final class MainActivity extends LocalizedActivity {
 
     @Override protected void onPause() {
         screenActive = false;
+        if (clockTick != null) handler.removeCallbacks(clockTick);
         handler.removeCallbacks(screensaverIdle);
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
@@ -596,7 +618,7 @@ public final class MainActivity extends LocalizedActivity {
                 if (!cached.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
                         .reconcile(channels, hiddenChannelKeys);
                 openPendingReminder();
-                if (!cached.isEmpty()) status.setVisibility(View.GONE);
+                if (!cached.isEmpty()) setLiveStatusVisible(false);
                 scheduleLiveRefreshCheck();
                 if (settingsScreen != null && settingsScreen.channelAdapter != null) {
                     settingsScreen.channelAdapter.refresh();
@@ -1024,6 +1046,11 @@ public final class MainActivity extends LocalizedActivity {
         appScroll.addView(appRow);
         homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(92)));
 
+        applyWallpaper();
+        selectTab(activeTab, false);
+    }
+
+    private void buildGamesTab() {
         LinearLayout gamesHeading = new LinearLayout(this);
         gamesHeading.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         gamesHeading.setClipChildren(false);
@@ -1041,14 +1068,22 @@ public final class MainActivity extends LocalizedActivity {
         gamesEmpty = label(AppLanguage.get(R.string.ui_no_games_yet_import_your_own_nes_files_to_get_started), 17, MUTED, false);
         gamesEmpty.setPadding(dp(8), dp(20), 0, dp(20));
         gamesContent.addView(gamesEmpty);
-        gameGrid = new GridLayout(this);
-        gameGrid.setColumnCount(5);
-        gameGrid.setClipChildren(false);
-        gameGrid.setClipToPadding(false);
-        gamesContent.addView(gameGrid, new LinearLayout.LayoutParams(-1, -2));
-        renderGames();
+        gameGrid = new RecyclerView(this);
+        int columns = Math.max(1, Math.min(5, (getResources().getDisplayMetrics().widthPixels
+                - gamesContent.getPaddingLeft() - gamesContent.getPaddingRight()) / dp(162)));
+        gameGrid.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(this, columns));
+        gameGrid.setItemAnimator(null);
+        gameGrid.setClipChildren(false); gameGrid.setClipToPadding(false);
+        gameGrid.setNestedScrollingEnabled(false);
+        gameAdapter = new GameCardAdapter(this,
+                dp(224), 0, 0, dp(12), dp(12), game -> startActivity(new Intent(this,
+                        GameDetailActivity.class).putExtra("gameId", game.id)));
+        gameGrid.setAdapter(gameAdapter);
+        gamesContent.addView(gameGrid, new LinearLayout.LayoutParams(-1, dp(Math.max(236,
+                getResources().getConfiguration().screenHeightDp - 326))));
+    }
 
-        applyWallpaper();
+    private void buildLiveTab() {
 
         if (liveContent.getChildCount() > 0) liveContent.getChildAt(0).setVisibility(View.GONE);
         LinearLayout liveHeading = new LinearLayout(this);
@@ -1102,7 +1137,12 @@ public final class MainActivity extends LocalizedActivity {
         status = label(AppLanguage.get(R.string.ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started), 15, MUTED, false);
         status.setPadding(0, dp(12), 0, 0);
         liveContent.addView(status);
+        if (liveStatus != null) status.setText(liveStatus);
+        status.setVisibility(liveStatusVisible ? View.VISIBLE : View.GONE);
 
+    }
+
+    private void buildSavedTab() {
         youtubeSection = new LinearLayout(this);
         youtubeSection.setOrientation(LinearLayout.VERTICAL);
         youtubeSection.setClipChildren(false);
@@ -1123,27 +1163,37 @@ public final class MainActivity extends LocalizedActivity {
         LinearLayout.LayoutParams youtubeSectionParams = new LinearLayout.LayoutParams(-1, -2);
         youtubeSectionParams.topMargin = dp(16);
         youtubeSection.addView(youtubeTitleRow, new LinearLayout.LayoutParams(-1, dp(56)));
-        HorizontalScrollView youtubeScroll = new HorizontalScrollView(this);
-        youtubeScroll.setHorizontalScrollBarEnabled(false);
-        youtubeScroll.setPadding(dp(8), dp(10), dp(8), dp(10));
-        youtubeScroll.setClipChildren(false);
-        youtubeScroll.setClipToPadding(false);
-        youtubeRow = new LinearLayout(this);
-        youtubeRow.setOrientation(LinearLayout.HORIZONTAL);
-        youtubeRow.setClipChildren(false);
-        youtubeRow.setClipToPadding(false);
-        youtubeScroll.addView(youtubeRow);
-        youtubeSection.addView(youtubeScroll, new LinearLayout.LayoutParams(-1, dp(230)));
+        youtubeRow = new RecyclerView(this);
+        youtubeRow.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        youtubeRow.setHorizontalScrollBarEnabled(false);
+        youtubeRow.setPadding(dp(8), dp(10), dp(8), dp(10));
+        youtubeRow.setClipChildren(true); youtubeRow.setClipToPadding(false);
+        youtubeRow.setItemAnimator(null);
+        savedCardAdapter = new SavedCardAdapter();
+        youtubeRow.setAdapter(savedCardAdapter);
+        youtubeSection.addView(youtubeRow, new LinearLayout.LayoutParams(-1, dp(230)));
         savedContent.addView(youtubeSection, youtubeSectionParams);
         youtubeEmpty = label(AppLanguage.get(R.string.ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin), 17, MUTED, false);
         youtubeEmpty.setPadding(dp(8), dp(16), 0, dp(16));
         savedContent.addView(youtubeEmpty);
         renderYouTubeCards();
 
-        buildEventsTab();
+    }
 
-        renderGuide();
-        selectTab(activeTab, false);
+    private void ensureTabBuilt(int tab) {
+        if (tab == TAB_TV) {
+            if (channelRows == null) buildLiveTab();
+            renderChannels();
+        } else if (tab == TAB_GAMES) {
+            if (gameGrid == null) buildGamesTab();
+            renderGames();
+        } else if (tab == TAB_EVENTS) {
+            if (calendarMonthGrid == null) buildEventsTab();
+            updateCalendarEventDisplay();
+        } else if (tab == TAB_SAVED) {
+            if (youtubeRow == null) buildSavedTab();
+            renderYouTubeCards();
+        }
     }
 
     @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
@@ -1156,7 +1206,7 @@ public final class MainActivity extends LocalizedActivity {
         page.setFillViewport(true);
         page.setVerticalScrollBarEnabled(false);
         page.setBackgroundColor(Color.TRANSPARENT);
-        page.setClipChildren(false);
+        page.setClipChildren(true);
         page.setClipToPadding(false);
         page.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout content = new LinearLayout(this);
@@ -1254,6 +1304,20 @@ public final class MainActivity extends LocalizedActivity {
             }
             View page = tabPages[activeTab];
             if (focused != null && page != null && isWithinPage(focused, page)) {
+                if (activeTab == TAB_GAMES && gameGrid != null && isWithinPage(focused, gameGrid)
+                        && (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN)) {
+                    View item = gameGrid.findContainingItemView(focused);
+                    int position = item == null ? RecyclerView.NO_POSITION : gameGrid.getChildAdapterPosition(item);
+                    int columns = ((androidx.recyclerview.widget.GridLayoutManager)gameGrid.getLayoutManager()).getSpanCount();
+                    if (pendingGameFocus != RecyclerView.NO_POSITION) position = pendingGameFocus;
+                    boolean anotherRow = position != RecyclerView.NO_POSITION && (direction == View.FOCUS_DOWN
+                            ? position / columns < (gameAdapter.getItemCount() - 1) / columns : position >= columns);
+                    if (anotherRow) {
+                        focusGamePosition(Math.min(gameAdapter.getItemCount() - 1,
+                                position + (direction == View.FOCUS_DOWN ? columns : -columns)));
+                        return true;
+                    }
+                }
                 if (activeTab == TAB_TV) {
                     if (focused == guideToggle && direction == View.FOCUS_DOWN) {
                         Button categoryTab = channelTabMap.get(selectedChannelCategory);
@@ -1467,10 +1531,13 @@ public final class MainActivity extends LocalizedActivity {
             View focused = oldPage.findFocus();
             if (focused != null) tabFocus[activeTab] = focused;
         }
+        if (activeTab != selectedTab) { gameFocusGeneration++; pendingGameFocus = RecyclerView.NO_POSITION; }
         activeTab = selectedTab;
         tabsInitialized = true;
         switchingTabs = true;
         try {
+            ensureTabBuilt(selectedTab);
+            if (selectedTab == TAB_HOME) { updateClock(); updateHomeCalendarWidget(); }
             for (int i = 0; i < tabPages.length; i++) {
                 if (tabPages[i] != null) {
                     if (i != selectedTab) Motion.reset(tabPages[i]);
@@ -1669,6 +1736,7 @@ public final class MainActivity extends LocalizedActivity {
         renderedMonth = displayedMonth;
         renderedToday = LocalDate.now();
         renderedCalendarStamp = preferences.getLong("publicCalendarUpdatedAt", 0L);
+        renderedCalendarSource = preferences.getString("publicCalendarEvents", "[]");
         String monthName = displayedMonth.format(java.time.format.DateTimeFormatter.ofPattern("MMMM", AppLanguage.locale()));
         SpannableString headingText = new SpannableString(monthName + " " + displayedMonth.getYear());
         headingText.setSpan(new ForegroundColorSpan(light ? LiquidTheme.secondaryText(this) : 0xFFAFC6D2), monthName.length() + 1,
@@ -2649,9 +2717,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private List<PublicCalendarRepository.Event> cachedCalendarEvents() {
+        String source = preferences.getString("publicCalendarEvents", "[]");
+        if (source.equals(parsedCalendarSource)) return parsedCalendarEvents;
         ArrayList<PublicCalendarRepository.Event> events = new ArrayList<>();
         try {
-            JSONArray values = new JSONArray(preferences.getString("publicCalendarEvents", "[]"));
+            JSONArray values = new JSONArray(source);
             for (int i = 0; i < values.length(); i++) {
                 JSONObject value = values.optJSONObject(i);
                 if (value == null) continue;
@@ -2662,7 +2732,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
         } catch (Exception ignored) { }
         Collections.sort(events, (a, b) -> Long.compare(a.startMs, b.startMs));
-        return events;
+        parsedCalendarSource = source;
+        parsedCalendarEvents = Collections.unmodifiableList(events);
+        return parsedCalendarEvents;
     }
 
     private void updateHomeCalendarWidget() {
@@ -2748,12 +2820,12 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void updateCalendarEventDisplay() {
         updateHomeCalendarWidget();
-        if (calendarMonthGrid == null) return;
+        if (calendarMonthGrid == null || activeTab != TAB_EVENTS) return;
         List<PublicCalendarRepository.Event> cached = cachedCalendarEvents();
         LocalDate today = LocalDate.now();
         long stamp = preferences.getLong("publicCalendarUpdatedAt", 0L);
         if (today.equals(renderedToday) && displayedMonth.equals(renderedMonth)
-                && stamp == renderedCalendarStamp) return;
+                && stamp == renderedCalendarStamp && java.util.Objects.equals(parsedCalendarSource, renderedCalendarSource)) return;
         if (todayItems != null) todayItems.removeAllViews();
         int todayCount = 0;
         for (PublicCalendarRepository.Event event : cached) {
@@ -3006,92 +3078,163 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void renderYouTubeCards() {
-        if (youtubeRow == null || youtubeSection == null) return;
-        youtubeRow.removeAllViews();
+        if (youtubeRow == null || activeTab != TAB_SAVED) return;
+        String source = preferences.getString("youtubeCards", "[]");
+        if (source.equals(renderedSavedSource)) return;
+        renderedSavedSource = source;
         List<YouTubeCard> cards = savedYouTubeCards();
-        youtubeSection.setVisibility(View.VISIBLE);
-        youtubeSection.getChildAt(1).setVisibility(cards.isEmpty() ? View.GONE : View.VISIBLE);
-        if (youtubeEmpty != null) youtubeEmpty.setVisibility(cards.isEmpty() ? View.VISIBLE : View.GONE);
-        boolean retryMissingArtwork = !preferences.getBoolean("youtubeArtworkFeedFallbackTried", false);
-        if (retryMissingArtwork) preferences.edit().putBoolean("youtubeArtworkFeedFallbackTried", true).apply();
-        for (YouTubeCard card : cards) {
-            boolean hasThumbnail = card.thumbnailUrl != null && !card.thumbnailUrl.isEmpty();
-            LinearLayout tile = new LinearLayout(this);
-            tile.setOrientation(LinearLayout.VERTICAL);
-            tile.setGravity(Gravity.CENTER_HORIZONTAL);
-            tile.setFocusable(true);
-            tile.setFocusableInTouchMode(false);
-            tile.setClickable(true);
-            tile.setPadding(dp(8), dp(8), dp(8), dp(7));
-            StateListDrawable states = new Motion.States();
-            boolean light = LiquidTheme.isLight(this);
-            states.addState(new int[]{android.R.attr.state_focused},
-                    roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
-            states.addState(new int[]{android.R.attr.state_pressed},
-                    roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
-            states.addState(new int[]{},
-                    roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 11));
-            tile.setBackground(states);
-            tile.setElevation(dp(2));
-            tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
-            Motion.interaction(tile, false);
+        youtubeRow.setVisibility(cards.isEmpty() ? View.GONE : View.VISIBLE);
+        youtubeEmpty.setVisibility(cards.isEmpty() ? View.VISIBLE : View.GONE);
+        retrySavedArtwork = !preferences.getBoolean("youtubeArtworkFeedFallbackTried", false);
+        if (retrySavedArtwork) preferences.edit().putBoolean("youtubeArtworkFeedFallbackTried", true).apply();
+        savedCardAdapter.submit(cards);
+        if (savedListState != null && !cards.isEmpty()) {
+            youtubeRow.getLayoutManager().onRestoreInstanceState(savedListState);
+            savedListState = null;
+        }
+    }
 
-            FrameLayout poster = new FrameLayout(this);
-            GradientDrawable posterBackground = new GradientDrawable(
-                    GradientDrawable.Orientation.TL_BR,
-                    light
-                            ? new int[]{0xFFE0EBF0, 0xFFC5D9E2, 0xFFB2CAD6}
-                            : new int[]{0xFF46647A, 0xFF1B3044, 0xFF101B2A});
-            posterBackground.setCornerRadius(dp(16));
-            posterBackground.setStroke(dp(1), LiquidTheme.border(this));
-            poster.setBackground(posterBackground);
-            poster.setClipToOutline(true);
-            ImageView thumbnail = new ImageView(this);
-            thumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            thumbnail.setTag(card.url);
-            poster.addView(thumbnail, new FrameLayout.LayoutParams(-1, -1));
-            // The title becomes the artwork when YouTube has no usable thumbnail.
-            TextView fallback = label(card.displayTitle(), 20, light ? 0xFF1A353D : Color.WHITE, true);
-            fallback.setTextColor(light ? 0xFF1A353D : Color.WHITE);
-            fallback.setGravity(Gravity.BOTTOM | Gravity.START);
-            fallback.setMaxLines(3);
-            fallback.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            fallback.setPadding(dp(15), dp(34), dp(15), dp(14));
-            if (!light) fallback.setShadowLayer(dp(8), 0, dp(2), Color.BLACK);
-            fallback.setContentDescription(AppLanguage.get(R.string.ui_artwork_1_s, card.displayTitle()));
-            poster.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
-            TextView type = label(YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_video) : AppLanguage.get(R.string.ui_playlist),
-                    9, light ? LiquidTheme.accent(this) : Color.WHITE, true);
-            type.setTextColor(light ? LiquidTheme.accent(this) : Color.WHITE);
-            type.setLetterSpacing(.10f);
-            type.setPadding(dp(9), dp(5), dp(9), dp(5));
-            type.setBackground(roundedShape(light ? 0xD0FFFFFF : 0xDB121212, LiquidTheme.accent(this), 1, 5));
-            FrameLayout.LayoutParams typeParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
-            typeParams.setMargins(dp(8), dp(8), 0, 0);
-            poster.addView(type, typeParams);
-            tile.addView(poster, new LinearLayout.LayoutParams(dp(224), dp(hasThumbnail ? 126 : 178)));
-            if (hasThumbnail) {
-                TextView title = label(card.displayTitle(), 14, LiquidTheme.text(this), true);
-                title.setMaxLines(2);
-                title.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                title.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
-                title.setPadding(dp(3), dp(6), dp(3), 0);
-                tile.addView(title, new LinearLayout.LayoutParams(dp(224), dp(52)));
+    private View createYouTubeTile(YouTubeCard card) {
+        boolean hasThumbnail = card.thumbnailUrl != null && !card.thumbnailUrl.isEmpty();
+        LinearLayout tile = new LinearLayout(this);
+        tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setGravity(Gravity.CENTER_HORIZONTAL);
+        tile.setFocusable(true);
+        tile.setFocusableInTouchMode(false);
+        tile.setClickable(true);
+        tile.setPadding(dp(8), dp(8), dp(8), dp(7));
+        StateListDrawable states = new Motion.States();
+        boolean light = LiquidTheme.isLight(this);
+        states.addState(new int[]{android.R.attr.state_focused},
+                roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
+        states.addState(new int[]{android.R.attr.state_pressed},
+                roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
+        states.addState(new int[]{},
+                roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 11));
+        tile.setBackground(states);
+        tile.setElevation(dp(2));
+        tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+        Motion.interaction(tile, false);
+
+        FrameLayout poster = new FrameLayout(this);
+        GradientDrawable posterBackground = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                light
+                        ? new int[]{0xFFE0EBF0, 0xFFC5D9E2, 0xFFB2CAD6}
+                        : new int[]{0xFF46647A, 0xFF1B3044, 0xFF101B2A});
+        posterBackground.setCornerRadius(dp(16));
+        posterBackground.setStroke(dp(1), LiquidTheme.border(this));
+        poster.setBackground(posterBackground);
+        poster.setClipToOutline(true);
+        ImageView thumbnail = new ImageView(this);
+        thumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        thumbnail.setTag(card.url);
+        poster.addView(thumbnail, new FrameLayout.LayoutParams(-1, -1));
+        // The title becomes the artwork when YouTube has no usable thumbnail.
+        TextView fallback = label(card.displayTitle(), 20, light ? 0xFF1A353D : Color.WHITE, true);
+        fallback.setTextColor(light ? 0xFF1A353D : Color.WHITE);
+        fallback.setGravity(Gravity.BOTTOM | Gravity.START);
+        fallback.setMaxLines(3);
+        fallback.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        fallback.setPadding(dp(15), dp(34), dp(15), dp(14));
+        if (!light) fallback.setShadowLayer(dp(8), 0, dp(2), Color.BLACK);
+        fallback.setContentDescription(AppLanguage.get(R.string.ui_artwork_1_s, card.displayTitle()));
+        poster.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
+        TextView type = label(YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_video) : AppLanguage.get(R.string.ui_playlist),
+                9, light ? LiquidTheme.accent(this) : Color.WHITE, true);
+        type.setTextColor(light ? LiquidTheme.accent(this) : Color.WHITE);
+        type.setLetterSpacing(.10f);
+        type.setPadding(dp(9), dp(5), dp(9), dp(5));
+        type.setBackground(roundedShape(light ? 0xD0FFFFFF : 0xDB121212, LiquidTheme.accent(this), 1, 5));
+        FrameLayout.LayoutParams typeParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+        typeParams.setMargins(dp(8), dp(8), 0, 0);
+        poster.addView(type, typeParams);
+        tile.addView(poster, new LinearLayout.LayoutParams(dp(224), dp(hasThumbnail ? 126 : 178)));
+        if (hasThumbnail) {
+            TextView title = label(card.displayTitle(), 14, LiquidTheme.text(this), true);
+            title.setMaxLines(2);
+            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            title.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+            title.setPadding(dp(3), dp(6), dp(3), 0);
+            tile.addView(title, new LinearLayout.LayoutParams(dp(224), dp(52)));
+        }
+        tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_play_video) : AppLanguage.get(R.string.ui_open_playlist)).trim() + " " + AppLanguage.bidi(card.displayTitle()));
+        tile.setOnClickListener(view -> launchYouTubeCard(card));
+        bindYouTubeTile(tile, card);
+        linkTopControl(TAB_SAVED, tile);
+        return tile;
+    }
+
+    private void bindYouTubeTile(LinearLayout tile, YouTubeCard card) {
+        FrameLayout poster = (FrameLayout)tile.getChildAt(0);
+        ImageView thumbnail = (ImageView)poster.getChildAt(0);
+        TextView fallback = (TextView)poster.getChildAt(1);
+        thumbnail.setTag(null); thumbnail.setImageDrawable(null);
+        fallback.setText(card.displayTitle()); fallback.setVisibility(View.VISIBLE);
+        fallback.setContentDescription(AppLanguage.get(R.string.ui_artwork_1_s, card.displayTitle()));
+        ((TextView)poster.getChildAt(2)).setText(AppLanguage.get(YouTubeCard.VIDEO.equals(card.type)
+                ? R.string.ui_video : R.string.ui_playlist));
+        if (tile.getChildCount() > 1) ((TextView)tile.getChildAt(1)).setText(card.displayTitle());
+        tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_play_video)
+                : AppLanguage.get(R.string.ui_open_playlist)).trim() + " " + AppLanguage.bidi(card.displayTitle()));
+        tile.setOnClickListener(view -> launchYouTubeCard(card));
+        boolean retryMissingArtwork = retrySavedArtwork;
+        loadYouTubeThumbnail(card, thumbnail, fallback);
+        long refreshAfter = card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()
+                ? 60L * 60L * 1000L : 24L * 60L * 60L * 1000L;
+        if (card.metadataCheckedAt == 0L
+                || System.currentTimeMillis() - card.metadataCheckedAt > refreshAfter
+                || (retryMissingArtwork && (card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()))) {
+            fetchYouTubeMetadata(card.url);
+        }
+    }
+
+    private final class SavedCardAdapter extends RecyclerView.Adapter<SavedCardAdapter.Holder> {
+        private List<YouTubeCard> cards = Collections.emptyList();
+        void submit(List<YouTubeCard> next) {
+            List<YouTubeCard> previous = cards;
+            androidx.recyclerview.widget.DiffUtil.DiffResult diff = androidx.recyclerview.widget.DiffUtil.calculateDiff(
+                    new androidx.recyclerview.widget.DiffUtil.Callback() {
+                public int getOldListSize() { return previous.size(); }
+                public int getNewListSize() { return next.size(); }
+                public boolean areItemsTheSame(int a, int b) { return previous.get(a).url.equals(next.get(b).url); }
+                public boolean areContentsTheSame(int a, int b) {
+                    YouTubeCard old = previous.get(a), card = next.get(b);
+                    return java.util.Objects.equals(old.title, card.title)
+                            && java.util.Objects.equals(old.thumbnailUrl, card.thumbnailUrl)
+                            && old.customTitle == card.customTitle && old.customThumbnail == card.customThumbnail;
+                }
+            });
+            cards = next;
+            diff.dispatchUpdatesTo(this);
+        }
+        public Holder onCreateViewHolder(ViewGroup parent, int type) {
+            FrameLayout host = new FrameLayout(MainActivity.this);
+            host.setClipChildren(false); host.setClipToPadding(false);
+            host.setPadding(dp(4), dp(4), dp(14), dp(8));
+            host.setLayoutParams(new RecyclerView.LayoutParams(dp(258), dp(210)));
+            return new Holder(host);
+        }
+        public void onBindViewHolder(Holder holder, int position) {
+            if (holder.host.getChildCount() == 0) {
+                View tile = createYouTubeTile(cards.get(position));
+                holder.host.addView(tile, new FrameLayout.LayoutParams(dp(240), dp(198)));
+            } else bindYouTubeTile((LinearLayout)holder.host.getChildAt(0), cards.get(position));
+        }
+        @Override public int getItemViewType(int position) {
+            String thumbnail = cards.get(position).thumbnailUrl;
+            return thumbnail == null || thumbnail.isEmpty() ? 0 : 1;
+        }
+        @Override public void onViewRecycled(Holder holder) {
+            if (holder.host.getChildCount() > 0) {
+                ImageView image = (ImageView)((FrameLayout)((LinearLayout)holder.host.getChildAt(0)).getChildAt(0)).getChildAt(0);
+                image.setTag(null); image.setImageDrawable(null);
             }
-            tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_play_video) : AppLanguage.get(R.string.ui_open_playlist)).trim() + " " + AppLanguage.bidi(card.displayTitle()));
-            tile.setOnClickListener(view -> launchYouTubeCard(card));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(240), dp(198));
-            params.setMargins(dp(4), dp(4), dp(14), dp(8));
-            youtubeRow.addView(tile, params);
-            linkTopControl(TAB_SAVED, tile);
-            loadYouTubeThumbnail(card, thumbnail, fallback);
-            long refreshAfter = card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()
-                    ? 60L * 60L * 1000L : 24L * 60L * 60L * 1000L;
-            if (card.metadataCheckedAt == 0L
-                    || System.currentTimeMillis() - card.metadataCheckedAt > refreshAfter
-                    || (retryMissingArtwork && (card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()))) {
-                fetchYouTubeMetadata(card.url);
-            }
+        }
+        public int getItemCount() { return cards.size(); }
+        final class Holder extends RecyclerView.ViewHolder {
+            final FrameLayout host;
+            Holder(FrameLayout host) { super(host); this.host = host; }
         }
     }
 
@@ -3220,6 +3363,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void loadYouTubeThumbnail(YouTubeCard card, ImageView image, TextView fallback) {
         if (card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()) return;
+        String request = card.url + "|" + card.thumbnailUrl;
+        image.setTag(request);
         android.graphics.Bitmap cached = youtubeThumbnailCache.get(card.thumbnailUrl);
         if (cached != null && !cached.isRecycled()) {
             image.setImageBitmap(cached);
@@ -3269,7 +3414,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             youtubeThumbnailCache.put(card.thumbnailUrl, bitmap);
             android.graphics.Bitmap result = bitmap;
             lifecycleWork.post(() -> {
-                if (card.url.equals(image.getTag())) {
+                if (request.equals(image.getTag())) {
                     image.setImageBitmap(result);
                     fallback.setVisibility(View.GONE);
                 }
@@ -3461,25 +3606,38 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (launch != null) try { startActivity(launch); } catch (Exception ignored) { }
     }
 
+    private void focusGamePosition(int position) {
+        pendingGameFocus = position;
+        int generation = ++gameFocusGeneration;
+        gameGrid.scrollToPosition(position);
+        gameGrid.post(new Runnable() {
+            int attempts;
+            @Override public void run() {
+                if (generation != gameFocusGeneration || activeTab != TAB_GAMES || !lifecycleWork.active()) return;
+                RecyclerView.ViewHolder holder = gameGrid.findViewHolderForAdapterPosition(position);
+                if (holder != null && holder.itemView.requestFocus()) {
+                    pendingGameFocus = RecyclerView.NO_POSITION;
+                } else if (++attempts < 8) gameGrid.postOnAnimation(this);
+                else pendingGameFocus = RecyclerView.NO_POSITION;
+            }
+        });
+    }
+
     private void renderGames() {
-        if (gameGrid == null) return;
-        gameGrid.removeAllViews();
-        List<GameRecord> games = new GameRepository(this).games();
-        gamesEmpty.setVisibility(games.isEmpty() ? View.VISIBLE : View.GONE);
-        int availableWidth = getResources().getDisplayMetrics().widthPixels
-                - gamesContent.getPaddingLeft() - gamesContent.getPaddingRight();
-        int columns = Math.max(1, Math.min(5, availableWidth / dp(162)));
-        gameGrid.setColumnCount(columns);
-        int cardWidth = Math.max(1, availableWidth / columns - dp(12));
-        for (GameRecord game : games) {
-            LinearLayout card = GameUi.card(this, game, v -> startActivity(new Intent(this, GameDetailActivity.class).putExtra("gameId", game.id)));
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = cardWidth;
-            params.height = dp(224);
-            params.setMargins(0, 0, dp(12), dp(12));
-            gameGrid.addView(card, params);
-            if (gameGrid.getChildCount() <= columns) linkTopControl(TAB_GAMES, card);
-        }
+        if (gameGrid == null || activeTab != TAB_GAMES) return;
+        int generation = ++gameLoadGeneration;
+        lifecycleWork.execute(ioWorker, () -> {
+            List<GameCardAdapter.Item> games = GameCardAdapter.load(this);
+            lifecycleWork.post(() -> {
+                if (generation != gameLoadGeneration) return;
+                gamesEmpty.setVisibility(games.isEmpty() ? View.VISIBLE : View.GONE);
+                gameAdapter.submit(games);
+                if (gamesListState != null && !games.isEmpty()) {
+                    gameGrid.getLayoutManager().onRestoreInstanceState(gamesListState);
+                    gamesListState = null;
+                }
+            });
+        });
     }
 
     private static final class AppEntry {
@@ -3516,8 +3674,17 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         return null;
     }
 
+    private void setLiveStatus(String value) {
+        liveStatus = value;
+        if (status != null) status.setText(value);
+    }
+    private void setLiveStatusVisible(boolean visible) {
+        liveStatusVisible = visible;
+        if (status != null) status.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
     private void renderChannels() {
-        if (channelRows == null) return;
+        if (channelRows == null || activeTab != TAB_TV) return;
         IptvRepository.refreshProgrammeDisplay(channels, System.currentTimeMillis());
         List<IptvRepository.Channel> favorites = FavoriteChannels.filterFavorites(channels, hiddenChannelKeys, favoriteChannelKeys);
         LinkedHashMap<String, List<IptvRepository.Channel>> grouped = new LinkedHashMap<>();
@@ -4053,8 +4220,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private void refreshChannels() {
         if (channelsRefreshing) return;
         channelsRefreshing = true;
-        status.setVisibility(View.VISIBLE);
-        status.setText(AppLanguage.get(R.string.ui_refreshing_channels));
+        setLiveStatusVisible(true);
+        setLiveStatus(AppLanguage.get(R.string.ui_refreshing_channels));
         if (settingsScreen != null) settingsScreen.onRefreshResult(AppLanguage.get(R.string.ui_refreshing_channels));
         iptv.refreshChannels((loaded, message) -> lifecycleWork.post(() -> {
             channelsRefreshing = false;
@@ -4063,7 +4230,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             if (!loaded.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
                     .reconcile(channels, hiddenChannelKeys);
             openPendingReminder();
-            status.setText(message);
+            setLiveStatus(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
             if (!channels.isEmpty() && !iptv.guideUrl().isEmpty() && iptv.isGuideStale(channels)) refreshGuide(false);
             scheduleLiveRefreshCheck();
@@ -4074,8 +4241,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (guideRefreshing) return;
         guideRefreshing = true;
         String refreshing = userRequested ? AppLanguage.get(R.string.ui_refreshing_programme_guide) : AppLanguage.get(R.string.ui_updating_today_s_programme_guide);
-        status.setVisibility(View.VISIBLE);
-        status.setText(refreshing);
+        setLiveStatusVisible(true);
+        setLiveStatus(refreshing);
         if (settingsScreen != null) settingsScreen.onRefreshResult(refreshing);
         iptv.refreshGuide(new ArrayList<>(channels), (loaded, message) -> lifecycleWork.post(() -> {
             guideRefreshing = false;
@@ -4083,7 +4250,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             renderChannels();
             if (!loaded.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
                     .reconcile(channels, hiddenChannelKeys);
-            status.setText(message);
+            setLiveStatus(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
             scheduleLiveRefreshCheck();
         }));
@@ -4346,6 +4513,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                         boolean boundary = direction == View.FOCUS_UP ? line == 0
                                 : line == layout.getLineCount() - 1;
                         if (boundary) {
+                            View ordered = formFocusNeighbor(input, direction);
+                            if (ordered != null && ordered.requestFocus()) return true;
                             View next = input.focusSearch(direction);
                             if (next != null && isWithinPage(next, detail) && next != input
                                     && next.requestFocus()) return true;
@@ -4372,6 +4541,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     return true;
                 }
                 if (isWithinPage(focused, detail)) {
+                    if (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN) {
+                        View ordered = formFocusNeighbor(focused, direction);
+                        if (ordered != null && ordered.requestFocus()) return true;
+                    }
                     if (direction == View.FOCUS_UP && focused.getParent() instanceof LinearLayout
                             && "settings-save-actions".equals(((View) focused.getParent()).getTag())) {
                         ViewGroup page = (ViewGroup) focused.getParent().getParent();
@@ -4421,6 +4594,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 return false;
             });
             dialog.setOnDismissListener(ignored -> {
+                if (channelAdapter != null) channelAdapter.cancelSearch();
                 if (settingsScreen == this) settingsScreen = null;
                 if (appsChanged) renderApps();
                 Set<String> freshHidden = HiddenChannels.load(preferences);
@@ -4459,6 +4633,24 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
             tabs[section].requestFocus();
             if (section == LANGUAGE && firstControl != null) firstControl.requestFocus();
+        }
+
+        private View formFocusNeighbor(View focused, int direction) {
+            // Search the form itself: searching the window lets the rail beat controls
+            // above/below the ScrollView's current viewport.
+            for (android.view.ViewParent parent = focused.getParent(); parent instanceof View;
+                 parent = parent.getParent()) {
+                if (parent == detail) break;
+                if (!(parent instanceof ScrollView)) continue;
+                ScrollView scroll = (ScrollView)parent;
+                if (!isWithinPage(scroll, detail) || scroll.getChildCount() == 0
+                        || !(scroll.getChildAt(0) instanceof ViewGroup)) return null;
+                View next = android.view.FocusFinder.getInstance().findNextFocus(
+                        (ViewGroup)scroll.getChildAt(0), focused, direction);
+                if (next != focused && next != null && next.isEnabled() && next.isFocusable()) return next;
+                return direction == View.FOCUS_UP ? tabs[section] : null;
+            }
+            return null;
         }
 
         private void captureDrafts() {
@@ -4609,6 +4801,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
 
         private void renderSection() {
+            if (channelAdapter != null) channelAdapter.cancelSearch();
             boolean animateSection = renderedSection >= 0 && renderedSection != section;
             boolean restoreFocus = detail.findFocus() != null;
             rememberLayout();
@@ -5464,7 +5657,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 }
                 refreshChannels();
             });
-            liveFeedback = label(status.getText().toString(), 14, SettingsUi.muted(MainActivity.this), false);
+            liveFeedback = label(liveStatus == null ? AppLanguage.get(R.string.ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started) : liveStatus, 14, SettingsUi.muted(MainActivity.this), false);
             liveFeedback.setPadding(dp(2), dp(4), dp(2), dp(2));
             page.addView(liveFeedback);
         }
@@ -5668,18 +5861,40 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
             ChannelSettingsAdapter(TextView count) { this.count = count; }
 
+            private volatile int searchGeneration;
+            private Runnable pendingSearch;
+
+            void cancelSearch() {
+                searchGeneration++;
+                if (pendingSearch != null) handler.removeCallbacks(pendingSearch);
+            }
             void setQuery(String value) {
                 query = value == null ? "" : value.trim().toLowerCase(AppLanguage.locale());
-                refresh();
+                cancelSearch();
+                pendingSearch = this::refresh;
+                if (query.isEmpty()) refresh();
+                else handler.postDelayed(pendingSearch, 150);
             }
-
             void refresh() {
-                visible.clear();
-                for (IptvRepository.Channel channel : channels) {
-                    if (query.isEmpty() || channel.name.toLowerCase(AppLanguage.locale()).contains(query)) visible.add(channel);
-                }
-                updateCountLabel();
-                notifyDataSetChanged();
+                cancelSearch();
+                int generation = searchGeneration;
+                String requestedQuery = query;
+                Locale locale = AppLanguage.locale();
+                List<IptvRepository.Channel> snapshot = new ArrayList<>(channels);
+                lifecycleWork.execute(ioWorker, () -> {
+                    if (generation != searchGeneration) return;
+                    List<IptvRepository.Channel> matched = new ArrayList<>();
+                    for (IptvRepository.Channel channel : snapshot) {
+                        if (generation != searchGeneration) return;
+                        if (requestedQuery.isEmpty() || channel.name.toLowerCase(locale).contains(requestedQuery)) matched.add(channel);
+                    }
+                    lifecycleWork.post(() -> {
+                        if (generation != searchGeneration || settingsScreen != SettingsScreen.this
+                                || section != CHANNELS || channelAdapter != this) return;
+                        visible.clear(); visible.addAll(matched);
+                        updateCountLabel(); notifyDataSetChanged();
+                    });
+                });
             }
 
             private int shownChannelCount() {
