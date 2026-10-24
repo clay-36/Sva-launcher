@@ -176,6 +176,7 @@ When an Android TV device or emulator is running:
 
 - Verifies screensaver rendering, native runtime execution, and NTSC diagnostic fixtures.
 - Diagnostic fixtures are bundled only into the test APK (`androidTest.assets.srcDirs`); they are excluded from production builds.
+- Covers settings navigation (`SettingsNavigationTest`), UI performance and bounded collections (`PerformanceUiTest`), background task loader workflows (`TaskLoaderUiTest`), progress indicator lifecycle (`TaskProgressTest`), TV guide interactions (`GuideUiTest`), language/RTL layouts (`LanguageUiTest`), and IPTV playback (`IptvPlaybackTest`).
 
 ---
 
@@ -233,6 +234,7 @@ adb pull /sdcard/screen.png ./screen.png
 | ├── `GuideTimeline.java` | Schedule calculations, time slot management, now indicator, program bounds |
 | ├── `GuideReminders.java` | In-app reminders for upcoming TV broadcasts |
 | ├── `ChannelAdapter.java` | Live TV category and channel grid adapter |
+| ├── `GameCardAdapter.java` | RecyclerView adapter for game library cards with bounded view recycling |
 | ├── `GameLibraryActivity.java`| NES ROM import, metadata display, game launcher |
 | ├── `GameDetailActivity.java` | Individual game details and play launcher |
 | ├── `GameUi.java` | Game card styling, cartridge art, badges |
@@ -242,6 +244,7 @@ adb pull /sdcard/screen.png ./screen.png
 | ├── `ScreensaverView.java` | 9-atmosphere "Sva Memories" photo screensaver renderer |
 | ├── `ScreensaverSettingsActivity.java` | Atmosphere selector, photo preview, idle timeout setup |
 | ├── `SvaDreamService.java` | Android TV DreamService integration for system-wide idle screensaver |
+| ├── `TaskProgress.java` | Noncritical indeterminate progress indicator with delayed reveal (300 ms) |
 | ├── `TvFilePickerActivity.java` | Remote-friendly file picker for local storage and USB drives |
 | └── `BackNavigation.java` | Predictable Android TV back-stack management |
 | `app/src/main/jni/` | **NDK C++ native bridge** (`Android.mk`, `Application.mk`, JNI wrapper) |
@@ -251,8 +254,10 @@ adb pull /sdcard/screen.png ./screen.png
 | ├── `check-apk.py` | Asserts release APK size, validates stripped native symbols, checks manifest |
 | ├── `check-native.sh` | C++ test build of native source independent of Gradle |
 | ├── `generate-iptv-fixtures.py`| Creates test M3U8 and XMLTV fixtures for testing |
+| ├── `measure-startup.py` | Measures process-cold startup latency, PSS memory, and frame timing |
 | └── `update-notices.py` | Aggregates and updates third-party license notices |
 | `docs/` | **Deep-dive documentation** |
+| ├── `PERFORMANCE.md` | Architecture notes, bounded view benchmarks, and startup measurements |
 | ├── `RELEASING.md` | Release workflow, tagging, keystore management |
 | ├── `RELEASE_AUDIT.md` | Detailed dependency & security checklist |
 | ├── `THIRD_PARTY.md` | Complete inventory of upstream libraries & licenses |

@@ -67,7 +67,16 @@ public final class TaskLoaderUiTest extends InstrumentationTestCase {
 
     private void finish() {
         if (activity == null) return;
-        getInstrumentation().runOnMainSync(activity::finish);
+        getInstrumentation().runOnMainSync(() -> {
+            try {
+                Object settings = field(activity, "settingsScreen");
+                if (settings != null) {
+                    android.app.Dialog dialog = (android.app.Dialog) field(settings, "dialog");
+                    if (dialog != null && dialog.isShowing()) dialog.dismiss();
+                }
+            } catch (Exception ignored) {}
+            activity.finish();
+        });
         getInstrumentation().waitForIdleSync(); activity = null;
     }
 
@@ -271,6 +280,7 @@ public final class TaskLoaderUiTest extends InstrumentationTestCase {
                 .putLong("weatherLongitude", Double.doubleToRawLongBits(73.8)).commit();
         for (String language : new String[]{"en", "hi", "ar"}) {
             getInstrumentation().runOnMainSync(() -> AppLanguage.select(getInstrumentation().getTargetContext(), language));
+            getInstrumentation().waitForIdleSync();
             for (String theme : new String[]{LiquidTheme.LIGHT, LiquidTheme.DARK}) {
                 prefs.edit().putString(LiquidTheme.PREF_MODE, theme).commit(); open();
                 flag("weatherRefreshing", true); flag("calendarRefreshing", true);
@@ -288,7 +298,15 @@ public final class TaskLoaderUiTest extends InstrumentationTestCase {
     }
 
     private void capture(String name) throws Exception {
-        Bitmap bitmap = getInstrumentation().getUiAutomation().takeScreenshot(); assertNotNull(bitmap);
+        if (!"true".equals(((android.test.InstrumentationTestRunner) getInstrumentation()).getArguments().getString("screenshots"))) return;
+        SystemClock.sleep(250);
+        getInstrumentation().waitForIdleSync();
+        Bitmap bitmap = null;
+        for (int i = 0; i < 3 && bitmap == null; i++) {
+            bitmap = getInstrumentation().getUiAutomation().takeScreenshot();
+            if (bitmap == null) SystemClock.sleep(100);
+        }
+        assertNotNull(bitmap);
         File directory = new File(getInstrumentation().getTargetContext().getCacheDir(), "loader-qa"); directory.mkdirs();
         try (FileOutputStream output = new FileOutputStream(new File(directory, name + ".png"))) {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
