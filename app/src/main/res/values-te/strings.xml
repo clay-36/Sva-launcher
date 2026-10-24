@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d నిమి మిగిలి ఉంది"</item>
         <item quantity="other">"%1$d నిమి మిగిలి ఉంది"</item>
     </plurals>
+    <string name="ui_import_failed">"గేమ్‌లను దిగుమతి చేయలేకపోయాము. దయచేసి మళ్లీ ప్రయత్నించండి."</string>
 </resources>

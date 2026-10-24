@@ -38,6 +38,10 @@ public final class GameLibraryActivity extends MotionActivity {
     private TextView empty;
     private String focusedGameId;
     private LinearLayout heading;
+    private TaskProgress importProgress;
+    private Button addFiles, addFolder;
+    private boolean importing;
+    private boolean finishingImport;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -66,16 +70,18 @@ public final class GameLibraryActivity extends MotionActivity {
         heading = new LinearLayout(this); heading.setGravity(Gravity.CENTER_VERTICAL);
         heading.setClipChildren(false); heading.setClipToPadding(false);
         TextView title = GameUi.text(this, AppLanguage.get(R.string.ui_games), 32, true); heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        Button addFiles = GameUi.button(this, AppLanguage.get(R.string.ui_add_files)); addFiles.setOnClickListener(v -> pickFiles());
+        addFiles = GameUi.button(this, AppLanguage.get(R.string.ui_add_files)); addFiles.setOnClickListener(v -> pickFiles());
         LinearLayout.LayoutParams filesParams = new LinearLayout.LayoutParams(GameUi.dp(this, 142), GameUi.dp(this, 52));
         filesParams.setMargins(GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4));
         heading.addView(addFiles, filesParams);
-        Button addFolder = GameUi.button(this, AppLanguage.get(R.string.ui_add_folder)); addFolder.setOnClickListener(v -> pickFolder());
+        addFolder = GameUi.button(this, AppLanguage.get(R.string.ui_add_folder)); addFolder.setOnClickListener(v -> pickFolder());
         LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(GameUi.dp(this, 142), GameUi.dp(this, 52));
         folderParams.setMargins(GameUi.dp(this, 8), GameUi.dp(this, 4), GameUi.dp(this, 4), GameUi.dp(this, 4)); heading.addView(addFolder, folderParams);
         page.addView(heading, new LinearLayout.LayoutParams(-1, GameUi.dp(this, 70)));
         TextView hint = GameUi.text(this, AppLanguage.get(R.string.ui_your_local_nes_library_user_provided_nes_files_only), 14, false);
         hint.setTextColor(LiquidTheme.secondaryText(this)); page.addView(hint, new LinearLayout.LayoutParams(-1, GameUi.dp(this, 42)));
+        importProgress = new TaskProgress(this, false);
+        page.addView(importProgress, new LinearLayout.LayoutParams(-1, -2));
         grid = new androidx.recyclerview.widget.RecyclerView(this);
         grid.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(this, 5));
         grid.setItemAnimator(null); grid.setClipChildren(true); grid.setClipToPadding(false);
@@ -130,6 +136,11 @@ public final class GameLibraryActivity extends MotionActivity {
                 empty.setVisibility(games.isEmpty() ? View.VISIBLE : View.GONE);
                 grid.setVisibility(games.isEmpty() ? View.GONE : View.VISIBLE);
                 adapter.submit(games);
+                if (finishingImport) {
+                    finishingImport = false;
+                    importing = false;
+                    updateImportProgress();
+                }
                 if (!games.isEmpty() && !heading.hasFocus()) {
                     int position = adapter.position(focusedGameId);
                     grid.scrollToPosition(position);
@@ -201,10 +212,12 @@ public final class GameLibraryActivity extends MotionActivity {
     }
 
     private void pickFiles() {
+        if (importing) return;
         startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_NES_FILES), PICK_FILES);
     }
 
     private void pickFolder() {
+        if (importing) return;
         startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_NES_FOLDER), PICK_FOLDER);
     }
 
@@ -214,10 +227,29 @@ public final class GameLibraryActivity extends MotionActivity {
         final List<Uri> files = request == PICK_FILES ? GameRepository.urisFromResult(data) : null;
         final Uri tree = request == PICK_FOLDER ? data.getData() : null;
         if (files != null && files.isEmpty() || request == PICK_FOLDER && tree == null) return;
-        Toast.makeText(this, AppLanguage.get(R.string.ui_importing_games), Toast.LENGTH_SHORT).show();
+        if (importing) return;
+        importing = true;
+        updateImportProgress();
         new Thread(() -> {
-            GameRepository.ImportResult imported = files != null ? repository.importUris(files) : repository.importTree(tree);
-            runOnUiThread(() -> { if (isFinishing() || isDestroyed()) return; Toast.makeText(this, imported.message(), Toast.LENGTH_LONG).show(); render(); });
+            String message;
+            try {
+                GameRepository.ImportResult imported = files != null ? repository.importUris(files) : repository.importTree(tree);
+                message = imported.message();
+            } catch (Exception failure) {
+                message = AppLanguage.get(R.string.ui_import_failed);
+            }
+            String resultMessage = message;
+            work.post(() -> {
+                Toast.makeText(this, resultMessage, Toast.LENGTH_LONG).show();
+                finishingImport = true;
+                render();
+            });
         }, "nes-import").start();
+    }
+
+    private void updateImportProgress() {
+        importProgress.setBusy(importing, AppLanguage.get(R.string.ui_importing_games));
+        addFiles.setEnabled(!importing);
+        addFolder.setEnabled(!importing);
     }
 }

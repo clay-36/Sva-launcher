@@ -249,6 +249,10 @@ public final class MainActivity extends LocalizedActivity {
     private boolean screenActive;
     private boolean appsLoaded;
     private boolean appsLoading;
+    private TaskProgress liveProgress, weatherProgress, homeCalendarProgress, eventsProgress;
+    private boolean exportingBackup;
+    private boolean albumLoading;
+    private String loadingAlbumUrl = "";
     private boolean channelsRefreshing;
     private boolean guideRefreshing;
     private boolean calendarRefreshing;
@@ -421,15 +425,19 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     private void openBackupExportPicker() {
+        if (exportingBackup || restoringBackup) return;
         startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_SAVE_JSON), PICK_BACKUP_EXPORT);
     }
 
     private void openBackupImportPicker() {
+        if (exportingBackup || restoringBackup) return;
         startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_JSON), PICK_BACKUP_IMPORT);
     }
 
     private void exportBackup(Uri destination) {
-        Toast.makeText(this, AppLanguage.get(R.string.ui_creating_launcher_backup), Toast.LENGTH_SHORT).show();
+        if (exportingBackup || restoringBackup) return;
+        exportingBackup = true;
+        updateTaskProgress();
         Thread worker = new Thread(() -> {
             String error = null;
             try {
@@ -445,17 +453,23 @@ public final class MainActivity extends LocalizedActivity {
                 error = e.getMessage() == null ? AppLanguage.get(R.string.ui_could_not_create_the_backup) : e.getMessage();
             }
             String result = error;
-            lifecycleWork.post(() -> Toast.makeText(this,
-                    result == null ? AppLanguage.get(R.string.ui_backup_saved) : AppLanguage.get(R.string.ui_backup_failed_1_s, result),
-                    result == null ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show());
+            lifecycleWork.post(() -> {
+                exportingBackup = false;
+                updateTaskProgress();
+                Toast.makeText(this,
+                        result == null ? AppLanguage.get(R.string.ui_backup_saved) : AppLanguage.get(R.string.ui_backup_failed_1_s, result),
+                        result == null ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+            });
         }, "launcher-backup-export");
         worker.setDaemon(true);
         worker.start();
     }
 
     private void importBackup(Uri source) {
+        if (exportingBackup || restoringBackup) return;
         restoringBackup = true;
-        Toast.makeText(this, AppLanguage.get(R.string.ui_restoring_launcher_backup), Toast.LENGTH_SHORT).show();
+        if (settingsScreen != null) settingsScreen.renderSection();
+        updateTaskProgress();
         Thread worker = new Thread(() -> {
             String error = null;
             try (java.io.InputStream input = getContentResolver().openInputStream(source)) {
@@ -479,6 +493,8 @@ public final class MainActivity extends LocalizedActivity {
             String result = error;
             lifecycleWork.post(() -> {
                 restoringBackup = false;
+                updateTaskProgress();
+                if (settingsScreen != null) settingsScreen.renderSection();
                 if (result != null) {
                     Toast.makeText(this, AppLanguage.get(R.string.ui_restore_failed_1_s, result), Toast.LENGTH_LONG).show();
                     return;
@@ -823,8 +839,14 @@ public final class MainActivity extends LocalizedActivity {
         weatherTemperature.setTextColor(light ? LiquidTheme.text(this) : Color.WHITE);
         weatherTemperature.setIncludeFontPadding(false);
         weatherTemperature.setSingleLine(true);
+        weatherTemperature.setEllipsize(TextUtils.TruncateAt.END);
         weatherTemperature.setMaxWidth(dp(weatherMaxWidth));
-        weatherCopy.addView(weatherTemperature);
+        LinearLayout weatherHeading = new LinearLayout(this);
+        weatherHeading.setGravity(Gravity.CENTER_VERTICAL);
+        weatherHeading.addView(weatherTemperature, new LinearLayout.LayoutParams(0, -2, 1));
+        weatherProgress = new TaskProgress(this, true);
+        weatherHeading.addView(weatherProgress);
+        weatherCopy.addView(weatherHeading, new LinearLayout.LayoutParams(-1, -2));
         weatherCondition = label(AppLanguage.get(R.string.ui_local_conditions), 13, light ? LiquidTheme.secondaryText(this) : 0xFFCCD0D6, false);
         weatherCondition.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         weatherCondition.setIncludeFontPadding(false);
@@ -911,7 +933,12 @@ public final class MainActivity extends LocalizedActivity {
         calendarCopy.setGravity(Gravity.CENTER_VERTICAL);
         homeCalendarCard.addView(calendarCopy, new LinearLayout.LayoutParams(0, -2, 1));
         homeCalendarEyebrow = label(AppLanguage.get(R.string.ui_up_next), 10, light ? LiquidTheme.secondaryText(this) : 0xFFBEC4CD, false);
-        calendarCopy.addView(homeCalendarEyebrow);
+        LinearLayout calendarHeading = new LinearLayout(this);
+        calendarHeading.setGravity(Gravity.CENTER_VERTICAL);
+        calendarHeading.addView(homeCalendarEyebrow, new LinearLayout.LayoutParams(0, -2, 1));
+        homeCalendarProgress = new TaskProgress(this, true);
+        calendarHeading.addView(homeCalendarProgress);
+        calendarCopy.addView(calendarHeading, new LinearLayout.LayoutParams(-1, -2));
         homeCalendarTitle = label(AppLanguage.get(R.string.ui_no_events_today), 16, light ? LiquidTheme.text(this) : Color.WHITE, true);
         homeCalendarTitle.setSingleLine(true);
         homeCalendarTitle.setMaxLines(1);
@@ -1059,6 +1086,7 @@ public final class MainActivity extends LocalizedActivity {
         homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(92)));
 
         applyWallpaper();
+        updateTaskProgress();
         selectTab(activeTab, false);
     }
 
@@ -1126,6 +1154,9 @@ public final class MainActivity extends LocalizedActivity {
         LinearLayout.LayoutParams liveHeadingParams = new LinearLayout.LayoutParams(-1, -2);
         liveHeadingParams.bottomMargin = dp(4);
         liveContent.addView(liveHeading, liveHeadingParams);
+        liveProgress = new TaskProgress(this, false);
+        liveContent.addView(liveProgress, new LinearLayout.LayoutParams(-1, -2));
+        updateTaskProgress();
 
         channelRows = new LinearLayout(this);
         channelRows.setOrientation(LinearLayout.VERTICAL);
@@ -1657,7 +1688,13 @@ public final class MainActivity extends LocalizedActivity {
         eventSummary.setPadding(dp(20), 0, dp(20), 0);
         calendarHeaderDate = label("", 10, LiquidTheme.accent(this), true);
         calendarHeaderDate.setLetterSpacing(.1f);
-        eventSummary.addView(calendarHeaderDate);
+        LinearLayout eventsHeading = new LinearLayout(this);
+        eventsHeading.setGravity(Gravity.CENTER_VERTICAL);
+        eventsHeading.addView(calendarHeaderDate, new LinearLayout.LayoutParams(0, -2, 1));
+        eventsProgress = new TaskProgress(this, true);
+        eventsHeading.addView(eventsProgress);
+        eventSummary.addView(eventsHeading, new LinearLayout.LayoutParams(-1, -2));
+        updateTaskProgress();
         calendarHeaderEvents = label("", 14, LiquidTheme.text(this), true);
         calendarHeaderEvents.setMaxLines(3);
         calendarHeaderEvents.setEllipsize(TextUtils.TruncateAt.END);
@@ -2906,7 +2943,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void refreshWeather(WeatherRepository.Location location) {
-        weatherRefreshing = true;
+        weatherRefreshing = true; updateTaskProgress();
         preferences.edit().putLong("weatherAttemptedAt", System.currentTimeMillis()).apply();
         int generation = ++weatherRequestGeneration;
         if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_refreshing_weather));
@@ -2917,7 +2954,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             WeatherRepository.Forecast result = forecast; String resultError = error;
             lifecycleWork.post(() -> {
                 if (generation != weatherRequestGeneration || isFinishing() || isDestroyed()) return;
-                weatherRefreshing = false;
+                weatherRefreshing = false; updateTaskProgress();
                 if (result != null) {
                     weatherForecast = result;
                     try { preferences.edit().putString("weatherCache", result.toJson().toString())
@@ -2949,7 +2986,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void saveWeatherLocation(String mode, WeatherRepository.Location location) {
         weatherRequestGeneration++;
-        weatherRefreshing = false;
+        weatherRefreshing = false; updateTaskProgress();
         WeatherRepository.Location previous = savedWeatherLocation();
         boolean changed = previous == null || Math.abs(previous.latitude - location.latitude) > .0001
                 || Math.abs(previous.longitude - location.longitude) > .0001;
@@ -3132,7 +3169,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void cancelCalendarRefresh() {
         calendarRequestGeneration++;
-        calendarRefreshing = false;
+        calendarRefreshing = false; updateTaskProgress();
         calendarRefreshingUrl = "";
     }
 
@@ -3187,7 +3224,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
         if (urls.isEmpty()) return;
         calendarRefreshingUrl = url;
-        calendarRefreshing = true;
+        calendarRefreshing = true; updateTaskProgress();
         preferences.edit().putLong("publicCalendarAttemptedAt", System.currentTimeMillis())
                 .putInt("publicCalendarAttemptedVersion", CALENDAR_CACHE_VERSION).apply();
         int generation = ++calendarRequestGeneration;
@@ -3195,7 +3232,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             CalendarFeedCache.RefreshResult result = cache.refresh(urls, System.currentTimeMillis(), PublicCalendarRepository::download);
             lifecycleWork.post(() -> {
                 if (generation != calendarRequestGeneration) return;
-                calendarRefreshing = false;
+                calendarRefreshing = false; updateTaskProgress();
                 calendarRefreshingUrl = "";
                 if (isFinishing() || !url.equals(preferences.getString("publicCalendarUrl", ""))) return;
                 saveCalendarCache(cache, urls, result.succeeded > 0);
@@ -3992,6 +4029,16 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         return null;
     }
 
+    private void updateTaskProgress() {
+        String liveMessage = AppLanguage.get(channelsRefreshing ? R.string.ui_refreshing_channels : R.string.ui_refreshing_programme_guide);
+        if (liveProgress != null) liveProgress.setBusy(channelsRefreshing || guideRefreshing, liveMessage);
+        if (weatherProgress != null) weatherProgress.setBusy(weatherRefreshing, AppLanguage.get(R.string.ui_refreshing_weather));
+        String calendarMessage = AppLanguage.get(R.string.ui_refreshing_calendar_feeds);
+        if (homeCalendarProgress != null) homeCalendarProgress.setBusy(calendarRefreshing, calendarMessage);
+        if (eventsProgress != null) eventsProgress.setBusy(calendarRefreshing, calendarMessage);
+        if (settingsScreen != null) settingsScreen.updateTaskProgress();
+    }
+
     private void setLiveStatus(String value) {
         liveStatus = value;
         if (status != null) status.setText(value);
@@ -4174,6 +4221,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void loadBackgroundFolder(Uri treeUri, boolean userSelected) {
         int generation = ++backgroundFolderGeneration;
+        albumLoading = false; loadingAlbumUrl = ""; updateTaskProgress();
         List<BackgroundPhoto> cached = cachedBackgroundFolder(treeUri.toString());
         if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
         else if (userSelected && cached.isEmpty()) setBackgroundPhotos(Collections.emptyList());
@@ -4199,7 +4247,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void loadBackgroundAlbum(String shareUrl, boolean userSelected) {
+        if (albumLoading && shareUrl.equals(loadingAlbumUrl)) return;
         int generation = ++backgroundFolderGeneration;
+        albumLoading = true;
+        loadingAlbumUrl = shareUrl;
+        updateTaskProgress();
         List<BackgroundPhoto> cached = cachedBackgroundAlbum(shareUrl);
         if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
         preferences.edit().putLong("googlePhotosAttemptedAt", System.currentTimeMillis()).apply();
@@ -4217,6 +4269,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             String error = failure;
             lifecycleWork.post(() -> {
                 if (generation != backgroundFolderGeneration || isFinishing()) return;
+                albumLoading = false; loadingAlbumUrl = ""; updateTaskProgress();
                 if (error != null || result.isEmpty()) {
                     if (userSelected) Toast.makeText(this, error == null ? AppLanguage.get(R.string.ui_no_public_photos_were_found_in_that_album) : error, Toast.LENGTH_LONG).show();
                     return;
@@ -4539,7 +4592,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void refreshChannels() {
         if (channelsRefreshing) return;
-        channelsRefreshing = true;
+        channelsRefreshing = true; updateTaskProgress();
         setLiveStatusVisible(true);
         setLiveStatus(AppLanguage.get(R.string.ui_refreshing_channels));
         if (settingsScreen != null) settingsScreen.onRefreshResult(AppLanguage.get(R.string.ui_refreshing_channels));
@@ -4553,19 +4606,20 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             setLiveStatus(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
             if (!channels.isEmpty() && !iptv.guideUrl().isEmpty() && iptv.isGuideStale(channels)) refreshGuide(false);
+            updateTaskProgress();
             scheduleLiveRefreshCheck();
         }));
     }
 
     private void refreshGuide(boolean userRequested) {
         if (guideRefreshing) return;
-        guideRefreshing = true;
+        guideRefreshing = true; updateTaskProgress();
         String refreshing = userRequested ? AppLanguage.get(R.string.ui_refreshing_programme_guide) : AppLanguage.get(R.string.ui_updating_today_s_programme_guide);
         setLiveStatusVisible(true);
         setLiveStatus(refreshing);
         if (settingsScreen != null) settingsScreen.onRefreshResult(refreshing);
         iptv.refreshGuide(new ArrayList<>(channels), (loaded, message) -> lifecycleWork.post(() -> {
-            guideRefreshing = false;
+            guideRefreshing = false; updateTaskProgress();
             channels.clear(); channels.addAll(loaded);
             renderChannels();
             if (!loaded.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
@@ -4659,7 +4713,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 / getResources().getDisplayMetrics().density < 1100;
         private final Dialog dialog = new Dialog(MainActivity.this, R.style.SvaFullScreenDialogTheme);
         private final Button[] tabs = new Button[sections.length];
-        private final FrameLayout detail = new FrameLayout(MainActivity.this);
+        private final FrameLayout detail = new FrameLayout(MainActivity.this) {
+            @Override public boolean dispatchTouchEvent(android.view.MotionEvent event) {
+                return restoringBackup || super.dispatchTouchEvent(event);
+            }
+        };
         private LinearLayout rail;
         private int section = LIVE;
         private int renderedSection = -1;
@@ -4670,6 +4728,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private EditText playlistField, guideField, licenseField, headersField, calendarUrlField;
         private EditText youtubeUrlField, youtubeTitleField, youtubeArtField;
         private Button youtubeAddButton;
+        private TaskProgress taskProgress, backupExportProgress;
+        private Button backupExportButton, backupImportButton;
         private TextView liveFeedback, cacheSummary, guideSummary, youtubeFeedback, calendarFeedback, calendarSummary, weatherFeedback;
         private LinearLayout youtubeSavedList, weatherSearchResults;
         private ChannelSettingsAdapter channelAdapter;
@@ -5128,6 +5188,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             renderedSection = section;
             firstControl = null;
             detail.removeAllViews();
+            taskProgress = backupExportProgress = null;
+            backupExportButton = backupImportButton = null;
             for (int i = 0; i < tabs.length; i++) {
                 boolean selected = i == section;
                 tabs[i].setTextColor(selected ? SettingsUi.text(MainActivity.this) : SettingsUi.muted(MainActivity.this));
@@ -5185,7 +5247,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 case LANGUAGE: renderLanguageSettings(page); break;
                 default: break;
             }
-            if (firstControl != null) {
+            if (restoringBackup && taskProgress == null) addTaskProgress(headerCopy);
+            updateTaskProgress();
+            if (firstControl != null && firstControl.isEnabled()) {
                 firstControl.setId(View.generateViewId());
                 if (isRtl()) {
                     tabs[section].setNextFocusLeftId(firstControl.getId());
@@ -5325,7 +5389,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 preferences.edit().remove("weatherLocationMode").remove("weatherLocationLabel")
                         .remove("weatherLatitude").remove("weatherLongitude").remove("weatherCache")
                         .remove("weatherUpdatedAt").remove("weatherAttemptedAt").apply();
-                weatherForecast = null; weatherRequestGeneration++; weatherRefreshing = false;
+                weatherForecast = null; weatherRequestGeneration++; weatherRefreshing = false; MainActivity.this.updateTaskProgress();
                 renderWeather(); renderSection();
             });
             // — Units ——————————————————————————————————————————————————————————
@@ -5346,6 +5410,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             weatherFeedback = label("", 14, SettingsUi.muted(MainActivity.this), false);
             weatherFeedback.setPadding(dp(2), dp(6), dp(2), dp(6));
             form.addView(weatherFeedback);
+            addTaskProgress(form);
             addFormHint(form, AppLanguage.get(R.string.ui_weather_by_open_meteo_locations_by_geonames_device_location_requ));
         }
 
@@ -5378,14 +5443,60 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             });
         }
 
+        private void addTaskProgress(LinearLayout parent) {
+            taskProgress = new TaskProgress(MainActivity.this, false);
+            parent.addView(taskProgress, new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        private void updateTaskProgress() {
+            boolean busy = false;
+            String message = "";
+            if (section == LIVE || section == CHANNELS) {
+                busy = channelsRefreshing || guideRefreshing;
+                message = AppLanguage.get(channelsRefreshing ? R.string.ui_refreshing_channels : R.string.ui_refreshing_programme_guide);
+            } else if (section == WEATHER) {
+                busy = weatherRefreshing; message = AppLanguage.get(R.string.ui_refreshing_weather);
+            } else if (section == CALENDAR) {
+                busy = calendarRefreshing; message = AppLanguage.get(R.string.ui_refreshing_calendar_feeds);
+            } else if (section == APPEARANCE) {
+                busy = albumLoading; message = AppLanguage.get(R.string.ui_loading_public_album);
+            } else if (section == BACKUP) {
+                busy = restoringBackup; message = AppLanguage.get(R.string.ui_restoring_launcher_backup);
+            }
+            if (restoringBackup) {
+                busy = true; message = AppLanguage.get(R.string.ui_restoring_launcher_backup);
+            }
+            if (taskProgress != null) taskProgress.setBusy(busy, message);
+            detail.setDescendantFocusability(restoringBackup ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
+            if (backupExportProgress != null) backupExportProgress.setBusy(exportingBackup, AppLanguage.get(R.string.ui_creating_launcher_backup));
+            if (backupExportButton != null) backupExportButton.setEnabled(!exportingBackup && !restoringBackup);
+            if (backupImportButton != null) backupImportButton.setEnabled(!exportingBackup && !restoringBackup);
+            if (restoringBackup) {
+                disableSettingsEdits(detail);
+                View focused = dialog.getCurrentFocus();
+                if (focused != null && isWithinPage(focused, detail)) tabs[section].requestFocus();
+            }
+        }
+
+        private void disableSettingsEdits(View view) {
+            if (view instanceof EditText || view.isClickable()) view.setEnabled(false);
+            if (view instanceof ViewGroup) {
+                ViewGroup group = (ViewGroup) view;
+                for (int i = 0; i < group.getChildCount(); i++) disableSettingsEdits(group.getChildAt(i));
+            }
+        }
+
         private void renderBackup(LinearLayout page) {
             LinearLayout form = scrollForm(page);
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_create_backup));
             addFormHint(form, AppLanguage.get(R.string.ui_create_a_json_backup_of_launcher_settings_app_and_channel_choice));
-            addFormButton(form, AppLanguage.get(R.string.ui_create_backup_file), v -> openBackupExportPicker());
+            backupExportButton = addFormButton(form, AppLanguage.get(R.string.ui_create_backup_file), v -> openBackupExportPicker());
+            backupExportProgress = new TaskProgress(MainActivity.this, false);
+            form.addView(backupExportProgress, new LinearLayout.LayoutParams(-1, -2));
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_restore_from_backup));
             addFormHint(form, AppLanguage.get(R.string.ui_restoring_replaces_the_current_launcher_settings_and_channel_pre));
-            addFormButton(form, AppLanguage.get(R.string.ui_restore_from_backup), v -> openBackupImportPicker());
+            backupImportButton = addFormButton(form, AppLanguage.get(R.string.ui_restore_from_backup), v -> openBackupImportPicker());
+            addTaskProgress(form);
         }
 
         private void renderSchedules(LinearLayout page) {
@@ -5737,6 +5848,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             calendarFeedback = label("", 14, SettingsUi.muted(MainActivity.this), false);
             calendarFeedback.setPadding(dp(2), dp(4), dp(2), dp(4));
             form.addView(calendarFeedback);
+            addTaskProgress(form);
             addFormHint(form, AppLanguage.get(R.string.ui_the_on_device_schedule_is_checked_when_sva_opens_change_its_auto));
         }
 
@@ -5980,6 +6092,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             liveFeedback = label(liveStatus == null ? AppLanguage.get(R.string.ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started) : liveStatus, 14, SettingsUi.muted(MainActivity.this), false);
             liveFeedback.setPadding(dp(2), dp(4), dp(2), dp(2));
             page.addView(liveFeedback);
+            addTaskProgress(page);
         }
 
         private void renderDrm(LinearLayout page) {
@@ -6040,6 +6153,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addFormButton(form, AppLanguage.get(R.string.ui_choose_photo_folder), v -> openWallpaperFolderPicker());
             if (hasFolder) addFormButton(form, AppLanguage.get(R.string.ui_clear_photo_folder), true, v -> {
                 backgroundFolderGeneration++;
+                albumLoading = false; loadingAlbumUrl = ""; updateTaskProgress();
                 preferences.edit().remove("wallpaperFolder")
                         .remove(PHOTO_FOLDER_CACHE_URI)
                         .remove(PHOTO_FOLDER_CACHE_IMAGES).apply();
@@ -6052,6 +6166,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addFormHint(form, albumUrl.isEmpty()
                     ? AppLanguage.get(R.string.ui_no_google_photos_album_selected)
                     : AppLanguage.get(R.string.ui_google_photos_album_1_s_images, backgroundPhotos.size()));
+            addTaskProgress(form);
             EditText albumField = addInput(form, AppLanguage.get(R.string.ui_google_photos_public_album_link), AppLanguage.get(R.string.ui_paste_a_link_shared_with_anyone), albumUrl, false);
             addFormButton(form, AppLanguage.get(R.string.ui_use_google_photos_album), v -> {
                 String link = albumField.getText().toString().trim();
@@ -6059,11 +6174,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     Toast.makeText(MainActivity.this, AppLanguage.get(R.string.ui_paste_a_google_photos_shared_album_link_first), Toast.LENGTH_SHORT).show();
                     return;
                 }
-                Toast.makeText(MainActivity.this, AppLanguage.get(R.string.ui_loading_public_album), Toast.LENGTH_SHORT).show();
                 loadBackgroundAlbum(link, true);
             });
             if (!albumUrl.isEmpty()) addFormButton(form, AppLanguage.get(R.string.ui_clear_google_photos_album), true, v -> {
                 backgroundFolderGeneration++;
+                albumLoading = false; loadingAlbumUrl = ""; updateTaskProgress();
                 preferences.edit().remove("wallpaperAlbum")
                         .remove(GOOGLE_PHOTOS_CACHE_URL)
                         .remove(GOOGLE_PHOTOS_CACHE_IMAGES)
@@ -6122,6 +6237,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
 
         private void renderChannelSettings(LinearLayout page) {
+            addTaskProgress(page);
             EditText search = addInput(page, AppLanguage.get(R.string.ui_find_a_channel), AppLanguage.get(R.string.ui_search_by_channel_name), "", false);
             search.setInputType(InputType.TYPE_CLASS_TEXT);
             TextView count = label("", 14, SettingsUi.muted(MainActivity.this), false);

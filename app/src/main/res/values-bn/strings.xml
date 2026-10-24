@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d মিনিট বাকি"</item>
         <item quantity="other">"%1$d মিনিট বাকি"</item>
     </plurals>
+    <string name="ui_import_failed">"গেম আমদানি করা যায়নি। আবার চেষ্টা করুন।"</string>
 </resources>

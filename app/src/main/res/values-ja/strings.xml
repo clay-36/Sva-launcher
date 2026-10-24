@@ -724,4 +724,5 @@
         <item quantity="many">"残り %1$d 分"</item>
         <item quantity="other">"残り %1$d 分"</item>
     </plurals>
+    <string name="ui_import_failed">"ゲームをインポートできませんでした。もう一度お試しください。"</string>
 </resources>

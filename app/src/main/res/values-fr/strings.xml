@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d minutes restantes"</item>
         <item quantity="other">"%1$d minutes restantes"</item>
     </plurals>
+    <string name="ui_import_failed">"Impossible d’importer les jeux. Veuillez réessayer."</string>
 </resources>

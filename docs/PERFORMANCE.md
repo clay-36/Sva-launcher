@@ -25,6 +25,16 @@ animations, refresh schedules, and persisted data formats.
 - Screensaver drawing creates an offscreen alpha layer only during crossfades.
   Existing image caches and bounded photo windows are retained.
 
+## Task feedback
+
+- Game imports, Live TV/guide refreshes, backup/restore, photo album loading, and
+  weather/calendar refreshes show local progress while retaining cached content.
+- Noncritical indicators wait 300 ms, reserve their layout space, and stop when
+  their view is hidden or detached. They do not receive remote focus.
+- Playback uses Media3's centered buffering indicator. Restore prevents settings
+  edits; import and backup actions reject duplicate work.
+- File browsing retains its existing loading behavior.
+
 ## Reproduce startup measurements
 
 Install a signed, optimized release APK, then run:

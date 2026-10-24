@@ -706,4 +706,5 @@
         <item quantity="many">"Осталось %1$d мин."</item>
         <item quantity="other">"Осталось %1$d мин."</item>
     </plurals>
+    <string name="ui_import_failed">"Не удалось импортировать игры. Повторите попытку."</string>
 </resources>

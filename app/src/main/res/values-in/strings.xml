@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d menit lagi"</item>
         <item quantity="other">"%1$d menit lagi"</item>
     </plurals>
+    <string name="ui_import_failed">"Tidak dapat mengimpor game. Silakan coba lagi."</string>
 </resources>

@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d മിനിറ്റ് ശേഷിക്കുന്നു"</item>
         <item quantity="other">"%1$d മിനിറ്റ് ശേഷിക്കുന്നു"</item>
     </plurals>
+    <string name="ui_import_failed">"ഗെയിമുകൾ ഇറക്കുമതി ചെയ്യാനായില്ല. വീണ്ടും ശ്രമിക്കുക."</string>
 </resources>

@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d நிமிடம் மீதமுள்ளது"</item>
         <item quantity="other">"%1$d நிமிடம் மீதமுள்ளது"</item>
     </plurals>
+    <string name="ui_import_failed">"கேம்களை இறக்குமதி செய்ய முடியவில்லை. மீண்டும் முயலவும்."</string>
 </resources>

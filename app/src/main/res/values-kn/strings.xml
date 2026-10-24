@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d ನಿಮಿಷ ಉಳಿದಿದೆ"</item>
         <item quantity="other">"%1$d ನಿಮಿಷ ಉಳಿದಿದೆ"</item>
     </plurals>
+    <string name="ui_import_failed">"ಆಟಗಳನ್ನು ಆಮದು ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."</string>
 </resources>

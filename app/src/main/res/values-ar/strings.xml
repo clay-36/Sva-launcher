@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d دقيقة متبقية"</item>
         <item quantity="other">"%1$d دقيقة متبقية"</item>
     </plurals>
+    <string name="ui_import_failed">"تعذّر استيراد الألعاب. يُرجى المحاولة مرة أخرى."</string>
 </resources>

@@ -52,6 +52,7 @@ public final class GuideActivity extends MotionActivity {
     private Button backButton, categoryButton, nowButton;
     private TextView clock, title, metadata, actionHint, empty;
     private ProgressBar progress;
+    private TaskProgress loadProgress;
     private AlertDialog actionDialog;
     private Ruler ruler;
     private int loadGeneration, focusGeneration;
@@ -152,7 +153,11 @@ public final class GuideActivity extends MotionActivity {
         list.setFocusable(false);
         adapter = new Rows(); list.setAdapter(adapter); grid.addView(list, new FrameLayout.LayoutParams(-1, -1));
         empty = text(AppLanguage.get(R.string.ui_loading_channels), 17, LiquidTheme.secondaryText(this)); empty.setGravity(Gravity.CENTER);
+        empty.setVisibility(View.GONE);
         grid.addView(empty, new FrameLayout.LayoutParams(-1, -1));
+        loadProgress = new TaskProgress(this, false);
+        loadProgress.setPadding(dp(24), 0, dp(24), 0);
+        grid.addView(loadProgress, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
         page.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1));
         TextView help = text(AppLanguage.get(R.string.ui_channels_schedule_ok_watch_reminders_back_live_tv), 11, LiquidTheme.secondaryText(this));
         help.setGravity(Gravity.CENTER_VERTICAL); page.addView(help, new LinearLayout.LayoutParams(-1, dp(28)));
@@ -179,6 +184,7 @@ public final class GuideActivity extends MotionActivity {
 
     private void load() {
         int generation = ++loadGeneration;
+        loadProgress.setBusy(!loaded, AppLanguage.get(R.string.ui_loading_your_channels));
         boolean focusGrid = !loaded || (getCurrentFocus() != null && getCurrentFocus().getTag() instanceof Target);
         lifecycleWork.execute(worker, () -> {
             List<IptvRepository.Channel> cached = new IptvRepository(this).cachedChannels();
@@ -203,7 +209,9 @@ public final class GuideActivity extends MotionActivity {
                 for (IptvRepository.Channel channel : all) groups.add(group(channel));
                 categories.addAll(groups);
                 if (!categories.contains(category)) category = null;
-                loaded = true; filter(focusGrid);
+                loaded = true;
+                loadProgress.setBusy(false, "");
+                filter(focusGrid);
             });
         });
     }

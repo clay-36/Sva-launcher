@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d ਮਿੰਟ ਬਾਕੀ"</item>
         <item quantity="other">"%1$d ਮਿੰਟ ਬਾਕੀ"</item>
     </plurals>
+    <string name="ui_import_failed">"ਗੇਮਾਂ ਇੰਪੋਰਟ ਨਹੀਂ ਕੀਤੀਆਂ ਜਾ ਸਕੀਆਂ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।"</string>
 </resources>

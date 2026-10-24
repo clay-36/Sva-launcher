@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d분 남음"</item>
         <item quantity="other">"%1$d분 남음"</item>
     </plurals>
+    <string name="ui_import_failed">"게임을 가져오지 못했습니다. 다시 시도해 주세요."</string>
 </resources>

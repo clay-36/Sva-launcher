@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d 剩余分钟"</item>
         <item quantity="other">"%1$d 剩余分钟"</item>
     </plurals>
+    <string name="ui_import_failed">"无法导入游戏。请重试。"</string>
 </resources>

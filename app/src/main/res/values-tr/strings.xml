@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d dk kaldı"</item>
         <item quantity="other">"%1$d dk kaldı"</item>
     </plurals>
+    <string name="ui_import_failed">"Oyunlar içe aktarılamadı. Lütfen tekrar deneyin."</string>
 </resources>
