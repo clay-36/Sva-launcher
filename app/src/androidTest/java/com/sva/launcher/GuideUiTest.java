@@ -93,6 +93,23 @@ public final class GuideUiTest extends InstrumentationTestCase {
         assertEquals(10,field("selectedRow"));
         assertEquals(10,targetField(activity.getCurrentFocus().getTag(),"row"));
     }
+    public void testPanningUpdatesRowsReattachedFromCache() throws Exception {
+        seed(12); open(null);
+        for (int i = 0; i < 5; i++) key(KeyEvent.KEYCODE_DPAD_DOWN);
+        for (int i = 0; i < 5; i++) key(KeyEvent.KEYCODE_DPAD_UP);
+        long initial = (Long)field("windowStart");
+        for (int i = 0; i < 16; i++) key(KeyEvent.KEYCODE_DPAD_RIGHT);
+        assertTrue((Long)field("windowStart") > initial);
+        for (int i = 0; i < 5; i++) key(KeyEvent.KEYCODE_DPAD_DOWN);
+        SystemClock.sleep(Motion.SCROLL + 250); getInstrumentation().waitForIdleSync();
+        assertEquals(5, field("selectedRow"));
+        Object target = activity.getCurrentFocus().getTag();
+        assertNotNull(target); assertEquals(5, targetField(target, "row"));
+        GuideTimeline.Slot slot = (GuideTimeline.Slot)targetField(target, "slot");
+        long anchor = (Long)field("anchor");
+        assertTrue("Reattached row must contain the selected programme", slot.start <= anchor && slot.end > anchor);
+        assertEquals(slot.programme.title, ((TextView)field("title")).getText().toString());
+    }
     public void testScheduleCellsCannotPaintOverFixedChannelColumn() throws Exception {
         seed(8); open(null);
         getInstrumentation().runOnMainSync(() -> {

@@ -27,9 +27,9 @@
     <string name="ui_could_not_read_file">"Datei konnte nicht gelesen werden"</string>
     <string name="ui_missing_folder">"Fehlender Ordner"</string>
     <string name="ui_back">"Zurück"</string>
-    <string name="ui_cancel">"Stornieren"</string>
+    <string name="ui_cancel">"Abbrechen"</string>
     <string name="ui_off">"Aus"</string>
-    <string name="ui_on">"An"</string>
+    <string name="ui_on">"Ein"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"Keine Fotos gefunden. Überprüfen Sie, ob das Album öffentlich geteilt ist."</string>
     <string name="ui_favourite">", Favorit"</string>
     <string name="ui_next_1_s">"Weiter · %1$s"</string>
@@ -42,8 +42,8 @@
     <string name="ui_removed_from">"Entfernt von"</string>
     <string name="ui_added_to">"Hinzugefügt"</string>
     <string name="ui_1_s_favourites_2_s">"%1$s Favoriten: %2$s"</string>
-    <string name="ui_hidden">"Versteckt"</string>
-    <string name="ui_shown">"Gezeigt"</string>
+    <string name="ui_hidden">"Ausgeblendet"</string>
+    <string name="ui_shown">"Angezeigt"</string>
     <string name="ui_uncategorized">"Nicht kategorisiert"</string>
     <string name="ui_1_s_of_2_s_channels_3_s_shown_4_s_favourites_press_ok_to_toggle">"%1$s von %2$s Kanälen · %3$s angezeigt · %4$s Favoriten\nDrücken Sie OK, um die Sichtbarkeit umzuschalten. · Halten Sie lange gedrückt, um den Favoriten umzuschalten"</string>
     <string name="ui_choose_up_to_five_apps_for_home_use_arrows_to_change_their_order">"Wählen Sie bis zu fünf Apps für Home. Verwenden Sie die Pfeile, um ihre Reihenfolge zu ändern."</string>
@@ -56,11 +56,11 @@
     <string name="ui_channel">"Kanal"</string>
     <string name="ui_on_device_channel_cache_1_s_2_s_3_s">"Kanalcache auf dem Gerät · %1$s%2$s · %3$s"</string>
     <string name="ui_updated_1_s">"Aktualisiert %1$s"</string>
-    <string name="ui_clear_single_wallpaper">"Klare Einzeltapete"</string>
+    <string name="ui_clear_single_wallpaper">"Einzelnes Hintergrundbild löschen"</string>
     <string name="ui_choose_single_wallpaper">"Wählen Sie ein einzelnes Hintergrundbild"</string>
     <string name="ui_no_single_wallpaper_using_the_default_landscape">"Kein einzelnes Hintergrundbild – Verwendung der Standardlandschaft"</string>
     <string name="ui_single_wallpaper_is_set">"Einzelnes Hintergrundbild ist eingestellt"</string>
-    <string name="ui_single_wallpaper">"Einzelne Tapete"</string>
+    <string name="ui_single_wallpaper">"Einzelnes Hintergrundbild"</string>
     <string name="ui_clear_google_photos_album">"Google Photos-Album löschen"</string>
     <string name="ui_loading_public_album">"Öffentliches Album wird geladen…"</string>
     <string name="ui_paste_a_google_photos_shared_album_link_first">"Fügen Sie zuerst einen Google Photos-Link zum freigegebenen Album ein."</string>
@@ -79,7 +79,7 @@
     <string name="ui_screensaver">"Bildschirmschoner"</string>
     <string name="ui_manage_now_playing_access">"Verwalten Sie den Now Playing-Zugriff"</string>
     <string name="ui_appears_on_home_only_while_media_is_playing_allow_notification_a">"Erscheint auf der Startseite nur, während Medien abgespielt werden. Erlauben Sie den Benachrichtigungszugriff, um die Wiedergabe von anderen Apps anzuzeigen."</string>
-    <string name="ui_now_playing">"Jetzt gespielt"</string>
+    <string name="ui_now_playing">"Aktuelle Wiedergabe"</string>
     <string name="ui_dark">"Dunkel"</string>
     <string name="ui_light">"Licht"</string>
     <string name="ui_system_default">"Systemstandard"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube Videolink"</string>
     <string name="ui_removed_from_saved">"Aus „Gespeichert“ entfernt."</string>
     <string name="ui_edit_artwork_for_1_s">"Bildmaterial für %1$s bearbeiten"</string>
-    <string name="ui_art">"Kunst"</string>
+    <string name="ui_art">"Cover"</string>
     <string name="ui_edit_title_for_1_s">"Titel für %1$s bearbeiten"</string>
     <string name="ui_title">"Titel"</string>
     <string name="ui_remove_1_s_from_saved">"Entfernen Sie %1$s aus „Gespeichert“."</string>
     <string name="ui_remove">"Entfernen"</string>
-    <string name="ui_add_art">"· Kunst hinzufügen"</string>
+    <string name="ui_add_art">"· Cover hinzufügen"</string>
     <string name="ui_playlist">"PLAYLIST"</string>
     <string name="ui_video">"VIDEO"</string>
     <string name="ui_no_youtube_cards_saved_yet">"Noch keine YouTube-Karten gespeichert."</string>
@@ -205,12 +205,12 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"Wählen Sie eine Stadt oder verwenden Sie den Standort dieses Fernsehers, um das Wetter auf der Startseite anzuzeigen."</string>
     <string name="ui_hidden_ce2680d">"· Versteckt"</string>
     <string name="ui_last">"Zuletzt"</string>
-    <string name="ui_third_after_home">"Dritter nach Home"</string>
-    <string name="ui_second_after_home">"Zweiter nach Home"</string>
-    <string name="ui_first_after_home">"Zuerst nach Zuhause"</string>
-    <string name="ui_reset_item_order">"Artikelreihenfolge zurücksetzen"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"Zuhause bleibt zuerst. Wählen Sie eine Kategorie aus, um ihre Position zu ändern. Versteckte Kategorien behalten ihren Platz."</string>
-    <string name="ui_item_order">"Artikelbestellung"</string>
+    <string name="ui_third_after_home">"Dritter nach Startseite"</string>
+    <string name="ui_second_after_home">"Zweiter nach Startseite"</string>
+    <string name="ui_first_after_home">"Erster nach Startseite"</string>
+    <string name="ui_reset_item_order">"Elementreihenfolge zurücksetzen"</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"Startseite bleibt an erster Stelle. Wählen Sie eine Kategorie, um deren Position zu ändern. Ausgeblendete Kategorien behalten ihren Platz."</string>
+    <string name="ui_item_order">"Elementreihenfolge"</string>
     <string name="ui_show_events_in_navigation">"Ereignisse in der Navigation anzeigen"</string>
     <string name="ui_show_games_in_navigation">"Spiele in der Navigation anzeigen"</string>
     <string name="ui_show_live_tv_in_navigation">"Live-TV in der Navigation anzeigen"</string>
@@ -240,8 +240,8 @@
     <string name="ui_open_sva_when_the_tv_home_button_opens_its_built_in_launcher">"Öffnen Sie Sva, wenn die TV-Home-Taste den integrierten Launcher öffnet"</string>
     <string name="ui_default_widevine_license_settings">"Standardmäßige Widevine-Lizenzeinstellungen"</string>
     <string name="ui_time_and_date_on_home">"Uhrzeit und Datum auf der Startseite"</string>
-    <string name="ui_photo_backdrop_and_wallpaper">"Fotohintergrund und Tapete"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"Wählen und bestellen Sie Ihre Home-Shortcuts"</string>
+    <string name="ui_photo_backdrop_and_wallpaper">"Fotohintergrund und Hintergrundbild"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"Wählen und ordnen Sie Ihre Startseiten-Verknüpfungen"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"Wählen Sie aus, welche Kanäle im Live-TV angezeigt werden"</string>
     <string name="ui_playlist_and_programme_guide">"Playlist und Programmführer"</string>
     <string name="ui_system">"System"</string>
@@ -286,7 +286,7 @@
     <string name="ui_loading_apps">"Apps werden geladen…"</string>
     <string name="ui_could_not_save_calendar_cache">"Der Kalender-Cache konnte nicht gespeichert werden."</string>
     <string name="ui_calendar_event">"Kalenderereignis"</string>
-    <string name="ui_your_calendar_is_clear">"Ihr Kalender ist übersichtlich"</string>
+    <string name="ui_your_calendar_is_clear">"Keine Termine im Kalender"</string>
     <string name="ui_add_a_calendar_in_settings">"Fügen Sie in den Einstellungen einen Kalender hinzu"</string>
     <string name="ui_no_events_today">"Heute keine Veranstaltungen"</string>
     <string name="ui_today">"HEUTE"</string>
@@ -322,7 +322,7 @@
     <string name="ui_next_month">"Nächsten Monat"</string>
     <string name="ui_today_24345a1">"Heute"</string>
     <string name="ui_previous_month">"Vorheriger Monat"</string>
-    <string name="ui_back_to_home">"Zurück nach Hause"</string>
+    <string name="ui_back_to_home">"Zurück zur Startseite"</string>
     <string name="ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin">"Noch keine gespeicherten YouTube-Verknüpfungen. Fügen Sie in den Einstellungen ein Video oder eine Wiedergabeliste hinzu."</string>
     <string name="ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started">"Fügen Sie in den Einstellungen eine URL M3U und optional eine URL XMLTV hinzu, um zu beginnen."</string>
     <string name="ui_open_full_screen_tv_guide">"Öffnen Sie den TV-Guide im Vollbildmodus"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"Album nicht verfügbar · Hintergrundbild im Querformat wird angezeigt"</string>
     <string name="ui_loading_your_photographs">"Deine Fotos werden geladen…"</string>
     <string name="ui_could_not_remove_game">"Das Spiel konnte nicht entfernt werden."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Die importierte Kopie, das Bildmaterial und der Batteriesparmodus von Sva werden gelöscht. Ihre Originaldatei wird nicht verändert."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Die importierte Kopie, das Bildmaterial und der Spielstand von Sva werden gelöscht. Ihre Originaldatei wird nicht verändert."</string>
     <string name="ui_remove_1_s">"%1$s entfernen?"</string>
     <string name="ui_could_not_save_artwork">"Das Bildmaterial konnte nicht gespeichert werden."</string>
     <string name="ui_could_not_save_title">"Titel konnte nicht gespeichert werden."</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"Die Sicherung enthält einen ungültigen Kanaleintrag."</string>
     <string name="ui_backup_contains_too_many_channels">"Das Backup enthält zu viele Kanäle."</string>
     <string name="ui_press_ok_for_reminders">". Drücken Sie OK, um Erinnerungen anzuzeigen."</string>
-    <string name="ui_live_now_press_ok_to_watch">", lebe jetzt. Drücken Sie OK, um es anzusehen."</string>
+    <string name="ui_live_now_press_ok_to_watch">", jetzt live. Drücken Sie OK, um es anzusehen."</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s auf %2$s, %3$s%4$s"</string>
     <string name="ui_reminder">"◷ ERINNERUNG"</string>
     <string name="ui_live">"● LIVE"</string>
@@ -423,7 +423,7 @@
     <string name="ui_ok_to_watch_channel">"· OK, um den Kanal anzusehen"</string>
     <string name="ui_upcoming">"KOMMT"</string>
     <string name="ui_ended">"BEENDET"</string>
-    <string name="ui_live_now">"● JETZT LEBEN"</string>
+    <string name="ui_live_now">"● JETZT LIVE"</string>
     <string name="ui_press_ok_to_watch_this_channel">"Drücken Sie OK, um diesen Kanal anzusehen"</string>
     <string name="ui_no_programme_information">"Keine Programminformationen"</string>
     <string name="ui_schedule_unavailable">"ZEITPLAN NICHT VERFÜGBAR"</string>
@@ -445,9 +445,9 @@
     <string name="ui_all_channels_318a2aa">"Alle Kanäle ▾"</string>
     <string name="ui_tv_guide_046eb4e">"TV-Guide"</string>
     <string name="ui_back_to_live_tv">"Zurück zum Live-TV"</string>
-    <string name="ui_exit_to_sva">"Beenden Sie Sva"</string>
+    <string name="ui_exit_to_sva">"Zurück zu Sva"</string>
     <string name="ui_restart">"Neustart"</string>
-    <string name="ui_resume">"Wieder aufnehmen"</string>
+    <string name="ui_resume">"Fortsetzen"</string>
     <string name="ui_this_game_could_not_be_started">"Dieses Spiel konnte nicht gestartet werden."</string>
     <string name="ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair">"Ungültige ClearKey-Konfiguration. Geben Sie gültige 128-Bit-KID/Schlüsselpaare oder einen JWK-Schlüsselsatz an."</string>
     <string name="ui_1_s_2_s_3_s_min_left">"%1$s – %2$s · %3$s Minuten übrig"</string>
@@ -498,8 +498,8 @@
     <string name="ui_add_selected_1_s">"Ausgewählte hinzufügen (%1$s)"</string>
     <string name="ui_select">"Wählen"</string>
     <string name="ui_backup_filename">"Name der Sicherungsdatei"</string>
-    <string name="ui_dismiss">"Zurückweisen"</string>
-    <string name="ui_watch">"Betrachten"</string>
+    <string name="ui_dismiss">"Schließen"</string>
+    <string name="ui_watch">"Ansehen"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s beginnt bei %2$s."</string>
     <string name="ui_starting_soon_1_s">"Bald verfügbar · %1$s"</string>
     <string name="ui_weather_response_was_too_large">"Die Wetterreaktion war zu groß."</string>
@@ -724,4 +724,5 @@
         <item quantity="many">"Noch %1$d Min. übrig"</item>
         <item quantity="other">"Noch %1$d Min. übrig"</item>
     </plurals>
+    <string name="ui_import_failed">"Spiele konnten nicht importiert werden. Bitte erneut versuchen."</string>
 </resources>

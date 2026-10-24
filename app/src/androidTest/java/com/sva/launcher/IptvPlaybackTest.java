@@ -43,6 +43,47 @@ public final class IptvPlaybackTest extends InstrumentationTestCase {
         return request(path, mime, "", "", "", Collections.emptyMap(), Collections.emptyMap());
     }
 
+    public void testActivityBufferingIndicatorClearsOnReadyErrorAndRelease() throws Exception {
+        server.hold = true;
+        Intent intent = new Intent(getInstrumentation().getTargetContext(), PlaybackActivity.class)
+                .putExtra("name", "Buffering fixture")
+                .putExtra("playbackRequest", plain("/plain/sample.mp4", "").toJson().toString())
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        PlaybackActivity activity = (PlaybackActivity)getInstrumentation().startActivitySync(intent);
+        try {
+            assertTrue(server.entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            android.view.View buffering = activity.findViewById(androidx.media3.ui.R.id.exo_buffering);
+            getInstrumentation().runOnMainSync(() -> assertEquals(android.view.View.VISIBLE, buffering.getVisibility()));
+            server.release.countDown();
+            awaitActivityPlayer(activity);
+            getInstrumentation().runOnMainSync(() -> assertEquals(android.view.View.GONE, buffering.getVisibility()));
+            java.lang.reflect.Method start = PlaybackActivity.class.getDeclaredMethod("startPlayback", PlaybackRequest.class);
+            start.setAccessible(true);
+            getInstrumentation().runOnMainSync(() -> {
+                try { start.invoke(activity, plain("/missing", "")); }
+                catch (Exception e) { throw new AssertionError(e); }
+            });
+            java.lang.reflect.Field player = PlaybackActivity.class.getDeclaredField("player"); player.setAccessible(true);
+            AtomicBoolean failed = new AtomicBoolean();
+            long deadline = SystemClock.uptimeMillis() + 10000;
+            while (!failed.get() && SystemClock.uptimeMillis() < deadline) {
+                getInstrumentation().runOnMainSync(() -> {
+                    try { failed.set(((ExoPlayer)player.get(activity)).getPlayerError() != null); }
+                    catch (Exception e) { throw new AssertionError(e); }
+                });
+                SystemClock.sleep(25);
+            }
+            assertTrue("Missing stream must produce an error", failed.get());
+            getInstrumentation().runOnMainSync(() -> assertEquals(android.view.View.GONE, buffering.getVisibility()));
+            java.lang.reflect.Method release = PlaybackActivity.class.getDeclaredMethod("releasePlayer"); release.setAccessible(true);
+            getInstrumentation().runOnMainSync(() -> {
+                try { release.invoke(activity); }
+                catch (Exception e) { throw new AssertionError(e); }
+                assertEquals(android.view.View.GONE, buffering.getVisibility());
+            });
+        } finally { server.release.countDown(); getInstrumentation().runOnMainSync(activity::finish); }
+    }
+
     public void testOrdinaryHlsDashTsAndMp4RemainPlayable() throws Exception {
         play(plain("/plain/plain.m3u8", ""));
         play(plain("/plain/dash.mpd", ""));
@@ -257,6 +298,9 @@ public final class IptvPlaybackTest extends InstrumentationTestCase {
     private final class FixtureServer implements Closeable {
         final java.net.ServerSocket socket;
         final Thread worker;
+        volatile boolean hold;
+        final java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
         final List<String> paths = Collections.synchronizedList(new ArrayList<>());
         final List<String> violations = Collections.synchronizedList(new ArrayList<>());
         FixtureServer() throws Exception {
@@ -274,6 +318,8 @@ public final class IptvPlaybackTest extends InstrumentationTestCase {
             InputStream in = new BufferedInputStream(client.getInputStream());
             String request = line(in); if (request.isEmpty()) return;
             String path = request.split(" ")[1].split("\\?")[0]; paths.add(path);
+            if (hold) { entered.countDown(); release.await(10, java.util.concurrent.TimeUnit.SECONDS); }
+            if (path.equals("/missing")) { respond(client, 404, new byte[0], null, ""); return; }
             Map<String, String> headers = StreamOptions.headers();
             String header;
             while (!(header = line(in)).isEmpty()) {
@@ -318,6 +364,6 @@ public final class IptvPlaybackTest extends InstrumentationTestCase {
             }
             return out.toString("UTF-8");
         }
-        @Override public void close() throws IOException { socket.close(); try { worker.join(1500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } }
+        @Override public void close() throws IOException { release.countDown(); socket.close(); try { worker.join(1500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } }
     }
 }

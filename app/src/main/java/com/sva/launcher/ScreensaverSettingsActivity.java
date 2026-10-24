@@ -17,6 +17,10 @@ public final class ScreensaverSettingsActivity extends MotionActivity {
     private LinearLayout page;
     private EditText album, caption;
     private TextView source, feedback;
+    private TaskProgress albumProgress;
+    private Button checkAlbumButton;
+    private boolean checkingAlbum;
+    private int albumGeneration;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final LifecycleWork lifecycleWork = new LifecycleWork(this, new android.os.Handler(android.os.Looper.getMainLooper()));
     @Override public void onCreate(Bundle state) {
@@ -33,15 +37,26 @@ public final class ScreensaverSettingsActivity extends MotionActivity {
         source = SettingsUi.text(this, "", 14, true); page.addView(source); updateSource();
         album = input(AppLanguage.get(R.string.ui_separate_google_photos_album_optional), true, state == null
                 ? prefs.getString(ScreensaverPreferences.ALBUM, "") : state.getString("album", ""));
+        album.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence value, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence value, int start, int before, int count) {
+                if (checkingAlbum) { albumGeneration++; checkingAlbum = false; updateAlbumProgress(); }
+            }
+            @Override public void afterTextChanged(android.text.Editable value) { }
+        });
         SettingsUi.hint(page, AppLanguage.get(R.string.ui_leave_empty_to_follow_the_home_album_use_an_album_shared_with_an));
         caption = input(AppLanguage.get(R.string.ui_caption_optional), false, state == null
                 ? prefs.getString(ScreensaverPreferences.CAPTION, "") : state.getString("caption", ""));
         feedback = SettingsUi.text(this, "", 14, true); SettingsUi.add(page, feedback);
         SettingsUi.add(page, SettingsUi.action(this, AppLanguage.get(R.string.ui_use_home_album), () -> {
+            albumGeneration++; checkingAlbum = false; updateAlbumProgress();
             album.setText(""); prefs.edit().remove(ScreensaverPreferences.ALBUM).apply();
             updateSource(); feedback.setText(AppLanguage.get(R.string.ui_screensaver_now_follows_the_home_album));
         }));
-        SettingsUi.add(page, SettingsUi.action(this, AppLanguage.get(R.string.ui_check_album), this::checkAlbum));
+        albumProgress = new TaskProgress(this, false);
+        SettingsUi.add(page, albumProgress);
+        checkAlbumButton = SettingsUi.action(this, AppLanguage.get(R.string.ui_check_album), this::checkAlbum);
+        SettingsUi.add(page, checkAlbumButton);
         SettingsUi.heading(page, AppLanguage.get(R.string.ui_appearance));
         int atmosphere = ScreensaverPreferences.themeIndex(prefs.getString(ScreensaverPreferences.THEME, "cinema"));
         TextView atmosphereDescription = SettingsUi.text(this, ScreensaverPreferences.descriptions()[atmosphere], 14, true);
@@ -158,17 +173,27 @@ public final class ScreensaverSettingsActivity extends MotionActivity {
         updateSource(); feedback.setText(AppLanguage.get(R.string.ui_saved)); return true;
     }
     private void checkAlbum() {
-        if (!save()) return;
+        if (checkingAlbum || !save()) return;
         String selected = ScreensaverPreferences.album(prefs);
         if (selected.isEmpty()) { feedback.setText(AppLanguage.get(R.string.ui_add_an_album_on_home_or_paste_a_separate_album_above)); return; }
+        int generation = ++albumGeneration;
+        checkingAlbum = true; updateAlbumProgress();
         feedback.setText(AppLanguage.get(R.string.ui_checking_shared_album));
         lifecycleWork.execute(worker, () -> {
             String result;
             try { result = AppLanguage.get(R.string.ui_album_ready_1_s_photos, new ScreensaverPhotoRepository(this).refresh(selected, true).size()); }
             catch (Exception e) { result = AppLanguage.get(R.string.ui_could_not_read_album_check_the_link_sharing_settings_and_connect); }
             String message = result;
-            lifecycleWork.post(() -> feedback.setText(message));
+            lifecycleWork.post(() -> {
+                if (generation != albumGeneration) return;
+                checkingAlbum = false; updateAlbumProgress();
+                if (selected.equals(ScreensaverPreferences.album(prefs))) feedback.setText(message);
+            });
         });
+    }
+    private void updateAlbumProgress() {
+        if (albumProgress != null) albumProgress.setBusy(checkingAlbum, AppLanguage.get(R.string.ui_checking_shared_album));
+        if (checkAlbumButton != null) checkAlbumButton.setEnabled(!checkingAlbum);
     }
     private void updateSource() {
         boolean home = prefs.getString(ScreensaverPreferences.ALBUM, "").isEmpty();

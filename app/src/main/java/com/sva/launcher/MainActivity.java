@@ -1,5 +1,9 @@
 package com.sva.launcher;
 
+import android.animation.Animator;
+import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
+import android.graphics.drawable.ColorDrawable;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -115,7 +119,7 @@ public final class MainActivity extends LocalizedActivity {
     private static final String GOOGLE_PHOTOS_CACHE_IMAGES = "googlePhotosCacheImages";
     private static final String PHOTO_FOLDER_CACHE_URI = "photoFolderCacheUri";
     private static final String PHOTO_FOLDER_CACHE_IMAGES = "photoFolderCacheImages";
-    private static final int CALENDAR_CACHE_VERSION = 4;
+    private static final int CALENDAR_CACHE_VERSION = 5;
     private static final int PANEL = 0xF21B1B1B;
     private static final int PANEL_FOCUSED = 0xFF2A2A2A;
     private static final int MUTED = 0xFFB7B7B7;
@@ -151,8 +155,21 @@ public final class MainActivity extends LocalizedActivity {
     private ChannelLogoLoader logoLoader;
     private SharedPreferences preferences;
     private LinearLayout root, homeContent, liveContent, gamesContent, eventsContent, savedContent;
-    private LinearLayout appRow, youtubeRow, youtubeSection;
-    private GridLayout gameGrid, calendarMonthGrid;
+    private LinearLayout appRow, youtubeSection;
+    private RecyclerView youtubeRow;
+    private SavedCardAdapter savedCardAdapter;
+    private String renderedSavedSource;
+    private boolean retrySavedArtwork;
+    private android.os.Parcelable savedListState, gamesListState;
+    private RecyclerView gameGrid;
+    private GameCardAdapter gameAdapter;
+    private int gameLoadGeneration, gameFocusGeneration;
+    private int pendingGameFocus = RecyclerView.NO_POSITION;
+    private GridLayout calendarMonthGrid;
+    private String parsedCalendarSource, renderedCalendarSource;
+    private List<PublicCalendarRepository.Event> parsedCalendarEvents = Collections.emptyList();
+    private String liveStatus;
+    private boolean liveStatusVisible = true;
     private TextView calendarHeaderDate, calendarHeaderEvents;
     private Button previousMonthButton, nextMonthButton;
     private TextView gamesEmpty, youtubeEmpty, todayEmpty, monthTitle;
@@ -190,6 +207,13 @@ public final class MainActivity extends LocalizedActivity {
     private TextView weatherSymbol, homeCalendarEyebrow, homeCalendarTitle, homeCalendarSubtitle;
     private LinearLayout timeCard, weatherCard, homeCalendarCard;
     private View clockDivider;
+    private View timeRule, eventRule, calendarDivider;
+    private TextView calendarIcon;
+    private NavigationGlyph calendarEventGlyph;
+    private LinearLayout widgetHeader;
+    private Animator currentWidgetThemeAnimator;
+    private HeaderWidgetThemes currentWidgetThemes;
+    private final LruCache<String, HeaderWidgetThemes> widgetThemeCache = new LruCache<>(12);
     private LinearLayout nowPlayingSection, nowPlayingCard;
     private Button musicToggle;
     private ImageView musicArtwork;
@@ -225,6 +249,10 @@ public final class MainActivity extends LocalizedActivity {
     private boolean screenActive;
     private boolean appsLoaded;
     private boolean appsLoading;
+    private TaskProgress liveProgress, weatherProgress, homeCalendarProgress, eventsProgress;
+    private boolean exportingBackup;
+    private boolean albumLoading;
+    private String loadingAlbumUrl = "";
     private boolean channelsRefreshing;
     private boolean guideRefreshing;
     private boolean calendarRefreshing;
@@ -244,6 +272,8 @@ public final class MainActivity extends LocalizedActivity {
         preferences = getSharedPreferences("launcher", MODE_PRIVATE);
         if (state != null) {
             focusedPackage = state.getString("focusedPackage");
+            savedListState = state.getParcelable("savedListState");
+            gamesListState = state.getParcelable("gamesListState");
             activeTab = Math.max(TAB_HOME, Math.min(TAB_SAVED, state.getInt("activeTab", TAB_HOME)));
             for (int i = 0; i < tabScroll.length; i++) tabScroll[i] = state.getInt("tabScroll" + i, 0);
             tabScroll[TAB_HOME] = 0;
@@ -269,13 +299,13 @@ public final class MainActivity extends LocalizedActivity {
         updateClock();
         clockTick = new Runnable() {
             @Override public void run() {
-                updateClock();
-                refreshCachedProgrammeDisplay();
-                updateCalendarEventDisplay();
+                if (!screenActive) return;
+                if (activeTab == TAB_HOME) updateClock();
+                if (activeTab == TAB_TV) refreshCachedProgrammeDisplay();
+                if (activeTab == TAB_HOME || activeTab == TAB_EVENTS) updateCalendarEventDisplay();
                 handler.postDelayed(this, 30000);
             }
         };
-        handler.postDelayed(clockTick, 30000);
         guideRefreshTick = new Runnable() {
             @Override public void run() {
                 maybeRefreshLiveData();
@@ -319,6 +349,8 @@ public final class MainActivity extends LocalizedActivity {
         View selectedApp = appRow == null ? null : appRow.findFocus();
         if (selectedApp != null && selectedApp.getTag() instanceof String) focusedPackage = (String) selectedApp.getTag();
         outState.putString("focusedPackage", focusedPackage);
+        outState.putParcelable("savedListState", youtubeRow == null ? savedListState : youtubeRow.getLayoutManager().onSaveInstanceState());
+        outState.putParcelable("gamesListState", gameGrid == null ? gamesListState : gameGrid.getLayoutManager().onSaveInstanceState());
         outState.putInt("activeTab", activeTab);
         for (int i = 0; i < tabPages.length; i++)
             outState.putInt("tabScroll" + i, i == TAB_HOME ? 0
@@ -393,15 +425,19 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     private void openBackupExportPicker() {
+        if (exportingBackup || restoringBackup) return;
         startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_SAVE_JSON), PICK_BACKUP_EXPORT);
     }
 
     private void openBackupImportPicker() {
+        if (exportingBackup || restoringBackup) return;
         startActivityForResult(TvFilePickerActivity.intent(this, TvFilePickerActivity.MODE_JSON), PICK_BACKUP_IMPORT);
     }
 
     private void exportBackup(Uri destination) {
-        Toast.makeText(this, AppLanguage.get(R.string.ui_creating_launcher_backup), Toast.LENGTH_SHORT).show();
+        if (exportingBackup || restoringBackup) return;
+        exportingBackup = true;
+        updateTaskProgress();
         Thread worker = new Thread(() -> {
             String error = null;
             try {
@@ -417,17 +453,23 @@ public final class MainActivity extends LocalizedActivity {
                 error = e.getMessage() == null ? AppLanguage.get(R.string.ui_could_not_create_the_backup) : e.getMessage();
             }
             String result = error;
-            lifecycleWork.post(() -> Toast.makeText(this,
-                    result == null ? AppLanguage.get(R.string.ui_backup_saved) : AppLanguage.get(R.string.ui_backup_failed_1_s, result),
-                    result == null ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show());
+            lifecycleWork.post(() -> {
+                exportingBackup = false;
+                updateTaskProgress();
+                Toast.makeText(this,
+                        result == null ? AppLanguage.get(R.string.ui_backup_saved) : AppLanguage.get(R.string.ui_backup_failed_1_s, result),
+                        result == null ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+            });
         }, "launcher-backup-export");
         worker.setDaemon(true);
         worker.start();
     }
 
     private void importBackup(Uri source) {
+        if (exportingBackup || restoringBackup) return;
         restoringBackup = true;
-        Toast.makeText(this, AppLanguage.get(R.string.ui_restoring_launcher_backup), Toast.LENGTH_SHORT).show();
+        if (settingsScreen != null) settingsScreen.renderSection();
+        updateTaskProgress();
         Thread worker = new Thread(() -> {
             String error = null;
             try (java.io.InputStream input = getContentResolver().openInputStream(source)) {
@@ -451,6 +493,8 @@ public final class MainActivity extends LocalizedActivity {
             String result = error;
             lifecycleWork.post(() -> {
                 restoringBackup = false;
+                updateTaskProgress();
+                if (settingsScreen != null) settingsScreen.renderSection();
                 if (result != null) {
                     Toast.makeText(this, AppLanguage.get(R.string.ui_restore_failed_1_s, result), Toast.LENGTH_LONG).show();
                     return;
@@ -504,6 +548,10 @@ public final class MainActivity extends LocalizedActivity {
     @Override protected void onResume() {
         super.onResume();
         screenActive = true;
+        updateClock();
+        updateCalendarEventDisplay();
+        handler.removeCallbacks(clockTick);
+        handler.postDelayed(clockTick, 30000);
         Set<String> freshHidden = HiddenChannels.load(preferences);
         Set<String> freshFavorites = FavoriteChannels.load(preferences);
         if (!freshHidden.equals(hiddenChannelKeys) || !freshFavorites.equals(favoriteChannelKeys)) {
@@ -545,6 +593,7 @@ public final class MainActivity extends LocalizedActivity {
 
     @Override protected void onPause() {
         screenActive = false;
+        if (clockTick != null) handler.removeCallbacks(clockTick);
         handler.removeCallbacks(screensaverIdle);
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
@@ -596,7 +645,7 @@ public final class MainActivity extends LocalizedActivity {
                 if (!cached.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
                         .reconcile(channels, hiddenChannelKeys);
                 openPendingReminder();
-                if (!cached.isEmpty()) status.setVisibility(View.GONE);
+                if (!cached.isEmpty()) setLiveStatusVisible(false);
                 scheduleLiveRefreshCheck();
                 if (settingsScreen != null && settingsScreen.channelAdapter != null) {
                     settingsScreen.channelAdapter.refresh();
@@ -630,25 +679,25 @@ public final class MainActivity extends LocalizedActivity {
         heroFrame.addView(slideB, new FrameLayout.LayoutParams(-1, -1));
         showCachedBackgroundImmediately();
         GradientDrawable shadow = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                light ? new int[]{0x22FFFFFF, 0x05FFFFFF, 0x18FFFFFF, 0x55E9F1EE}
+                light ? new int[]{0x00000000, 0x00000000, 0x00000000, 0x00000000}
                       : new int[]{0x33000000, 0x09000000, 0x23000000, 0x9B031013});
         View shade = new View(this);
         shade.setBackground(shadow);
         heroFrame.addView(shade, new FrameLayout.LayoutParams(-1, -1));
         View sideShade = new View(this);
         sideShade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                light ? new int[]{0x55E9F1EE, 0x22E9F1EE, 0x00000000}
+                light ? new int[]{0x00000000, 0x00000000, 0x00000000}
                       : new int[]{0xB5000D10, 0x44000D10, 0x00000000}));
         heroFrame.addView(sideShade, new FrameLayout.LayoutParams(-1, -1));
         View bottomFade = new View(this);
         bottomFade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                light ? new int[]{0x00E9F1EE, 0x18E9F1EE, 0xCCE9F1EE}
+                light ? new int[]{0x00000000, 0x00000000, 0x00000000}
                       : new int[]{0x00030C0E, 0x18030C0E, 0xE5030C0E}));
         heroFrame.addView(bottomFade, new FrameLayout.LayoutParams(-1, -1));
         scene.addView(heroFrame, new FrameLayout.LayoutParams(-1, -1));
         browsingShade = new View(this);
         browsingShade.setBackgroundColor(light ? 0xFFE9F1EE : 0xFF071417);
-        browsingShade.setAlpha(light ? 0.50f : 0f);
+        browsingShade.setAlpha(0f);
         scene.addView(browsingShade, new FrameLayout.LayoutParams(-1, -1));
         LinearLayout tabShell = new LinearLayout(this);
         tabShell.setOrientation(LinearLayout.VERTICAL);
@@ -790,8 +839,14 @@ public final class MainActivity extends LocalizedActivity {
         weatherTemperature.setTextColor(light ? LiquidTheme.text(this) : Color.WHITE);
         weatherTemperature.setIncludeFontPadding(false);
         weatherTemperature.setSingleLine(true);
+        weatherTemperature.setEllipsize(TextUtils.TruncateAt.END);
         weatherTemperature.setMaxWidth(dp(weatherMaxWidth));
-        weatherCopy.addView(weatherTemperature);
+        LinearLayout weatherHeading = new LinearLayout(this);
+        weatherHeading.setGravity(Gravity.CENTER_VERTICAL);
+        weatherHeading.addView(weatherTemperature, new LinearLayout.LayoutParams(0, -2, 1));
+        weatherProgress = new TaskProgress(this, true);
+        weatherHeading.addView(weatherProgress);
+        weatherCopy.addView(weatherHeading, new LinearLayout.LayoutParams(-1, -2));
         weatherCondition = label(AppLanguage.get(R.string.ui_local_conditions), 13, light ? LiquidTheme.secondaryText(this) : 0xFFCCD0D6, false);
         weatherCondition.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         weatherCondition.setIncludeFontPadding(false);
@@ -860,24 +915,30 @@ public final class MainActivity extends LocalizedActivity {
         homeCalendarCard.setGravity(Gravity.CENTER_VERTICAL);
         homeCalendarCard.setPadding(dp(12), dp(6), dp(12), dp(6));
         homeCalendarCard.setElevation(0);
-        TextView calendarIcon = label("", 26, light ? LiquidTheme.accent(this) : 0xFF81B8F2, true);
-        NavigationGlyph eventGlyph = new NavigationGlyph(TAB_EVENTS);
-        eventGlyph.setBounds(0, 0, dp(27), dp(27));
-        eventGlyph.setGlyphColor(light ? LiquidTheme.accent(this) : 0xFF81B8F2);
-        calendarIcon.setCompoundDrawables(null, eventGlyph, null, null);
+        calendarIcon = label("", 26, light ? LiquidTheme.accent(this) : 0xFF81B8F2, true);
+        calendarEventGlyph = new NavigationGlyph(TAB_EVENTS);
+        calendarEventGlyph.setBounds(0, 0, dp(27), dp(27));
+        calendarEventGlyph.setGlyphColor(light ? LiquidTheme.accent(this) : 0xFF81B8F2);
+        calendarIcon.setCompoundDrawables(null, calendarEventGlyph, null, null);
         calendarIcon.setGravity(Gravity.CENTER);
         homeCalendarCard.addView(calendarIcon, new LinearLayout.LayoutParams(dp(44), dp(46)));
-        View calendarDivider = new View(this);
+        calendarDivider = new View(this);
         calendarDivider.setBackgroundColor(light ? LiquidTheme.border(this) : 0x558FADB2);
         LinearLayout.LayoutParams calendarDividerParams = new LinearLayout.LayoutParams(dp(1), dp(36));
         calendarDividerParams.setMargins(dp(6), 0, dp(10), 0);
+        homeCalendarCard.addView(calendarDivider, calendarDividerParams);
 
         LinearLayout calendarCopy = new LinearLayout(this);
         calendarCopy.setOrientation(LinearLayout.VERTICAL);
         calendarCopy.setGravity(Gravity.CENTER_VERTICAL);
         homeCalendarCard.addView(calendarCopy, new LinearLayout.LayoutParams(0, -2, 1));
         homeCalendarEyebrow = label(AppLanguage.get(R.string.ui_up_next), 10, light ? LiquidTheme.secondaryText(this) : 0xFFBEC4CD, false);
-        calendarCopy.addView(homeCalendarEyebrow);
+        LinearLayout calendarHeading = new LinearLayout(this);
+        calendarHeading.setGravity(Gravity.CENTER_VERTICAL);
+        calendarHeading.addView(homeCalendarEyebrow, new LinearLayout.LayoutParams(0, -2, 1));
+        homeCalendarProgress = new TaskProgress(this, true);
+        calendarHeading.addView(homeCalendarProgress);
+        calendarCopy.addView(calendarHeading, new LinearLayout.LayoutParams(-1, -2));
         homeCalendarTitle = label(AppLanguage.get(R.string.ui_no_events_today), 16, light ? LiquidTheme.text(this) : Color.WHITE, true);
         homeCalendarTitle.setSingleLine(true);
         homeCalendarTitle.setMaxLines(1);
@@ -960,32 +1021,32 @@ public final class MainActivity extends LocalizedActivity {
         nowPlayingSection.addView(nowPlayingCard, new LinearLayout.LayoutParams(weatherWidth, dp(68)));
         weatherStack.addView(nowPlayingSection);
 
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setClipChildren(false);
-        header.setClipToPadding(false);
-        header.setPadding(dp(14), dp(4), dp(10), dp(4));
-        header.setBackgroundColor(Color.TRANSPARENT);
+        widgetHeader = new LinearLayout(this);
+        widgetHeader.setGravity(Gravity.CENTER_VERTICAL);
+        widgetHeader.setClipChildren(false);
+        widgetHeader.setClipToPadding(false);
+        widgetHeader.setPadding(dp(14), dp(4), dp(10), dp(4));
+        widgetHeader.setBackgroundColor(Color.TRANSPARENT);
         LinearLayout.LayoutParams timeCardParams = new LinearLayout.LayoutParams(0, -1, 28);
         timeCardParams.setMargins(dp(2), dp(2), dp(2), dp(2));
-        header.addView(timeCard, timeCardParams);
-        View timeRule = new View(this);
+        widgetHeader.addView(timeCard, timeCardParams);
+        timeRule = new View(this);
         timeRule.setBackgroundColor(light ? LiquidTheme.border(this) : 0x55CDD0D4);
-        header.addView(timeRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
+        widgetHeader.addView(timeRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
         LinearLayout.LayoutParams weatherCardParams = new LinearLayout.LayoutParams(0, -1, 40);
         weatherCardParams.setMargins(dp(2), dp(2), dp(2), dp(2));
-        header.addView(weatherCard, weatherCardParams);
-        View eventRule = new View(this);
+        widgetHeader.addView(weatherCard, weatherCardParams);
+        eventRule = new View(this);
         eventRule.setBackgroundColor(light ? LiquidTheme.border(this) : 0x55CDD0D4);
-        header.addView(eventRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
+        widgetHeader.addView(eventRule, new LinearLayout.LayoutParams(dp(1), dp(48)));
         LinearLayout.LayoutParams eventCardParams = new LinearLayout.LayoutParams(0, -1, 32);
         eventCardParams.setMargins(dp(2), dp(2), dp(2), dp(2));
-        header.addView(homeCalendarCard, eventCardParams);
+        widgetHeader.addView(homeCalendarCard, eventCardParams);
         FrameLayout topBar = new FrameLayout(this);
         topBar.setClipChildren(false);
         topBar.setClipToPadding(false);
         topBar.setPadding(dp(20), dp(16), dp(20), 0);
-        topBar.addView(header, new FrameLayout.LayoutParams(-1, topCardHeight));
+        topBar.addView(widgetHeader, new FrameLayout.LayoutParams(-1, topCardHeight));
         FrameLayout.LayoutParams musicParams = new FrameLayout.LayoutParams(weatherWidth, -2, Gravity.END | Gravity.TOP);
         musicParams.topMargin = topCardHeight + dp(8);
         topBar.addView(weatherStack, musicParams);
@@ -1024,6 +1085,12 @@ public final class MainActivity extends LocalizedActivity {
         appScroll.addView(appRow);
         homeContent.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(92)));
 
+        applyWallpaper();
+        updateTaskProgress();
+        selectTab(activeTab, false);
+    }
+
+    private void buildGamesTab() {
         LinearLayout gamesHeading = new LinearLayout(this);
         gamesHeading.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         gamesHeading.setClipChildren(false);
@@ -1041,14 +1108,22 @@ public final class MainActivity extends LocalizedActivity {
         gamesEmpty = label(AppLanguage.get(R.string.ui_no_games_yet_import_your_own_nes_files_to_get_started), 17, MUTED, false);
         gamesEmpty.setPadding(dp(8), dp(20), 0, dp(20));
         gamesContent.addView(gamesEmpty);
-        gameGrid = new GridLayout(this);
-        gameGrid.setColumnCount(5);
-        gameGrid.setClipChildren(false);
-        gameGrid.setClipToPadding(false);
-        gamesContent.addView(gameGrid, new LinearLayout.LayoutParams(-1, -2));
-        renderGames();
+        gameGrid = new RecyclerView(this);
+        int columns = Math.max(1, Math.min(5, (getResources().getDisplayMetrics().widthPixels
+                - gamesContent.getPaddingLeft() - gamesContent.getPaddingRight()) / dp(162)));
+        gameGrid.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(this, columns));
+        gameGrid.setItemAnimator(null);
+        gameGrid.setClipChildren(false); gameGrid.setClipToPadding(false);
+        gameGrid.setNestedScrollingEnabled(false);
+        gameAdapter = new GameCardAdapter(this,
+                dp(224), 0, 0, dp(12), dp(12), game -> startActivity(new Intent(this,
+                        GameDetailActivity.class).putExtra("gameId", game.id)));
+        gameGrid.setAdapter(gameAdapter);
+        gamesContent.addView(gameGrid, new LinearLayout.LayoutParams(-1, dp(Math.max(236,
+                getResources().getConfiguration().screenHeightDp - 326))));
+    }
 
-        applyWallpaper();
+    private void buildLiveTab() {
 
         if (liveContent.getChildCount() > 0) liveContent.getChildAt(0).setVisibility(View.GONE);
         LinearLayout liveHeading = new LinearLayout(this);
@@ -1079,6 +1154,9 @@ public final class MainActivity extends LocalizedActivity {
         LinearLayout.LayoutParams liveHeadingParams = new LinearLayout.LayoutParams(-1, -2);
         liveHeadingParams.bottomMargin = dp(4);
         liveContent.addView(liveHeading, liveHeadingParams);
+        liveProgress = new TaskProgress(this, false);
+        liveContent.addView(liveProgress, new LinearLayout.LayoutParams(-1, -2));
+        updateTaskProgress();
 
         channelRows = new LinearLayout(this);
         channelRows.setOrientation(LinearLayout.VERTICAL);
@@ -1102,7 +1180,12 @@ public final class MainActivity extends LocalizedActivity {
         status = label(AppLanguage.get(R.string.ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started), 15, MUTED, false);
         status.setPadding(0, dp(12), 0, 0);
         liveContent.addView(status);
+        if (liveStatus != null) status.setText(liveStatus);
+        status.setVisibility(liveStatusVisible ? View.VISIBLE : View.GONE);
 
+    }
+
+    private void buildSavedTab() {
         youtubeSection = new LinearLayout(this);
         youtubeSection.setOrientation(LinearLayout.VERTICAL);
         youtubeSection.setClipChildren(false);
@@ -1123,27 +1206,37 @@ public final class MainActivity extends LocalizedActivity {
         LinearLayout.LayoutParams youtubeSectionParams = new LinearLayout.LayoutParams(-1, -2);
         youtubeSectionParams.topMargin = dp(16);
         youtubeSection.addView(youtubeTitleRow, new LinearLayout.LayoutParams(-1, dp(56)));
-        HorizontalScrollView youtubeScroll = new HorizontalScrollView(this);
-        youtubeScroll.setHorizontalScrollBarEnabled(false);
-        youtubeScroll.setPadding(dp(8), dp(10), dp(8), dp(10));
-        youtubeScroll.setClipChildren(false);
-        youtubeScroll.setClipToPadding(false);
-        youtubeRow = new LinearLayout(this);
-        youtubeRow.setOrientation(LinearLayout.HORIZONTAL);
-        youtubeRow.setClipChildren(false);
-        youtubeRow.setClipToPadding(false);
-        youtubeScroll.addView(youtubeRow);
-        youtubeSection.addView(youtubeScroll, new LinearLayout.LayoutParams(-1, dp(230)));
+        youtubeRow = new RecyclerView(this);
+        youtubeRow.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        youtubeRow.setHorizontalScrollBarEnabled(false);
+        youtubeRow.setPadding(dp(12), dp(12), dp(12), dp(12));
+        youtubeRow.setClipChildren(false); youtubeRow.setClipToPadding(false);
+        youtubeRow.setItemAnimator(null);
+        savedCardAdapter = new SavedCardAdapter();
+        youtubeRow.setAdapter(savedCardAdapter);
+        youtubeSection.addView(youtubeRow, new LinearLayout.LayoutParams(-1, dp(238)));
         savedContent.addView(youtubeSection, youtubeSectionParams);
         youtubeEmpty = label(AppLanguage.get(R.string.ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin), 17, MUTED, false);
         youtubeEmpty.setPadding(dp(8), dp(16), 0, dp(16));
         savedContent.addView(youtubeEmpty);
         renderYouTubeCards();
 
-        buildEventsTab();
+    }
 
-        renderGuide();
-        selectTab(activeTab, false);
+    private void ensureTabBuilt(int tab) {
+        if (tab == TAB_TV) {
+            if (channelRows == null) buildLiveTab();
+            renderChannels();
+        } else if (tab == TAB_GAMES) {
+            if (gameGrid == null) buildGamesTab();
+            renderGames();
+        } else if (tab == TAB_EVENTS) {
+            if (calendarMonthGrid == null) buildEventsTab();
+            updateCalendarEventDisplay();
+        } else if (tab == TAB_SAVED) {
+            if (youtubeRow == null) buildSavedTab();
+            renderYouTubeCards();
+        }
     }
 
     @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
@@ -1156,7 +1249,7 @@ public final class MainActivity extends LocalizedActivity {
         page.setFillViewport(true);
         page.setVerticalScrollBarEnabled(false);
         page.setBackgroundColor(Color.TRANSPARENT);
-        page.setClipChildren(false);
+        page.setClipChildren(true);
         page.setClipToPadding(false);
         page.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout content = new LinearLayout(this);
@@ -1254,6 +1347,20 @@ public final class MainActivity extends LocalizedActivity {
             }
             View page = tabPages[activeTab];
             if (focused != null && page != null && isWithinPage(focused, page)) {
+                if (activeTab == TAB_GAMES && gameGrid != null && isWithinPage(focused, gameGrid)
+                        && (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN)) {
+                    View item = gameGrid.findContainingItemView(focused);
+                    int position = item == null ? RecyclerView.NO_POSITION : gameGrid.getChildAdapterPosition(item);
+                    int columns = ((androidx.recyclerview.widget.GridLayoutManager)gameGrid.getLayoutManager()).getSpanCount();
+                    if (pendingGameFocus != RecyclerView.NO_POSITION) position = pendingGameFocus;
+                    boolean anotherRow = position != RecyclerView.NO_POSITION && (direction == View.FOCUS_DOWN
+                            ? position / columns < (gameAdapter.getItemCount() - 1) / columns : position >= columns);
+                    if (anotherRow) {
+                        focusGamePosition(Math.min(gameAdapter.getItemCount() - 1,
+                                position + (direction == View.FOCUS_DOWN ? columns : -columns)));
+                        return true;
+                    }
+                }
                 if (activeTab == TAB_TV) {
                     if (focused == guideToggle && direction == View.FOCUS_DOWN) {
                         Button categoryTab = channelTabMap.get(selectedChannelCategory);
@@ -1467,10 +1574,13 @@ public final class MainActivity extends LocalizedActivity {
             View focused = oldPage.findFocus();
             if (focused != null) tabFocus[activeTab] = focused;
         }
+        if (activeTab != selectedTab) { gameFocusGeneration++; pendingGameFocus = RecyclerView.NO_POSITION; }
         activeTab = selectedTab;
         tabsInitialized = true;
         switchingTabs = true;
         try {
+            ensureTabBuilt(selectedTab);
+            if (selectedTab == TAB_HOME) { updateClock(); updateHomeCalendarWidget(); }
             for (int i = 0; i < tabPages.length; i++) {
                 if (tabPages[i] != null) {
                     if (i != selectedTab) Motion.reset(tabPages[i]);
@@ -1494,7 +1604,7 @@ public final class MainActivity extends LocalizedActivity {
         } finally {
             switchingTabs = false;
         }
-        browsingShade.setAlpha(selectedTab == TAB_HOME ? (LiquidTheme.isLight(this) ? .50f : 0f)
+        browsingShade.setAlpha(selectedTab == TAB_HOME ? 0f
                 : (LiquidTheme.isLight(this) ? .88f : .65f));
         View selectedPage = tabPages[selectedTab];
         if (selectedPage != null) {
@@ -1578,7 +1688,13 @@ public final class MainActivity extends LocalizedActivity {
         eventSummary.setPadding(dp(20), 0, dp(20), 0);
         calendarHeaderDate = label("", 10, LiquidTheme.accent(this), true);
         calendarHeaderDate.setLetterSpacing(.1f);
-        eventSummary.addView(calendarHeaderDate);
+        LinearLayout eventsHeading = new LinearLayout(this);
+        eventsHeading.setGravity(Gravity.CENTER_VERTICAL);
+        eventsHeading.addView(calendarHeaderDate, new LinearLayout.LayoutParams(0, -2, 1));
+        eventsProgress = new TaskProgress(this, true);
+        eventsHeading.addView(eventsProgress);
+        eventSummary.addView(eventsHeading, new LinearLayout.LayoutParams(-1, -2));
+        updateTaskProgress();
         calendarHeaderEvents = label("", 14, LiquidTheme.text(this), true);
         calendarHeaderEvents.setMaxLines(3);
         calendarHeaderEvents.setEllipsize(TextUtils.TruncateAt.END);
@@ -1669,6 +1785,7 @@ public final class MainActivity extends LocalizedActivity {
         renderedMonth = displayedMonth;
         renderedToday = LocalDate.now();
         renderedCalendarStamp = preferences.getLong("publicCalendarUpdatedAt", 0L);
+        renderedCalendarSource = preferences.getString("publicCalendarEvents", "[]");
         String monthName = displayedMonth.format(java.time.format.DateTimeFormatter.ofPattern("MMMM", AppLanguage.locale()));
         SpannableString headingText = new SpannableString(monthName + " " + displayedMonth.getYear());
         headingText.setSpan(new ForegroundColorSpan(light ? LiquidTheme.secondaryText(this) : 0xFFAFC6D2), monthName.length() + 1,
@@ -2267,6 +2384,309 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
     }
 
+    static final class RegionTheme {
+        final boolean isLight;
+        final int primaryText;
+        final int secondaryText;
+        final int accentColor;
+        final int dividerColor;
+        final int shadowColor;
+        final float shadowRadius;
+
+        RegionTheme(boolean isLight, int primaryText, int secondaryText, int accentColor, int dividerColor, int shadowColor, float shadowRadius) {
+            this.isLight = isLight;
+            this.primaryText = primaryText;
+            this.secondaryText = secondaryText;
+            this.accentColor = accentColor;
+            this.dividerColor = dividerColor;
+            this.shadowColor = shadowColor;
+            this.shadowRadius = shadowRadius;
+        }
+    }
+
+    static final class HeaderWidgetThemes {
+        final RegionTheme clock;
+        final RegionTheme weather;
+        final RegionTheme calendar;
+
+        HeaderWidgetThemes(RegionTheme clock, RegionTheme weather, RegionTheme calendar) {
+            this.clock = clock;
+            this.weather = weather;
+            this.calendar = calendar;
+        }
+    }
+
+    private RegionTheme lightRegionTheme() {
+        return new RegionTheme(true, 0xFF101820, 0xFF3C4B5A, 0xFF087D91, 0x38000000, 0x33FFFFFF, 2f);
+    }
+
+    private RegionTheme darkRegionTheme() {
+        return new RegionTheme(false, Color.WHITE, 0xFFCCD0D6, 0xFF81B8F2, 0x55CDD0D4, 0xAA000000, 3.5f);
+    }
+
+    private RegionTheme analyzeRegionLuminance(android.graphics.Bitmap bitmap, float leftFrac, float topFrac, float rightFrac, float bottomFrac) {
+        if (bitmap == null || bitmap.isRecycled() || bitmap.getWidth() <= 0 || bitmap.getHeight() <= 0) {
+            return LiquidTheme.isLight(this) ? lightRegionTheme() : darkRegionTheme();
+        }
+
+        int bmW = bitmap.getWidth();
+        int bmH = bitmap.getHeight();
+
+        int startX = Math.max(0, Math.min(bmW - 1, Math.round(leftFrac * bmW)));
+        int endX = Math.max(startX + 1, Math.min(bmW, Math.round(rightFrac * bmW)));
+        int startY = Math.max(0, Math.min(bmH - 1, Math.round(topFrac * bmH)));
+        int endY = Math.max(startY + 1, Math.min(bmH, Math.round(bottomFrac * bmH)));
+
+        int stepX = Math.max(1, (endX - startX) / 16);
+        int stepY = Math.max(1, (endY - startY) / 16);
+
+        double totalLuminance = 0;
+        double sumSqLuminance = 0;
+        int count = 0;
+
+        for (int y = startY; y < endY; y += stepY) {
+            for (int x = startX; x < endX; x += stepX) {
+                int pixel = bitmap.getPixel(x, y);
+                int r = (pixel >> 16) & 0xFF;
+                int g = (pixel >> 8) & 0xFF;
+                int b = pixel & 0xFF;
+
+                double lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                totalLuminance += lum;
+                sumSqLuminance += lum * lum;
+                count++;
+            }
+        }
+
+        if (count == 0) return LiquidTheme.isLight(this) ? lightRegionTheme() : darkRegionTheme();
+
+        double avgLum = totalLuminance / count;
+        double variance = (sumSqLuminance / count) - (avgLum * avgLum);
+        boolean isComplex = variance > 0.025;
+
+        boolean isLightBackground = avgLum > 0.52;
+
+        if (isLightBackground) {
+            int primary = 0xFF101820;
+            int secondary = 0xFF3C4B5A;
+            int accent = 0xFF087D91;
+            int divider = 0x38000000;
+            int shadow = isComplex ? 0x55FFFFFF : 0x22FFFFFF;
+            float shadowRadius = isComplex ? 4f : 2f;
+            return new RegionTheme(true, primary, secondary, accent, divider, shadow, shadowRadius);
+        } else {
+            int primary = Color.WHITE;
+            int secondary = 0xFFCCD0D6;
+            int accent = 0xFF7BE7F4;
+            int divider = 0x55CDD0D4;
+            int shadow = isComplex ? 0xEE000000 : 0xAA000000;
+            float shadowRadius = isComplex ? 5f : 3.5f;
+            return new RegionTheme(false, primary, secondary, accent, divider, shadow, shadowRadius);
+        }
+    }
+
+    private HeaderWidgetThemes analyzeHeaderWidgetThemes(android.graphics.Bitmap bitmap) {
+        if (!LiquidTheme.isLight(this) || bitmap == null || bitmap.isRecycled()) {
+            RegionTheme fallback = LiquidTheme.isLight(this) ? lightRegionTheme() : darkRegionTheme();
+            return new HeaderWidgetThemes(fallback, fallback, fallback);
+        }
+
+        float clockLeft = 0.02f, clockRight = 0.32f;
+        float weatherLeft = 0.32f, weatherRight = 0.68f;
+        float calendarLeft = 0.68f, calendarRight = 0.98f;
+        float topFrac = 0.0f, bottomFrac = 0.30f;
+
+        if (widgetHeader != null && widgetHeader.getWidth() > 0) {
+            float hW = widgetHeader.getWidth();
+            if (timeCard != null && timeCard.getWidth() > 0) {
+                clockLeft = Math.max(0f, (float) timeCard.getLeft() / hW);
+                clockRight = Math.min(1f, (float) timeCard.getRight() / hW);
+            }
+            if (weatherCard != null && weatherCard.getWidth() > 0) {
+                weatherLeft = Math.max(0f, (float) weatherCard.getLeft() / hW);
+                weatherRight = Math.min(1f, (float) weatherCard.getRight() / hW);
+            }
+            if (homeCalendarCard != null && homeCalendarCard.getWidth() > 0) {
+                calendarLeft = Math.max(0f, (float) homeCalendarCard.getLeft() / hW);
+                calendarRight = Math.min(1f, (float) homeCalendarCard.getRight() / hW);
+            }
+        }
+
+        RegionTheme clockTheme = analyzeRegionLuminance(bitmap, clockLeft, topFrac, clockRight, bottomFrac);
+        RegionTheme weatherTheme = analyzeRegionLuminance(bitmap, weatherLeft, topFrac, weatherRight, bottomFrac);
+        RegionTheme calendarTheme = analyzeRegionLuminance(bitmap, calendarLeft, topFrac, calendarRight, bottomFrac);
+
+        return new HeaderWidgetThemes(clockTheme, weatherTheme, calendarTheme);
+    }
+
+    private void updateWidgetThemesForBitmap(android.graphics.Bitmap bitmap, String key) {
+        if (bitmap == null || bitmap.isRecycled()) {
+            RegionTheme fallback = LiquidTheme.isLight(this) ? lightRegionTheme() : darkRegionTheme();
+            applyOrAnimateWidgetThemes(new HeaderWidgetThemes(fallback, fallback, fallback));
+            return;
+        }
+
+        if (key != null) {
+            HeaderWidgetThemes cached = widgetThemeCache.get(key);
+            if (cached != null) {
+                applyOrAnimateWidgetThemes(cached);
+                return;
+            }
+        }
+
+        lifecycleWork.execute(ioWorker, () -> {
+            if (bitmap.isRecycled()) return;
+            HeaderWidgetThemes themes = analyzeHeaderWidgetThemes(bitmap);
+            if (key != null) widgetThemeCache.put(key, themes);
+            lifecycleWork.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                applyOrAnimateWidgetThemes(themes);
+            });
+        });
+    }
+
+    private void applyOrAnimateWidgetThemes(HeaderWidgetThemes themes) {
+        if (themes == null) return;
+        currentWidgetThemes = themes;
+
+        if (clock == null || weatherTemperature == null || homeCalendarTitle == null) return;
+
+        if (currentWidgetThemeAnimator != null) {
+            currentWidgetThemeAnimator.cancel();
+            currentWidgetThemeAnimator = null;
+        }
+
+        if (!ValueAnimator.areAnimatorsEnabled()) {
+            applyWidgetThemesInstantly(themes);
+            return;
+        }
+
+        int startClockPrimary = clock.getCurrentTextColor();
+        int startClockSecondary = date.getCurrentTextColor();
+        int startClockPeriod = clockPeriod.getCurrentTextColor();
+        int startTimeRule = timeRule != null && timeRule.getBackground() instanceof ColorDrawable
+                ? ((ColorDrawable) timeRule.getBackground()).getColor() : 0;
+
+        int startWeatherPrimary = weatherTemperature.getCurrentTextColor();
+        int startWeatherSecondary = weatherCondition.getCurrentTextColor();
+        int startWeatherSymbol = weatherSymbol.getCurrentTextColor();
+        int startEventRule = eventRule != null && eventRule.getBackground() instanceof ColorDrawable
+                ? ((ColorDrawable) eventRule.getBackground()).getColor() : 0;
+
+        int startCalendarPrimary = homeCalendarTitle.getCurrentTextColor();
+        int startCalendarSecondary = homeCalendarEyebrow.getCurrentTextColor();
+        int startCalendarGlyph = calendarEventGlyph != null ? calendarEventGlyph.getGlyphColor() : 0;
+        int startCalendarDivider = calendarDivider != null && calendarDivider.getBackground() instanceof ColorDrawable
+                ? ((ColorDrawable) calendarDivider.getBackground()).getColor() : 0;
+
+        ArgbEvaluator evaluator = new ArgbEvaluator();
+        ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
+        animator.setDuration(350);
+        animator.addUpdateListener(a -> {
+            float f = a.getAnimatedFraction();
+
+            // Clock region
+            int clockPrimary = (int) evaluator.evaluate(f, startClockPrimary, themes.clock.primaryText);
+            int clockSecondary = (int) evaluator.evaluate(f, startClockSecondary, themes.clock.secondaryText);
+            int clockPeriodCol = (int) evaluator.evaluate(f, startClockPeriod, themes.clock.secondaryText);
+            clock.setTextColor(clockPrimary);
+            date.setTextColor(clockSecondary);
+            clockPeriod.setTextColor(clockPeriodCol);
+            if (timeRule != null) timeRule.setBackgroundColor((int) evaluator.evaluate(f, startTimeRule, themes.clock.dividerColor));
+
+            // Weather region
+            int weatherPrimary = (int) evaluator.evaluate(f, startWeatherPrimary, themes.weather.primaryText);
+            int weatherSecondary = (int) evaluator.evaluate(f, startWeatherSecondary, themes.weather.secondaryText);
+            int weatherSymCol = (int) evaluator.evaluate(f, startWeatherSymbol, themes.weather.isLight ? 0xFFE67E22 : 0xFFFFBD38);
+            weatherTemperature.setTextColor(weatherPrimary);
+            weatherCondition.setTextColor(weatherSecondary);
+            weatherDetails.setTextColor(weatherSecondary);
+            weatherLocation.setTextColor(weatherSecondary);
+            weatherMetrics.setTextColor(weatherPrimary);
+            weatherSymbol.setTextColor(weatherSymCol);
+            if (eventRule != null) eventRule.setBackgroundColor((int) evaluator.evaluate(f, startEventRule, themes.weather.dividerColor));
+
+            // Calendar region
+            int calendarPrimary = (int) evaluator.evaluate(f, startCalendarPrimary, themes.calendar.primaryText);
+            int calendarSecondary = (int) evaluator.evaluate(f, startCalendarSecondary, themes.calendar.secondaryText);
+            int calendarAccent = (int) evaluator.evaluate(f, startCalendarGlyph, themes.calendar.accentColor);
+            int calendarDiv = (int) evaluator.evaluate(f, startCalendarDivider, themes.calendar.dividerColor);
+            homeCalendarTitle.setTextColor(calendarPrimary);
+            homeCalendarEyebrow.setTextColor(calendarSecondary);
+            homeCalendarSubtitle.setTextColor(calendarSecondary);
+            if (calendarEventGlyph != null) {
+                calendarEventGlyph.setGlyphColor(calendarAccent);
+                if (calendarIcon != null) calendarIcon.invalidate();
+            }
+            if (calendarDivider != null) calendarDivider.setBackgroundColor(calendarDiv);
+        });
+
+        applyShadowLayer(clock, themes.clock);
+        applyShadowLayer(clockPeriod, themes.clock);
+        applyShadowLayer(date, themes.clock);
+
+        applyShadowLayer(weatherTemperature, themes.weather);
+        applyShadowLayer(weatherCondition, themes.weather);
+        applyShadowLayer(weatherDetails, themes.weather);
+        applyShadowLayer(weatherLocation, themes.weather);
+        applyShadowLayer(weatherMetrics, themes.weather);
+
+        applyShadowLayer(homeCalendarTitle, themes.calendar);
+        applyShadowLayer(homeCalendarEyebrow, themes.calendar);
+        applyShadowLayer(homeCalendarSubtitle, themes.calendar);
+
+        currentWidgetThemeAnimator = animator;
+        animator.start();
+    }
+
+    private void applyShadowLayer(TextView tv, RegionTheme theme) {
+        if (tv == null || theme == null) return;
+        tv.setShadowLayer(dp(Math.round(theme.shadowRadius)), 0, dp(1), theme.shadowColor);
+    }
+
+    private void applyWidgetThemesInstantly(HeaderWidgetThemes themes) {
+        if (themes == null) return;
+
+        // Clock
+        if (clock != null) clock.setTextColor(themes.clock.primaryText);
+        if (date != null) date.setTextColor(themes.clock.secondaryText);
+        if (clockPeriod != null) clockPeriod.setTextColor(themes.clock.secondaryText);
+        if (timeRule != null) timeRule.setBackgroundColor(themes.clock.dividerColor);
+
+        // Weather
+        if (weatherTemperature != null) weatherTemperature.setTextColor(themes.weather.primaryText);
+        if (weatherCondition != null) weatherCondition.setTextColor(themes.weather.secondaryText);
+        if (weatherDetails != null) weatherDetails.setTextColor(themes.weather.secondaryText);
+        if (weatherLocation != null) weatherLocation.setTextColor(themes.weather.secondaryText);
+        if (weatherMetrics != null) weatherMetrics.setTextColor(themes.weather.primaryText);
+        if (weatherSymbol != null) weatherSymbol.setTextColor(themes.weather.isLight ? 0xFFE67E22 : 0xFFFFBD38);
+        if (eventRule != null) eventRule.setBackgroundColor(themes.weather.dividerColor);
+
+        // Calendar
+        if (homeCalendarTitle != null) homeCalendarTitle.setTextColor(themes.calendar.primaryText);
+        if (homeCalendarEyebrow != null) homeCalendarEyebrow.setTextColor(themes.calendar.secondaryText);
+        if (homeCalendarSubtitle != null) homeCalendarSubtitle.setTextColor(themes.calendar.secondaryText);
+        if (calendarEventGlyph != null) {
+            calendarEventGlyph.setGlyphColor(themes.calendar.accentColor);
+            if (calendarIcon != null) calendarIcon.invalidate();
+        }
+        if (calendarDivider != null) calendarDivider.setBackgroundColor(themes.calendar.dividerColor);
+
+        applyShadowLayer(clock, themes.clock);
+        applyShadowLayer(clockPeriod, themes.clock);
+        applyShadowLayer(date, themes.clock);
+
+        applyShadowLayer(weatherTemperature, themes.weather);
+        applyShadowLayer(weatherCondition, themes.weather);
+        applyShadowLayer(weatherDetails, themes.weather);
+        applyShadowLayer(weatherLocation, themes.weather);
+        applyShadowLayer(weatherMetrics, themes.weather);
+
+        applyShadowLayer(homeCalendarTitle, themes.calendar);
+        applyShadowLayer(homeCalendarEyebrow, themes.calendar);
+        applyShadowLayer(homeCalendarSubtitle, themes.calendar);
+    }
+
     private TextView label(String value, float size, int color, boolean bold) {
         TextView v = new TextView(this);
         v.setText(value);
@@ -2472,6 +2892,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         weatherMetrics.setText("≋  " + AppLanguage.number(Math.round(wind)) + windUnit
                 + (weatherForecast.humidity >= 0 ? "    💧 " + weatherForecast.humidity + "%" : ""));
         weatherPanel.setContentDescription(AppLanguage.get(R.string.ui_1_s_2_s_3_s_wind_4_s_5_s, weatherTemperature.getText(), weatherCondition.getText(), weatherForecast.location, Math.round(wind), windUnit));
+        if (currentWidgetThemes != null) {
+            applyWidgetThemesInstantly(currentWidgetThemes);
+        }
     }
 
     private void showWeatherForecast() {
@@ -2520,7 +2943,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void refreshWeather(WeatherRepository.Location location) {
-        weatherRefreshing = true;
+        weatherRefreshing = true; updateTaskProgress();
         preferences.edit().putLong("weatherAttemptedAt", System.currentTimeMillis()).apply();
         int generation = ++weatherRequestGeneration;
         if (settingsScreen != null) settingsScreen.setWeatherFeedback(AppLanguage.get(R.string.ui_refreshing_weather));
@@ -2531,7 +2954,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             WeatherRepository.Forecast result = forecast; String resultError = error;
             lifecycleWork.post(() -> {
                 if (generation != weatherRequestGeneration || isFinishing() || isDestroyed()) return;
-                weatherRefreshing = false;
+                weatherRefreshing = false; updateTaskProgress();
                 if (result != null) {
                     weatherForecast = result;
                     try { preferences.edit().putString("weatherCache", result.toJson().toString())
@@ -2563,7 +2986,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void saveWeatherLocation(String mode, WeatherRepository.Location location) {
         weatherRequestGeneration++;
-        weatherRefreshing = false;
+        weatherRefreshing = false; updateTaskProgress();
         WeatherRepository.Location previous = savedWeatherLocation();
         boolean changed = previous == null || Math.abs(previous.latitude - location.latitude) > .0001
                 || Math.abs(previous.longitude - location.longitude) > .0001;
@@ -2654,9 +3077,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private List<PublicCalendarRepository.Event> cachedCalendarEvents() {
+        String source = preferences.getString("publicCalendarEvents", "[]");
+        if (source.equals(parsedCalendarSource)) return parsedCalendarEvents;
         ArrayList<PublicCalendarRepository.Event> events = new ArrayList<>();
         try {
-            JSONArray values = new JSONArray(preferences.getString("publicCalendarEvents", "[]"));
+            JSONArray values = new JSONArray(source);
             for (int i = 0; i < values.length(); i++) {
                 JSONObject value = values.optJSONObject(i);
                 if (value == null) continue;
@@ -2667,7 +3092,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
         } catch (Exception ignored) { }
         Collections.sort(events, (a, b) -> Long.compare(a.startMs, b.startMs));
-        return events;
+        parsedCalendarSource = source;
+        parsedCalendarEvents = Collections.unmodifiableList(events);
+        return parsedCalendarEvents;
     }
 
     private void updateHomeCalendarWidget() {
@@ -2747,18 +3174,18 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void cancelCalendarRefresh() {
         calendarRequestGeneration++;
-        calendarRefreshing = false;
+        calendarRefreshing = false; updateTaskProgress();
         calendarRefreshingUrl = "";
     }
 
     private void updateCalendarEventDisplay() {
         updateHomeCalendarWidget();
-        if (calendarMonthGrid == null) return;
+        if (calendarMonthGrid == null || activeTab != TAB_EVENTS) return;
         List<PublicCalendarRepository.Event> cached = cachedCalendarEvents();
         LocalDate today = LocalDate.now();
         long stamp = preferences.getLong("publicCalendarUpdatedAt", 0L);
         if (today.equals(renderedToday) && displayedMonth.equals(renderedMonth)
-                && stamp == renderedCalendarStamp) return;
+                && stamp == renderedCalendarStamp && java.util.Objects.equals(parsedCalendarSource, renderedCalendarSource)) return;
         if (todayItems != null) todayItems.removeAllViews();
         int todayCount = 0;
         for (PublicCalendarRepository.Event event : cached) {
@@ -2802,7 +3229,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
         if (urls.isEmpty()) return;
         calendarRefreshingUrl = url;
-        calendarRefreshing = true;
+        calendarRefreshing = true; updateTaskProgress();
         preferences.edit().putLong("publicCalendarAttemptedAt", System.currentTimeMillis())
                 .putInt("publicCalendarAttemptedVersion", CALENDAR_CACHE_VERSION).apply();
         int generation = ++calendarRequestGeneration;
@@ -2810,7 +3237,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             CalendarFeedCache.RefreshResult result = cache.refresh(urls, System.currentTimeMillis(), PublicCalendarRepository::download);
             lifecycleWork.post(() -> {
                 if (generation != calendarRequestGeneration) return;
-                calendarRefreshing = false;
+                calendarRefreshing = false; updateTaskProgress();
                 calendarRefreshingUrl = "";
                 if (isFinishing() || !url.equals(preferences.getString("publicCalendarUrl", ""))) return;
                 saveCalendarCache(cache, urls, result.succeeded > 0);
@@ -3011,92 +3438,163 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void renderYouTubeCards() {
-        if (youtubeRow == null || youtubeSection == null) return;
-        youtubeRow.removeAllViews();
+        if (youtubeRow == null || activeTab != TAB_SAVED) return;
+        String source = preferences.getString("youtubeCards", "[]");
+        if (source.equals(renderedSavedSource)) return;
+        renderedSavedSource = source;
         List<YouTubeCard> cards = savedYouTubeCards();
-        youtubeSection.setVisibility(View.VISIBLE);
-        youtubeSection.getChildAt(1).setVisibility(cards.isEmpty() ? View.GONE : View.VISIBLE);
-        if (youtubeEmpty != null) youtubeEmpty.setVisibility(cards.isEmpty() ? View.VISIBLE : View.GONE);
-        boolean retryMissingArtwork = !preferences.getBoolean("youtubeArtworkFeedFallbackTried", false);
-        if (retryMissingArtwork) preferences.edit().putBoolean("youtubeArtworkFeedFallbackTried", true).apply();
-        for (YouTubeCard card : cards) {
-            boolean hasThumbnail = card.thumbnailUrl != null && !card.thumbnailUrl.isEmpty();
-            LinearLayout tile = new LinearLayout(this);
-            tile.setOrientation(LinearLayout.VERTICAL);
-            tile.setGravity(Gravity.CENTER_HORIZONTAL);
-            tile.setFocusable(true);
-            tile.setFocusableInTouchMode(false);
-            tile.setClickable(true);
-            tile.setPadding(dp(8), dp(8), dp(8), dp(7));
-            StateListDrawable states = new Motion.States();
-            boolean light = LiquidTheme.isLight(this);
-            states.addState(new int[]{android.R.attr.state_focused},
-                    roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
-            states.addState(new int[]{android.R.attr.state_pressed},
-                    roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
-            states.addState(new int[]{},
-                    roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 11));
-            tile.setBackground(states);
-            tile.setElevation(dp(2));
-            tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
-            Motion.interaction(tile, false);
+        youtubeRow.setVisibility(cards.isEmpty() ? View.GONE : View.VISIBLE);
+        youtubeEmpty.setVisibility(cards.isEmpty() ? View.VISIBLE : View.GONE);
+        retrySavedArtwork = !preferences.getBoolean("youtubeArtworkFeedFallbackTried", false);
+        if (retrySavedArtwork) preferences.edit().putBoolean("youtubeArtworkFeedFallbackTried", true).apply();
+        savedCardAdapter.submit(cards);
+        if (savedListState != null && !cards.isEmpty()) {
+            youtubeRow.getLayoutManager().onRestoreInstanceState(savedListState);
+            savedListState = null;
+        }
+    }
 
-            FrameLayout poster = new FrameLayout(this);
-            GradientDrawable posterBackground = new GradientDrawable(
-                    GradientDrawable.Orientation.TL_BR,
-                    light
-                            ? new int[]{0xFFE0EBF0, 0xFFC5D9E2, 0xFFB2CAD6}
-                            : new int[]{0xFF46647A, 0xFF1B3044, 0xFF101B2A});
-            posterBackground.setCornerRadius(dp(16));
-            posterBackground.setStroke(dp(1), LiquidTheme.border(this));
-            poster.setBackground(posterBackground);
-            poster.setClipToOutline(true);
-            ImageView thumbnail = new ImageView(this);
-            thumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            thumbnail.setTag(card.url);
-            poster.addView(thumbnail, new FrameLayout.LayoutParams(-1, -1));
-            // The title becomes the artwork when YouTube has no usable thumbnail.
-            TextView fallback = label(card.displayTitle(), 20, light ? 0xFF1A353D : Color.WHITE, true);
-            fallback.setTextColor(light ? 0xFF1A353D : Color.WHITE);
-            fallback.setGravity(Gravity.BOTTOM | Gravity.START);
-            fallback.setMaxLines(3);
-            fallback.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            fallback.setPadding(dp(15), dp(34), dp(15), dp(14));
-            if (!light) fallback.setShadowLayer(dp(8), 0, dp(2), Color.BLACK);
-            fallback.setContentDescription(AppLanguage.get(R.string.ui_artwork_1_s, card.displayTitle()));
-            poster.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
-            TextView type = label(YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_video) : AppLanguage.get(R.string.ui_playlist),
-                    9, light ? LiquidTheme.accent(this) : Color.WHITE, true);
-            type.setTextColor(light ? LiquidTheme.accent(this) : Color.WHITE);
-            type.setLetterSpacing(.10f);
-            type.setPadding(dp(9), dp(5), dp(9), dp(5));
-            type.setBackground(roundedShape(light ? 0xD0FFFFFF : 0xDB121212, LiquidTheme.accent(this), 1, 5));
-            FrameLayout.LayoutParams typeParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
-            typeParams.setMargins(dp(8), dp(8), 0, 0);
-            poster.addView(type, typeParams);
-            tile.addView(poster, new LinearLayout.LayoutParams(dp(224), dp(hasThumbnail ? 126 : 178)));
-            if (hasThumbnail) {
-                TextView title = label(card.displayTitle(), 14, LiquidTheme.text(this), true);
-                title.setMaxLines(2);
-                title.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                title.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
-                title.setPadding(dp(3), dp(6), dp(3), 0);
-                tile.addView(title, new LinearLayout.LayoutParams(dp(224), dp(52)));
+    private View createYouTubeTile(YouTubeCard card) {
+        boolean hasThumbnail = card.thumbnailUrl != null && !card.thumbnailUrl.isEmpty();
+        LinearLayout tile = new LinearLayout(this);
+        tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setGravity(Gravity.CENTER_HORIZONTAL);
+        tile.setFocusable(true);
+        tile.setFocusableInTouchMode(false);
+        tile.setClickable(true);
+        tile.setPadding(dp(8), dp(8), dp(8), dp(7));
+        StateListDrawable states = new Motion.States();
+        boolean light = LiquidTheme.isLight(this);
+        states.addState(new int[]{android.R.attr.state_focused},
+                roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
+        states.addState(new int[]{android.R.attr.state_pressed},
+                roundedShape(LiquidTheme.raisedSurface(this), LiquidTheme.accent(this), 3, 11));
+        states.addState(new int[]{},
+                roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 11));
+        tile.setBackground(states);
+        tile.setElevation(dp(2));
+        tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+        Motion.interaction(tile, false);
+
+        FrameLayout poster = new FrameLayout(this);
+        GradientDrawable posterBackground = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                light
+                        ? new int[]{0xFFE0EBF0, 0xFFC5D9E2, 0xFFB2CAD6}
+                        : new int[]{0xFF46647A, 0xFF1B3044, 0xFF101B2A});
+        posterBackground.setCornerRadius(dp(16));
+        posterBackground.setStroke(dp(1), LiquidTheme.border(this));
+        poster.setBackground(posterBackground);
+        poster.setClipToOutline(true);
+        ImageView thumbnail = new ImageView(this);
+        thumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        thumbnail.setTag(card.url);
+        poster.addView(thumbnail, new FrameLayout.LayoutParams(-1, -1));
+        // The title becomes the artwork when YouTube has no usable thumbnail.
+        TextView fallback = label(card.displayTitle(), 20, light ? 0xFF1A353D : Color.WHITE, true);
+        fallback.setTextColor(light ? 0xFF1A353D : Color.WHITE);
+        fallback.setGravity(Gravity.BOTTOM | Gravity.START);
+        fallback.setMaxLines(3);
+        fallback.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        fallback.setPadding(dp(15), dp(34), dp(15), dp(14));
+        if (!light) fallback.setShadowLayer(dp(8), 0, dp(2), Color.BLACK);
+        fallback.setContentDescription(AppLanguage.get(R.string.ui_artwork_1_s, card.displayTitle()));
+        poster.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
+        TextView type = label(YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_video) : AppLanguage.get(R.string.ui_playlist),
+                9, light ? LiquidTheme.accent(this) : Color.WHITE, true);
+        type.setTextColor(light ? LiquidTheme.accent(this) : Color.WHITE);
+        type.setLetterSpacing(.10f);
+        type.setPadding(dp(9), dp(5), dp(9), dp(5));
+        type.setBackground(roundedShape(light ? 0xD0FFFFFF : 0xDB121212, LiquidTheme.accent(this), 1, 5));
+        FrameLayout.LayoutParams typeParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+        typeParams.setMargins(dp(8), dp(8), 0, 0);
+        poster.addView(type, typeParams);
+        tile.addView(poster, new LinearLayout.LayoutParams(dp(224), dp(hasThumbnail ? 126 : 178)));
+        if (hasThumbnail) {
+            TextView title = label(card.displayTitle(), 14, LiquidTheme.text(this), true);
+            title.setMaxLines(2);
+            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            title.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+            title.setPadding(dp(3), dp(6), dp(3), 0);
+            tile.addView(title, new LinearLayout.LayoutParams(dp(224), dp(52)));
+        }
+        tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_play_video) : AppLanguage.get(R.string.ui_open_playlist)).trim() + " " + AppLanguage.bidi(card.displayTitle()));
+        tile.setOnClickListener(view -> launchYouTubeCard(card));
+        bindYouTubeTile(tile, card);
+        linkTopControl(TAB_SAVED, tile);
+        return tile;
+    }
+
+    private void bindYouTubeTile(LinearLayout tile, YouTubeCard card) {
+        FrameLayout poster = (FrameLayout)tile.getChildAt(0);
+        ImageView thumbnail = (ImageView)poster.getChildAt(0);
+        TextView fallback = (TextView)poster.getChildAt(1);
+        thumbnail.setTag(null); thumbnail.setImageDrawable(null);
+        fallback.setText(card.displayTitle()); fallback.setVisibility(View.VISIBLE);
+        fallback.setContentDescription(AppLanguage.get(R.string.ui_artwork_1_s, card.displayTitle()));
+        ((TextView)poster.getChildAt(2)).setText(AppLanguage.get(YouTubeCard.VIDEO.equals(card.type)
+                ? R.string.ui_video : R.string.ui_playlist));
+        if (tile.getChildCount() > 1) ((TextView)tile.getChildAt(1)).setText(card.displayTitle());
+        tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_play_video)
+                : AppLanguage.get(R.string.ui_open_playlist)).trim() + " " + AppLanguage.bidi(card.displayTitle()));
+        tile.setOnClickListener(view -> launchYouTubeCard(card));
+        boolean retryMissingArtwork = retrySavedArtwork;
+        loadYouTubeThumbnail(card, thumbnail, fallback);
+        long refreshAfter = card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()
+                ? 60L * 60L * 1000L : 24L * 60L * 60L * 1000L;
+        if (card.metadataCheckedAt == 0L
+                || System.currentTimeMillis() - card.metadataCheckedAt > refreshAfter
+                || (retryMissingArtwork && (card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()))) {
+            fetchYouTubeMetadata(card.url);
+        }
+    }
+
+    private final class SavedCardAdapter extends RecyclerView.Adapter<SavedCardAdapter.Holder> {
+        private List<YouTubeCard> cards = Collections.emptyList();
+        void submit(List<YouTubeCard> next) {
+            List<YouTubeCard> previous = cards;
+            androidx.recyclerview.widget.DiffUtil.DiffResult diff = androidx.recyclerview.widget.DiffUtil.calculateDiff(
+                    new androidx.recyclerview.widget.DiffUtil.Callback() {
+                public int getOldListSize() { return previous.size(); }
+                public int getNewListSize() { return next.size(); }
+                public boolean areItemsTheSame(int a, int b) { return previous.get(a).url.equals(next.get(b).url); }
+                public boolean areContentsTheSame(int a, int b) {
+                    YouTubeCard old = previous.get(a), card = next.get(b);
+                    return java.util.Objects.equals(old.title, card.title)
+                            && java.util.Objects.equals(old.thumbnailUrl, card.thumbnailUrl)
+                            && old.customTitle == card.customTitle && old.customThumbnail == card.customThumbnail;
+                }
+            });
+            cards = next;
+            diff.dispatchUpdatesTo(this);
+        }
+        public Holder onCreateViewHolder(ViewGroup parent, int type) {
+            FrameLayout host = new FrameLayout(MainActivity.this);
+            host.setClipChildren(false); host.setClipToPadding(false);
+            host.setPadding(dp(10), dp(10), dp(14), dp(10));
+            host.setLayoutParams(new RecyclerView.LayoutParams(dp(264), dp(218)));
+            return new Holder(host);
+        }
+        public void onBindViewHolder(Holder holder, int position) {
+            if (holder.host.getChildCount() == 0) {
+                View tile = createYouTubeTile(cards.get(position));
+                holder.host.addView(tile, new FrameLayout.LayoutParams(dp(240), dp(198)));
+            } else bindYouTubeTile((LinearLayout)holder.host.getChildAt(0), cards.get(position));
+        }
+        @Override public int getItemViewType(int position) {
+            String thumbnail = cards.get(position).thumbnailUrl;
+            return thumbnail == null || thumbnail.isEmpty() ? 0 : 1;
+        }
+        @Override public void onViewRecycled(Holder holder) {
+            if (holder.host.getChildCount() > 0) {
+                ImageView image = (ImageView)((FrameLayout)((LinearLayout)holder.host.getChildAt(0)).getChildAt(0)).getChildAt(0);
+                image.setTag(null); image.setImageDrawable(null);
             }
-            tile.setContentDescription((YouTubeCard.VIDEO.equals(card.type) ? AppLanguage.get(R.string.ui_play_video) : AppLanguage.get(R.string.ui_open_playlist)).trim() + " " + AppLanguage.bidi(card.displayTitle()));
-            tile.setOnClickListener(view -> launchYouTubeCard(card));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(240), dp(198));
-            params.setMargins(dp(4), dp(4), dp(14), dp(8));
-            youtubeRow.addView(tile, params);
-            linkTopControl(TAB_SAVED, tile);
-            loadYouTubeThumbnail(card, thumbnail, fallback);
-            long refreshAfter = card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()
-                    ? 60L * 60L * 1000L : 24L * 60L * 60L * 1000L;
-            if (card.metadataCheckedAt == 0L
-                    || System.currentTimeMillis() - card.metadataCheckedAt > refreshAfter
-                    || (retryMissingArtwork && (card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()))) {
-                fetchYouTubeMetadata(card.url);
-            }
+        }
+        public int getItemCount() { return cards.size(); }
+        final class Holder extends RecyclerView.ViewHolder {
+            final FrameLayout host;
+            Holder(FrameLayout host) { super(host); this.host = host; }
         }
     }
 
@@ -3225,6 +3723,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void loadYouTubeThumbnail(YouTubeCard card, ImageView image, TextView fallback) {
         if (card.thumbnailUrl == null || card.thumbnailUrl.isEmpty()) return;
+        String request = card.url + "|" + card.thumbnailUrl;
+        image.setTag(request);
         android.graphics.Bitmap cached = youtubeThumbnailCache.get(card.thumbnailUrl);
         if (cached != null && !cached.isRecycled()) {
             image.setImageBitmap(cached);
@@ -3274,7 +3774,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             youtubeThumbnailCache.put(card.thumbnailUrl, bitmap);
             android.graphics.Bitmap result = bitmap;
             lifecycleWork.post(() -> {
-                if (card.url.equals(image.getTag())) {
+                if (request.equals(image.getTag())) {
                     image.setImageBitmap(result);
                     fallback.setVisibility(View.GONE);
                 }
@@ -3466,25 +3966,38 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (launch != null) try { startActivity(launch); } catch (Exception ignored) { }
     }
 
+    private void focusGamePosition(int position) {
+        pendingGameFocus = position;
+        int generation = ++gameFocusGeneration;
+        gameGrid.scrollToPosition(position);
+        gameGrid.post(new Runnable() {
+            int attempts;
+            @Override public void run() {
+                if (generation != gameFocusGeneration || activeTab != TAB_GAMES || !lifecycleWork.active()) return;
+                RecyclerView.ViewHolder holder = gameGrid.findViewHolderForAdapterPosition(position);
+                if (holder != null && holder.itemView.requestFocus()) {
+                    pendingGameFocus = RecyclerView.NO_POSITION;
+                } else if (++attempts < 8) gameGrid.postOnAnimation(this);
+                else pendingGameFocus = RecyclerView.NO_POSITION;
+            }
+        });
+    }
+
     private void renderGames() {
-        if (gameGrid == null) return;
-        gameGrid.removeAllViews();
-        List<GameRecord> games = new GameRepository(this).games();
-        gamesEmpty.setVisibility(games.isEmpty() ? View.VISIBLE : View.GONE);
-        int availableWidth = getResources().getDisplayMetrics().widthPixels
-                - gamesContent.getPaddingLeft() - gamesContent.getPaddingRight();
-        int columns = Math.max(1, Math.min(5, availableWidth / dp(162)));
-        gameGrid.setColumnCount(columns);
-        int cardWidth = Math.max(1, availableWidth / columns - dp(12));
-        for (GameRecord game : games) {
-            LinearLayout card = GameUi.card(this, game, v -> startActivity(new Intent(this, GameDetailActivity.class).putExtra("gameId", game.id)));
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = cardWidth;
-            params.height = dp(224);
-            params.setMargins(0, 0, dp(12), dp(12));
-            gameGrid.addView(card, params);
-            if (gameGrid.getChildCount() <= columns) linkTopControl(TAB_GAMES, card);
-        }
+        if (gameGrid == null || activeTab != TAB_GAMES) return;
+        int generation = ++gameLoadGeneration;
+        lifecycleWork.execute(ioWorker, () -> {
+            List<GameCardAdapter.Item> games = GameCardAdapter.load(this);
+            lifecycleWork.post(() -> {
+                if (generation != gameLoadGeneration) return;
+                gamesEmpty.setVisibility(games.isEmpty() ? View.VISIBLE : View.GONE);
+                gameAdapter.submit(games);
+                if (gamesListState != null && !games.isEmpty()) {
+                    gameGrid.getLayoutManager().onRestoreInstanceState(gamesListState);
+                    gamesListState = null;
+                }
+            });
+        });
     }
 
     private static final class AppEntry {
@@ -3521,8 +4034,27 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         return null;
     }
 
+    private void updateTaskProgress() {
+        String liveMessage = AppLanguage.get(channelsRefreshing ? R.string.ui_refreshing_channels : R.string.ui_refreshing_programme_guide);
+        if (liveProgress != null) liveProgress.setBusy(channelsRefreshing || guideRefreshing, liveMessage);
+        if (weatherProgress != null) weatherProgress.setBusy(weatherRefreshing, AppLanguage.get(R.string.ui_refreshing_weather));
+        String calendarMessage = AppLanguage.get(R.string.ui_refreshing_calendar_feeds);
+        if (homeCalendarProgress != null) homeCalendarProgress.setBusy(calendarRefreshing, calendarMessage);
+        if (eventsProgress != null) eventsProgress.setBusy(calendarRefreshing, calendarMessage);
+        if (settingsScreen != null) settingsScreen.updateTaskProgress();
+    }
+
+    private void setLiveStatus(String value) {
+        liveStatus = value;
+        if (status != null) status.setText(value);
+    }
+    private void setLiveStatusVisible(boolean visible) {
+        liveStatusVisible = visible;
+        if (status != null) status.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
     private void renderChannels() {
-        if (channelRows == null) return;
+        if (channelRows == null || activeTab != TAB_TV) return;
         IptvRepository.refreshProgrammeDisplay(channels, System.currentTimeMillis());
         List<IptvRepository.Channel> favorites = FavoriteChannels.filterFavorites(channels, hiddenChannelKeys, favoriteChannelKeys);
         LinkedHashMap<String, List<IptvRepository.Channel>> grouped = new LinkedHashMap<>();
@@ -3694,6 +4226,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void loadBackgroundFolder(Uri treeUri, boolean userSelected) {
         int generation = ++backgroundFolderGeneration;
+        albumLoading = false; loadingAlbumUrl = ""; updateTaskProgress();
         List<BackgroundPhoto> cached = cachedBackgroundFolder(treeUri.toString());
         if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
         else if (userSelected && cached.isEmpty()) setBackgroundPhotos(Collections.emptyList());
@@ -3719,7 +4252,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void loadBackgroundAlbum(String shareUrl, boolean userSelected) {
+        if (albumLoading && shareUrl.equals(loadingAlbumUrl)) return;
         int generation = ++backgroundFolderGeneration;
+        albumLoading = true;
+        loadingAlbumUrl = shareUrl;
+        updateTaskProgress();
         List<BackgroundPhoto> cached = cachedBackgroundAlbum(shareUrl);
         if (!cached.isEmpty() && !sameBackgroundPhotos(cached)) setBackgroundPhotos(cached);
         preferences.edit().putLong("googlePhotosAttemptedAt", System.currentTimeMillis()).apply();
@@ -3737,6 +4274,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             String error = failure;
             lifecycleWork.post(() -> {
                 if (generation != backgroundFolderGeneration || isFinishing()) return;
+                albumLoading = false; loadingAlbumUrl = ""; updateTaskProgress();
                 if (error != null || result.isEmpty()) {
                     if (userSelected) Toast.makeText(this, error == null ? AppLanguage.get(R.string.ui_no_public_photos_were_found_in_that_album) : error, Toast.LENGTH_LONG).show();
                     return;
@@ -3862,6 +4400,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (bitmap == null) return;
         backgroundBitmapCache.put(url, bitmap);
         slideA.setImageBitmap(bitmap);
+        updateWidgetThemesForBitmap(bitmap, url);
         slideA.setTag(uri);
         slideA.setVisibility(View.VISIBLE);
         slideA.setAlpha(1f);
@@ -3986,6 +4525,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 glassBackdrop.prepare(bitmap, true, () -> {
                 if (generation != backgroundImageGeneration || !screenActive || isFinishing()) return;
                 incoming.setImageBitmap(bitmap);
+                updateWidgetThemesForBitmap(bitmap, photo.uri.toString());
                 incoming.setTag(photo.uri);
                 incoming.setVisibility(View.VISIBLE);
                 incoming.setAlpha(0f);
@@ -4057,9 +4597,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     private void refreshChannels() {
         if (channelsRefreshing) return;
-        channelsRefreshing = true;
-        status.setVisibility(View.VISIBLE);
-        status.setText(AppLanguage.get(R.string.ui_refreshing_channels));
+        channelsRefreshing = true; updateTaskProgress();
+        setLiveStatusVisible(true);
+        setLiveStatus(AppLanguage.get(R.string.ui_refreshing_channels));
         if (settingsScreen != null) settingsScreen.onRefreshResult(AppLanguage.get(R.string.ui_refreshing_channels));
         iptv.refreshChannels((loaded, message) -> lifecycleWork.post(() -> {
             channelsRefreshing = false;
@@ -4068,27 +4608,28 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             if (!loaded.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
                     .reconcile(channels, hiddenChannelKeys);
             openPendingReminder();
-            status.setText(message);
+            setLiveStatus(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
             if (!channels.isEmpty() && !iptv.guideUrl().isEmpty() && iptv.isGuideStale(channels)) refreshGuide(false);
+            updateTaskProgress();
             scheduleLiveRefreshCheck();
         }));
     }
 
     private void refreshGuide(boolean userRequested) {
         if (guideRefreshing) return;
-        guideRefreshing = true;
+        guideRefreshing = true; updateTaskProgress();
         String refreshing = userRequested ? AppLanguage.get(R.string.ui_refreshing_programme_guide) : AppLanguage.get(R.string.ui_updating_today_s_programme_guide);
-        status.setVisibility(View.VISIBLE);
-        status.setText(refreshing);
+        setLiveStatusVisible(true);
+        setLiveStatus(refreshing);
         if (settingsScreen != null) settingsScreen.onRefreshResult(refreshing);
         iptv.refreshGuide(new ArrayList<>(channels), (loaded, message) -> lifecycleWork.post(() -> {
-            guideRefreshing = false;
+            guideRefreshing = false; updateTaskProgress();
             channels.clear(); channels.addAll(loaded);
             renderChannels();
             if (!loaded.isEmpty()) ((SvaApplication) getApplication()).guideReminders()
                     .reconcile(channels, hiddenChannelKeys);
-            status.setText(message);
+            setLiveStatus(message);
             if (settingsScreen != null) settingsScreen.onRefreshResult(message);
             scheduleLiveRefreshCheck();
         }));
@@ -4181,7 +4722,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 / getResources().getDisplayMetrics().density < 1100;
         private final Dialog dialog = new Dialog(MainActivity.this, R.style.SvaFullScreenDialogTheme);
         private final Button[] tabs = new Button[sections.length];
-        private final FrameLayout detail = new FrameLayout(MainActivity.this);
+        private final FrameLayout detail = new FrameLayout(MainActivity.this) {
+            @Override public boolean dispatchTouchEvent(android.view.MotionEvent event) {
+                return restoringBackup || super.dispatchTouchEvent(event);
+            }
+        };
         private LinearLayout rail;
         private int section = LIVE;
         private int renderedSection = -1;
@@ -4192,6 +4737,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private EditText playlistField, guideField, licenseField, headersField, calendarUrlField;
         private EditText youtubeUrlField, youtubeTitleField, youtubeArtField;
         private Button youtubeAddButton;
+        private TaskProgress taskProgress, backupExportProgress;
+        private Button backupExportButton, backupImportButton;
         private TextView liveFeedback, cacheSummary, guideSummary, youtubeFeedback, calendarFeedback, calendarSummary, weatherFeedback;
         private LinearLayout youtubeSavedList, weatherSearchResults;
         private ChannelSettingsAdapter channelAdapter;
@@ -4355,6 +4902,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                         boolean boundary = direction == View.FOCUS_UP ? line == 0
                                 : line == layout.getLineCount() - 1;
                         if (boundary) {
+                            View ordered = formFocusNeighbor(input, direction);
+                            if (ordered != null && ordered.requestFocus()) return true;
                             View next = input.focusSearch(direction);
                             if (next != null && isWithinPage(next, detail) && next != input
                                     && next.requestFocus()) return true;
@@ -4381,6 +4930,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     return true;
                 }
                 if (isWithinPage(focused, detail) && !(focused instanceof EditText)) {
+                    if (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN) {
+                        View ordered = formFocusNeighbor(focused, direction);
+                        if (ordered != null && ordered.requestFocus()) return true;
+                    }
                     if (direction == View.FOCUS_UP && focused.getParent() instanceof LinearLayout
                             && "settings-save-actions".equals(((View) focused.getParent()).getTag())) {
                         ViewGroup page = (ViewGroup) focused.getParent().getParent();
@@ -4430,6 +4983,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 return false;
             });
             dialog.setOnDismissListener(ignored -> {
+                if (channelAdapter != null) channelAdapter.cancelSearch();
                 if (settingsScreen == this) settingsScreen = null;
                 if (appsChanged) renderApps();
                 Set<String> freshHidden = HiddenChannels.load(preferences);
@@ -4469,6 +5023,24 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
             tabs[section].requestFocus();
             if (section == LANGUAGE && firstControl != null) firstControl.requestFocus();
+        }
+
+        private View formFocusNeighbor(View focused, int direction) {
+            // Search the form itself: searching the window lets the rail beat controls
+            // above/below the ScrollView's current viewport.
+            for (android.view.ViewParent parent = focused.getParent(); parent instanceof View;
+                 parent = parent.getParent()) {
+                if (parent == detail) break;
+                if (!(parent instanceof ScrollView)) continue;
+                ScrollView scroll = (ScrollView)parent;
+                if (!isWithinPage(scroll, detail) || scroll.getChildCount() == 0
+                        || !(scroll.getChildAt(0) instanceof ViewGroup)) return null;
+                View next = android.view.FocusFinder.getInstance().findNextFocus(
+                        (ViewGroup)scroll.getChildAt(0), focused, direction);
+                if (next != focused && next != null && next.isEnabled() && next.isFocusable()) return next;
+                return direction == View.FOCUS_UP ? tabs[section] : null;
+            }
+            return null;
         }
 
         private void captureDrafts() {
@@ -4619,12 +5191,15 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
 
         private void renderSection() {
+            if (channelAdapter != null) channelAdapter.cancelSearch();
             boolean animateSection = renderedSection >= 0 && renderedSection != section;
             boolean restoreFocus = detail.findFocus() != null;
             rememberLayout();
             renderedSection = section;
             firstControl = null;
             detail.removeAllViews();
+            taskProgress = backupExportProgress = null;
+            backupExportButton = backupImportButton = null;
             for (int i = 0; i < tabs.length; i++) {
                 boolean selected = i == section;
                 tabs[i].setTextColor(selected ? SettingsUi.text(MainActivity.this) : SettingsUi.muted(MainActivity.this));
@@ -4682,7 +5257,9 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 case LANGUAGE: renderLanguageSettings(page); break;
                 default: break;
             }
-            if (firstControl != null) {
+            if (restoringBackup && taskProgress == null) addTaskProgress(headerCopy);
+            updateTaskProgress();
+            if (firstControl != null && firstControl.isEnabled()) {
                 firstControl.setId(View.generateViewId());
                 if (isRtl()) {
                     tabs[section].setNextFocusLeftId(firstControl.getId());
@@ -4822,7 +5399,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 preferences.edit().remove("weatherLocationMode").remove("weatherLocationLabel")
                         .remove("weatherLatitude").remove("weatherLongitude").remove("weatherCache")
                         .remove("weatherUpdatedAt").remove("weatherAttemptedAt").apply();
-                weatherForecast = null; weatherRequestGeneration++; weatherRefreshing = false;
+                weatherForecast = null; weatherRequestGeneration++; weatherRefreshing = false; MainActivity.this.updateTaskProgress();
                 renderWeather(); renderSection();
             });
             // — Units ——————————————————————————————————————————————————————————
@@ -4843,6 +5420,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             weatherFeedback = label("", 14, SettingsUi.muted(MainActivity.this), false);
             weatherFeedback.setPadding(dp(2), dp(6), dp(2), dp(6));
             form.addView(weatherFeedback);
+            addTaskProgress(form);
             addFormHint(form, AppLanguage.get(R.string.ui_weather_by_open_meteo_locations_by_geonames_device_location_requ));
         }
 
@@ -4875,14 +5453,60 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             });
         }
 
+        private void addTaskProgress(LinearLayout parent) {
+            taskProgress = new TaskProgress(MainActivity.this, false);
+            parent.addView(taskProgress, new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        private void updateTaskProgress() {
+            boolean busy = false;
+            String message = "";
+            if (section == LIVE || section == CHANNELS) {
+                busy = channelsRefreshing || guideRefreshing;
+                message = AppLanguage.get(channelsRefreshing ? R.string.ui_refreshing_channels : R.string.ui_refreshing_programme_guide);
+            } else if (section == WEATHER) {
+                busy = weatherRefreshing; message = AppLanguage.get(R.string.ui_refreshing_weather);
+            } else if (section == CALENDAR) {
+                busy = calendarRefreshing; message = AppLanguage.get(R.string.ui_refreshing_calendar_feeds);
+            } else if (section == APPEARANCE) {
+                busy = albumLoading; message = AppLanguage.get(R.string.ui_loading_public_album);
+            } else if (section == BACKUP) {
+                busy = restoringBackup; message = AppLanguage.get(R.string.ui_restoring_launcher_backup);
+            }
+            if (restoringBackup) {
+                busy = true; message = AppLanguage.get(R.string.ui_restoring_launcher_backup);
+            }
+            if (taskProgress != null) taskProgress.setBusy(busy, message);
+            detail.setDescendantFocusability(restoringBackup ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
+            if (backupExportProgress != null) backupExportProgress.setBusy(exportingBackup, AppLanguage.get(R.string.ui_creating_launcher_backup));
+            if (backupExportButton != null) backupExportButton.setEnabled(!exportingBackup && !restoringBackup);
+            if (backupImportButton != null) backupImportButton.setEnabled(!exportingBackup && !restoringBackup);
+            if (restoringBackup) {
+                disableSettingsEdits(detail);
+                View focused = dialog.getCurrentFocus();
+                if (focused != null && isWithinPage(focused, detail)) tabs[section].requestFocus();
+            }
+        }
+
+        private void disableSettingsEdits(View view) {
+            if (view instanceof EditText || view.isClickable()) view.setEnabled(false);
+            if (view instanceof ViewGroup) {
+                ViewGroup group = (ViewGroup) view;
+                for (int i = 0; i < group.getChildCount(); i++) disableSettingsEdits(group.getChildAt(i));
+            }
+        }
+
         private void renderBackup(LinearLayout page) {
             LinearLayout form = scrollForm(page);
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_create_backup));
             addFormHint(form, AppLanguage.get(R.string.ui_create_a_json_backup_of_launcher_settings_app_and_channel_choice));
-            addFormButton(form, AppLanguage.get(R.string.ui_create_backup_file), v -> openBackupExportPicker());
+            backupExportButton = addFormButton(form, AppLanguage.get(R.string.ui_create_backup_file), v -> openBackupExportPicker());
+            backupExportProgress = new TaskProgress(MainActivity.this, false);
+            form.addView(backupExportProgress, new LinearLayout.LayoutParams(-1, -2));
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_restore_from_backup));
             addFormHint(form, AppLanguage.get(R.string.ui_restoring_replaces_the_current_launcher_settings_and_channel_pre));
-            addFormButton(form, AppLanguage.get(R.string.ui_restore_from_backup), v -> openBackupImportPicker());
+            backupImportButton = addFormButton(form, AppLanguage.get(R.string.ui_restore_from_backup), v -> openBackupImportPicker());
+            addTaskProgress(form);
         }
 
         private void renderSchedules(LinearLayout page) {
@@ -5234,6 +5858,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             calendarFeedback = label("", 14, SettingsUi.muted(MainActivity.this), false);
             calendarFeedback.setPadding(dp(2), dp(4), dp(2), dp(4));
             form.addView(calendarFeedback);
+            addTaskProgress(form);
             addFormHint(form, AppLanguage.get(R.string.ui_the_on_device_schedule_is_checked_when_sva_opens_change_its_auto));
         }
 
@@ -5479,9 +6104,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 }
                 refreshChannels();
             });
-            liveFeedback = label(status.getText().toString(), 14, SettingsUi.muted(MainActivity.this), false);
+            liveFeedback = label(liveStatus == null ? AppLanguage.get(R.string.ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started) : liveStatus, 14, SettingsUi.muted(MainActivity.this), false);
             liveFeedback.setPadding(dp(2), dp(4), dp(2), dp(2));
             page.addView(liveFeedback);
+            addTaskProgress(page);
         }
 
         private void renderDrm(LinearLayout page) {
@@ -5542,6 +6168,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addFormButton(form, AppLanguage.get(R.string.ui_choose_photo_folder), v -> openWallpaperFolderPicker());
             if (hasFolder) addFormButton(form, AppLanguage.get(R.string.ui_clear_photo_folder), true, v -> {
                 backgroundFolderGeneration++;
+                albumLoading = false; loadingAlbumUrl = ""; updateTaskProgress();
                 preferences.edit().remove("wallpaperFolder")
                         .remove(PHOTO_FOLDER_CACHE_URI)
                         .remove(PHOTO_FOLDER_CACHE_IMAGES).apply();
@@ -5554,6 +6181,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             addFormHint(form, albumUrl.isEmpty()
                     ? AppLanguage.get(R.string.ui_no_google_photos_album_selected)
                     : AppLanguage.get(R.string.ui_google_photos_album_1_s_images, backgroundPhotos.size()));
+            addTaskProgress(form);
             EditText albumField = addInput(form, AppLanguage.get(R.string.ui_google_photos_public_album_link), AppLanguage.get(R.string.ui_paste_a_link_shared_with_anyone), albumUrl, false);
             addFormButton(form, AppLanguage.get(R.string.ui_use_google_photos_album), v -> {
                 String link = albumField.getText().toString().trim();
@@ -5561,11 +6189,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     Toast.makeText(MainActivity.this, AppLanguage.get(R.string.ui_paste_a_google_photos_shared_album_link_first), Toast.LENGTH_SHORT).show();
                     return;
                 }
-                Toast.makeText(MainActivity.this, AppLanguage.get(R.string.ui_loading_public_album), Toast.LENGTH_SHORT).show();
                 loadBackgroundAlbum(link, true);
             });
             if (!albumUrl.isEmpty()) addFormButton(form, AppLanguage.get(R.string.ui_clear_google_photos_album), true, v -> {
                 backgroundFolderGeneration++;
+                albumLoading = false; loadingAlbumUrl = ""; updateTaskProgress();
                 preferences.edit().remove("wallpaperAlbum")
                         .remove(GOOGLE_PHOTOS_CACHE_URL)
                         .remove(GOOGLE_PHOTOS_CACHE_IMAGES)
@@ -5624,6 +6252,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
 
         private void renderChannelSettings(LinearLayout page) {
+            addTaskProgress(page);
             EditText search = addInput(page, AppLanguage.get(R.string.ui_find_a_channel), AppLanguage.get(R.string.ui_search_by_channel_name), "", false);
             search.setInputType(InputType.TYPE_CLASS_TEXT);
             TextView count = label("", 14, SettingsUi.muted(MainActivity.this), false);
@@ -5683,18 +6312,40 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
             ChannelSettingsAdapter(TextView count) { this.count = count; }
 
+            private volatile int searchGeneration;
+            private Runnable pendingSearch;
+
+            void cancelSearch() {
+                searchGeneration++;
+                if (pendingSearch != null) handler.removeCallbacks(pendingSearch);
+            }
             void setQuery(String value) {
                 query = value == null ? "" : value.trim().toLowerCase(AppLanguage.locale());
-                refresh();
+                cancelSearch();
+                pendingSearch = this::refresh;
+                if (query.isEmpty()) refresh();
+                else handler.postDelayed(pendingSearch, 150);
             }
-
             void refresh() {
-                visible.clear();
-                for (IptvRepository.Channel channel : channels) {
-                    if (query.isEmpty() || channel.name.toLowerCase(AppLanguage.locale()).contains(query)) visible.add(channel);
-                }
-                updateCountLabel();
-                notifyDataSetChanged();
+                cancelSearch();
+                int generation = searchGeneration;
+                String requestedQuery = query;
+                Locale locale = AppLanguage.locale();
+                List<IptvRepository.Channel> snapshot = new ArrayList<>(channels);
+                lifecycleWork.execute(ioWorker, () -> {
+                    if (generation != searchGeneration) return;
+                    List<IptvRepository.Channel> matched = new ArrayList<>();
+                    for (IptvRepository.Channel channel : snapshot) {
+                        if (generation != searchGeneration) return;
+                        if (requestedQuery.isEmpty() || channel.name.toLowerCase(locale).contains(requestedQuery)) matched.add(channel);
+                    }
+                    lifecycleWork.post(() -> {
+                        if (generation != searchGeneration || settingsScreen != SettingsScreen.this
+                                || section != CHANNELS || channelAdapter != this) return;
+                        visible.clear(); visible.addAll(matched);
+                        updateCountLabel(); notifyDataSetChanged();
+                    });
+                });
             }
 
             private int shownChannelCount() {
@@ -5965,6 +6616,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 glassBackdrop.prepare(bitmap, false, () -> {
                     wallpaperImage.setImageBitmap(bitmap);
                     wallpaperImage.setVisibility(View.VISIBLE);
+                    updateWidgetThemesForBitmap(bitmap, uriValue == null ? "default-wallpaper" : uriValue);
                 });
             });
         });
@@ -6175,6 +6827,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             canvas.restoreToCount(save);
         }
 
+        int getGlyphColor() { return glyphColor; }
         @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); invalidateSelf(); }
         @Override public void setColorFilter(android.graphics.ColorFilter filter) { paint.setColorFilter(filter); invalidateSelf(); }
         @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }

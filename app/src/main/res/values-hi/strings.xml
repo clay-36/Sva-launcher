@@ -26,10 +26,10 @@
     <string name="ui_nes_file_is_larger_than_32_mb">"NES फ़ाइल 32 एमबी से बड़ी है।"</string>
     <string name="ui_could_not_read_file">"फ़ाइल नहीं पढ़ सका"</string>
     <string name="ui_missing_folder">"गुम फ़ोल्डर"</string>
-    <string name="ui_back">"पीछे"</string>
-    <string name="ui_cancel">"रद्द करना"</string>
+    <string name="ui_back">"वापस"</string>
+    <string name="ui_cancel">"रद्द करें"</string>
     <string name="ui_off">"बंद"</string>
-    <string name="ui_on">"पर"</string>
+    <string name="ui_on">"चालू"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"कोई फ़ोटो नहीं मिली. जांचें कि एल्बम सार्वजनिक रूप से साझा किया गया है।"</string>
     <string name="ui_favourite">", पसंदीदा"</string>
     <string name="ui_next_1_s">"अगला · %1$s"</string>
@@ -79,7 +79,7 @@
     <string name="ui_screensaver">"स्क्रीन सेवर"</string>
     <string name="ui_manage_now_playing_access">"अभी चल रहे एक्सेस को प्रबंधित करें"</string>
     <string name="ui_appears_on_home_only_while_media_is_playing_allow_notification_a">"होम पर केवल तभी दिखाई देता है जब मीडिया चल रहा हो। अन्य ऐप्स से प्लेबैक दिखाने के लिए अधिसूचना पहुंच की अनुमति दें।"</string>
-    <string name="ui_now_playing">"अब खेल रहे हैं"</string>
+    <string name="ui_now_playing">"अब चल रहा है"</string>
     <string name="ui_dark">"अँधेरा"</string>
     <string name="ui_light">"रोशनी"</string>
     <string name="ui_system_default">"प्रणालीगत चूक"</string>
@@ -127,7 +127,7 @@
     <string name="ui_calendar_feeds_one_url_per_line">"कैलेंडर फ़ीड · प्रति पंक्ति एक यूआरएल"</string>
     <string name="ui_add_icalendar_feed_urls_one_per_line_google_calendar_published_c">"iCalendar फ़ीड URL जोड़ें, प्रति पंक्ति एक। Google कैलेंडर, प्रकाशित कैलेंडर और स्थानीय कैलेंडर सर्वर समर्थित हैं। फ़ीड को साइन इन किए बिना पढ़ने योग्य होना चाहिए। इवेंट को इवेंट टैब में संयोजित किया जाता है।"</string>
     <string name="ui_calendar_feeds">"कैलेंडर फ़ीड"</string>
-    <string name="ui_save">"बचाना"</string>
+    <string name="ui_save">"सहेजें"</string>
     <string name="ui_clear_the_title_to_use_the_title_provided_by_youtube_when_availa">"उपलब्ध होने पर YouTube द्वारा प्रदान किए गए शीर्षक का उपयोग करने के लिए शीर्षक साफ़ करें।"</string>
     <string name="ui_card_title">"कार्ड का शीर्षक"</string>
     <string name="ui_use_the_youtube_title">"YouTube शीर्षक का प्रयोग करें"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube वीडियो लिंक"</string>
     <string name="ui_removed_from_saved">"सहेजे गए से हटाया गया."</string>
     <string name="ui_edit_artwork_for_1_s">"%1$s के लिए कलाकृति संपादित करें"</string>
-    <string name="ui_art">"कला"</string>
+    <string name="ui_art">"थंबनेल"</string>
     <string name="ui_edit_title_for_1_s">"%1$s के लिए शीर्षक संपादित करें"</string>
     <string name="ui_title">"शीर्षक"</string>
     <string name="ui_remove_1_s_from_saved">"सहेजे गए से %1$s हटाएँ"</string>
-    <string name="ui_remove">"निकालना"</string>
-    <string name="ui_add_art">"· कला जोड़ें"</string>
+    <string name="ui_remove">"हटाएं"</string>
+    <string name="ui_add_art">"· थंबनेल जोड़ें"</string>
     <string name="ui_playlist">"प्लेलिस्ट"</string>
     <string name="ui_video">"वीडियो"</string>
     <string name="ui_no_youtube_cards_saved_yet">"अभी तक कोई YouTube कार्ड सहेजा नहीं गया।"</string>
@@ -207,9 +207,9 @@
     <string name="ui_last">"अंतिम"</string>
     <string name="ui_third_after_home">"होम के बाद तीसरा"</string>
     <string name="ui_second_after_home">"होम के बाद दूसरा"</string>
-    <string name="ui_first_after_home">"घर के बाद सबसे पहले"</string>
+    <string name="ui_first_after_home">"होम के बाद पहला"</string>
     <string name="ui_reset_item_order">"आइटम ऑर्डर रीसेट करें"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"घर पहले रहता है. किसी श्रेणी की स्थिति बदलने के लिए उसका चयन करें. छिपी हुई श्रेणियाँ अपना स्थान बनाए रखती हैं।"</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"होम हमेशा पहले स्थान पर रहेगा. किसी श्रेणी की स्थिति बदलने के लिए उसे चुनें. छिपी हुई श्रेणियां अपना स्थान बनाए रखती हैं."</string>
     <string name="ui_item_order">"आइटम क्रम"</string>
     <string name="ui_show_events_in_navigation">"नेविगेशन में ईवेंट दिखाएं"</string>
     <string name="ui_show_games_in_navigation">"नेविगेशन में गेम दिखाएं"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"डिफ़ॉल्ट Widevine लाइसेंस सेटिंग्स"</string>
     <string name="ui_time_and_date_on_home">"घर पर समय और तारीख"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"फोटो पृष्ठभूमि और वॉलपेपर"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"अपने होम शॉर्टकट चुनें और ऑर्डर करें"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"अपने होम शॉर्टकट चुनें और उनका क्रम व्यवस्थित करें"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"चुनें कि लाइव टीवी में कौन से चैनल दिखाई देंगे"</string>
     <string name="ui_playlist_and_programme_guide">"प्लेलिस्ट और प्रोग्राम गाइड"</string>
     <string name="ui_system">"प्रणाली"</string>
@@ -286,11 +286,11 @@
     <string name="ui_loading_apps">"ऐप्स लोड हो रहे हैं..."</string>
     <string name="ui_could_not_save_calendar_cache">"कैलेंडर कैश सहेजा नहीं जा सका."</string>
     <string name="ui_calendar_event">"कैलेंडर घटना"</string>
-    <string name="ui_your_calendar_is_clear">"आपका कैलेंडर स्पष्ट है"</string>
+    <string name="ui_your_calendar_is_clear">"आपके कैलेंडर में कोई इवेंट नहीं है"</string>
     <string name="ui_add_a_calendar_in_settings">"सेटिंग्स में एक कैलेंडर जोड़ें"</string>
     <string name="ui_no_events_today">"आज कोई कार्यक्रम नहीं"</string>
     <string name="ui_today">"आज"</string>
-    <string name="ui_up_next">"उत्तर अगला"</string>
+    <string name="ui_up_next">"आगे"</string>
     <string name="ui_all_day">"पूरे दिन"</string>
     <string name="ui_location_denied_search_for_a_city_instead">"स्थान अस्वीकृत. इसके बजाय कोई शहर खोजें."</string>
     <string name="ui_current_location">"वर्तमान स्थान"</string>
@@ -304,7 +304,7 @@
     <string name="ui_weather_refreshed">"मौसम ताज़ा हो गया."</string>
     <string name="ui_could_not_refresh_weather">"मौसम ताज़ा नहीं हो सका."</string>
     <string name="ui_refreshing_weather">"ताज़ा मौसम..."</string>
-    <string name="ui_close">"बंद करना"</string>
+    <string name="ui_close">"बंद करें"</string>
     <string name="ui_forecast_unavailable">"पूर्वानुमान अनुपलब्ध"</string>
     <string name="ui_mph">"मील प्रति घंटा"</string>
     <string name="ui_1_s_2_s_3_s_wind_4_s_5_s">"%1$s. %2$s. %3$s. हवा %4$s%5$s।"</string>
@@ -322,7 +322,7 @@
     <string name="ui_next_month">"अगले महीने"</string>
     <string name="ui_today_24345a1">"आज"</string>
     <string name="ui_previous_month">"पिछला महीना"</string>
-    <string name="ui_back_to_home">"घर वापिस जा रहा हूँ"</string>
+    <string name="ui_back_to_home">"होम पर वापस जाएं"</string>
     <string name="ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin">"अभी तक कोई सहेजा गया YouTube शॉर्टकट नहीं। सेटिंग्स में एक वीडियो या प्लेलिस्ट जोड़ें।"</string>
     <string name="ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started">"आरंभ करने के लिए सेटिंग्स में एक M3U और वैकल्पिक XMLTV URL जोड़ें।"</string>
     <string name="ui_open_full_screen_tv_guide">"फ़ुल-स्क्रीन टीवी गाइड खोलें"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"एल्बम अनुपलब्ध · लैंडस्केप वॉलपेपर दिखाया जा रहा है"</string>
     <string name="ui_loading_your_photographs">"आपकी तस्वीरें लोड हो रही हैं..."</string>
     <string name="ui_could_not_remove_game">"गेम को हटाया नहीं जा सका."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva की आयातित प्रतिलिपि, कलाकृति और बैटरी सेव हटा दी जाएगी। आपकी मूल फ़ाइल नहीं बदली जाएगी."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva की आयातित प्रतिलिपि, कलाकृति और गेम सेव हटा दिए जाएंगे। आपकी मूल फ़ाइल नहीं बदली जाएगी."</string>
     <string name="ui_remove_1_s">"%1$s हटाएं?"</string>
     <string name="ui_could_not_save_artwork">"कलाकृति सहेजी नहीं जा सकी."</string>
     <string name="ui_could_not_save_title">"शीर्षक सहेजा नहीं जा सका."</string>
@@ -447,7 +447,7 @@
     <string name="ui_back_to_live_tv">"लाइव टीवी पर वापस जाएँ"</string>
     <string name="ui_exit_to_sva">"Sva से बाहर निकलें"</string>
     <string name="ui_restart">"पुनः आरंभ करें"</string>
-    <string name="ui_resume">"फिर शुरू करना"</string>
+    <string name="ui_resume">"जारी रखें"</string>
     <string name="ui_this_game_could_not_be_started">"यह गेम प्रारंभ नहीं किया जा सका."</string>
     <string name="ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair">"अमान्य ClearKey कॉन्फ़िगरेशन. वैध 128-बिट KID/कुंजी जोड़े या JWK कुंजी सेट की आपूर्ति करें।"</string>
     <string name="ui_1_s_2_s_3_s_min_left">"%1$s – %2$s · %3$s मिनट शेष"</string>
@@ -496,10 +496,10 @@
     <string name="ui_save_here">"यहां सहेजें"</string>
     <string name="ui_use_this_folder">"इस फ़ोल्डर का उपयोग करें"</string>
     <string name="ui_add_selected_1_s">"चयनित जोड़ें (%1$s)"</string>
-    <string name="ui_select">"चुनना"</string>
+    <string name="ui_select">"चुनें"</string>
     <string name="ui_backup_filename">"बैकअप फ़ाइल नाम"</string>
-    <string name="ui_dismiss">"नकार देना"</string>
-    <string name="ui_watch">"घड़ी"</string>
+    <string name="ui_dismiss">"खारिज करें"</string>
+    <string name="ui_watch">"देखें"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s %2$s से शुरू होता है।"</string>
     <string name="ui_starting_soon_1_s">"जल्द ही शुरू हो रहा है · %1$s"</string>
     <string name="ui_weather_response_was_too_large">"मौसम की प्रतिक्रिया बहुत बड़ी थी."</string>
@@ -512,7 +512,7 @@
     <string name="ui_fog">"कोहरा"</string>
     <string name="ui_overcast">"घटाटोप"</string>
     <string name="ui_partly_cloudy">"आंशिक रूप से बादल छाएंगे"</string>
-    <string name="ui_clear">"स्पष्ट"</string>
+    <string name="ui_clear">"साफ़"</string>
     <string name="ui_forecast_did_not_include_upcoming_days">"पूर्वानुमान में आगामी दिन शामिल नहीं थे."</string>
     <string name="ui_this_link_did_not_return_an_icalendar_feed">"इस लिंक ने iCalendar फ़ीड नहीं लौटाई।"</string>
     <string name="ui_calendar_feed_is_larger_than_6_mb">"कैलेंडर फ़ीड 6 एमबी से बड़ी है."</string>
@@ -586,7 +586,7 @@
     <string name="ui_editorial">"संपादकीय"</string>
     <string name="ui_floating_prints">"फ़्लोटिंग प्रिंट"</string>
     <string name="ui_monolith">"एकाश्म"</string>
-    <string name="ui_prism">"चश्मे"</string>
+    <string name="ui_prism">"प्रिज्म"</string>
     <string name="ui_silhouette">"सिल्हूट"</string>
     <string name="ui_travel_journal">"यात्रा पत्रिका"</string>
     <string name="ui_photo_weave">"फोटो बुनाई"</string>
@@ -602,14 +602,14 @@
     <string name="ui_up">"ऊपर"</string>
     <string name="ui_down">"नीचे"</string>
     <string name="ui_left">"बाएं"</string>
-    <string name="ui_right">"सही"</string>
+    <string name="ui_right">"दाएं"</string>
     <string name="ui_nes_b">"NES बी"</string>
     <string name="ui_nes_a">"NES ए"</string>
     <string name="ui_start">"शुरू"</string>
     <string name="ui_pause">"विराम"</string>
     <string name="ui_paused">"रुका हुआ"</string>
     <string name="ui_manual_only">"केवल मैनुअल"</string>
-    <string name="ui_every_launch">"हर लॉन्च"</string>
+    <string name="ui_every_launch">"हर शुरुआत पर"</string>
     <string name="ui_location">"जगह"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva संयुक्त अनुप्रयोग GPLv3। स्रोत: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -621,12 +621,12 @@
     <string name="ui_favourite_added">"पसंदीदा में जोड़ा गया: %1$s"</string>
     <string name="ui_favourite_removed">"पसंदीदा से हटाया गया: %1$s"</string>
     <plurals name="duration_seconds">
-        <item quantity="zero">"%1$d सेकंड\n[एसवीए0646] __एसवीएएक्स0__ मिनट\n[एसवीए0647] __एसवीएएक्स0__ मिनट\n[एसवीए0648] __एसवीएएक्स0__ घंटा\n[एसवीए0649] __एसवीएएक्स0__ घंटे\n[एसवीए0650] __एसवीएएक्स0__ दिन\n[एसवीए0651] __एसवीएएक्स0__ दिन"</item>
+        <item quantity="zero">"%1$d सेकंड"</item>
         <item quantity="one">"%1$d सेकंड"</item>
-        <item quantity="two">"%1$d सेकंड\n[एसवीए0646] __एसवीएएक्स0__ मिनट\n[एसवीए0647] __एसवीएएक्स0__ मिनट\n[एसवीए0648] __एसवीएएक्स0__ घंटा\n[एसवीए0649] __एसवीएएक्स0__ घंटे\n[एसवीए0650] __एसवीएएक्स0__ दिन\n[एसवीए0651] __एसवीएएक्स0__ दिन"</item>
-        <item quantity="few">"%1$d सेकंड\n[एसवीए0646] __एसवीएएक्स0__ मिनट\n[एसवीए0647] __एसवीएएक्स0__ मिनट\n[एसवीए0648] __एसवीएएक्स0__ घंटा\n[एसवीए0649] __एसवीएएक्स0__ घंटे\n[एसवीए0650] __एसवीएएक्स0__ दिन\n[एसवीए0651] __एसवीएएक्स0__ दिन"</item>
-        <item quantity="many">"%1$d सेकंड\n[एसवीए0646] __एसवीएएक्स0__ मिनट\n[एसवीए0647] __एसवीएएक्स0__ मिनट\n[एसवीए0648] __एसवीएएक्स0__ घंटा\n[एसवीए0649] __एसवीएएक्स0__ घंटे\n[एसवीए0650] __एसवीएएक्स0__ दिन\n[एसवीए0651] __एसवीएएक्स0__ दिन"</item>
-        <item quantity="other">"%1$d सेकंड\n[एसवीए0646] __एसवीएएक्स0__ मिनट\n[एसवीए0647] __एसवीएएक्स0__ मिनट\n[एसवीए0648] __एसवीएएक्स0__ घंटा\n[एसवीए0649] __एसवीएएक्स0__ घंटे\n[एसवीए0650] __एसवीएएक्स0__ दिन\n[एसवीए0651] __एसवीएएक्स0__ दिन"</item>
+        <item quantity="two">"%1$d सेकंड"</item>
+        <item quantity="few">"%1$d सेकंड"</item>
+        <item quantity="many">"%1$d सेकंड"</item>
+        <item quantity="other">"%1$d सेकंड"</item>
     </plurals>
     <plurals name="duration_minutes">
         <item quantity="zero">"%1$d मिनट"</item>
@@ -653,12 +653,12 @@
         <item quantity="other">"%1$d दिन"</item>
     </plurals>
     <plurals name="playlist_count">
-        <item quantity="zero">"%1$d प्लेलिस्ट\n[एसवीए0654] __एसवीएएक्स0__ स्रोत"</item>
+        <item quantity="zero">"%1$d प्लेलिस्ट"</item>
         <item quantity="one">"%1$d प्लेलिस्ट"</item>
-        <item quantity="two">"%1$d प्लेलिस्ट\n[एसवीए0654] __एसवीएएक्स0__ स्रोत"</item>
-        <item quantity="few">"%1$d प्लेलिस्ट\n[एसवीए0654] __एसवीएएक्स0__ स्रोत"</item>
-        <item quantity="many">"%1$d प्लेलिस्ट\n[एसवीए0654] __एसवीएएक्स0__ स्रोत"</item>
-        <item quantity="other">"%1$d प्लेलिस्ट\n[एसवीए0654] __एसवीएएक्स0__ स्रोत"</item>
+        <item quantity="two">"%1$d प्लेलिस्ट"</item>
+        <item quantity="few">"%1$d प्लेलिस्ट"</item>
+        <item quantity="many">"%1$d प्लेलिस्ट"</item>
+        <item quantity="other">"%1$d प्लेलिस्ट"</item>
     </plurals>
     <plurals name="source_count">
         <item quantity="zero">"%1$d स्रोत"</item>
@@ -669,12 +669,12 @@
         <item quantity="other">"%1$d स्रोत"</item>
     </plurals>
     <plurals name="channel_count">
-        <item quantity="zero">"%1$d चैनल\n[एसवीए0658] __एसवीएएक्स0__ फोटो\n[एसवीए0659] __एसवीएएक्स0__ तस्वीरें"</item>
+        <item quantity="zero">"%1$d चैनल"</item>
         <item quantity="one">"%1$d चैनल"</item>
-        <item quantity="two">"%1$d चैनल\n[एसवीए0658] __एसवीएएक्स0__ फोटो\n[एसवीए0659] __एसवीएएक्स0__ तस्वीरें"</item>
-        <item quantity="few">"%1$d चैनल\n[एसवीए0658] __एसवीएएक्स0__ फोटो\n[एसवीए0659] __एसवीएएक्स0__ तस्वीरें"</item>
-        <item quantity="many">"%1$d चैनल\n[एसवीए0658] __एसवीएएक्स0__ फोटो\n[एसवीए0659] __एसवीएएक्स0__ तस्वीरें"</item>
-        <item quantity="other">"%1$d चैनल\n[एसवीए0658] __एसवीएएक्स0__ फोटो\n[एसवीए0659] __एसवीएएक्स0__ तस्वीरें"</item>
+        <item quantity="two">"%1$d चैनल"</item>
+        <item quantity="few">"%1$d चैनल"</item>
+        <item quantity="many">"%1$d चैनल"</item>
+        <item quantity="other">"%1$d चैनल"</item>
     </plurals>
     <plurals name="photo_count">
         <item quantity="zero">"%1$d तस्वीरें"</item>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d मिनट शेष"</item>
         <item quantity="other">"%1$d मिनट शेष"</item>
     </plurals>
+    <string name="ui_import_failed">"गेम इंपोर्ट नहीं किए जा सके। कृपया फिर से कोशिश करें।"</string>
 </resources>

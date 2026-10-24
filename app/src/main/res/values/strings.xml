@@ -675,4 +675,5 @@
     <string name="ui_favourite_added">"Added to favourites: %1$s"</string>
     <string name="ui_favourite_removed">"Removed from favourites: %1$s"</string>
     <string name="programme_time_range" translatable="false">%1$s – %2$s · %3$s</string>
+    <string name="ui_import_failed">"Could not import games. Please try again."</string>
 </resources>

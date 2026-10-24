@@ -85,6 +85,7 @@ public final class PlaybackActivity extends LocalizedActivity {
         frame.setBackgroundColor(Color.BLACK);
         playerView = new PlayerView(this);
         playerView.setUseController(false);
+        playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING);
         frame.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
         infoPanel = new LinearLayout(this);
         infoPanel.setOrientation(LinearLayout.VERTICAL);

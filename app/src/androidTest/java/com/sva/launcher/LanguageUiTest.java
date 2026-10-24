@@ -153,6 +153,40 @@ public final class LanguageUiTest extends InstrumentationTestCase {
         }
     }
 
+    public void testGuideToolbarArrowsFollowPhysicalDirectionInLtrAndRtl() throws Exception {
+        Context base = getInstrumentation().getTargetContext();
+        String previous = AppLanguage.selected(base);
+        try {
+            for (String tag : new String[]{"en", "ar", "ur"}) {
+                select(base, tag);
+                GuideActivity guide = start(GuideActivity.class);
+                try {
+                    View category = (View)field(guide, "categoryButton");
+                    for (int key : new int[]{android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_DPAD_RIGHT}) {
+                        getInstrumentation().runOnMainSync(category::requestFocus);
+                        getInstrumentation().waitForIdleSync();
+                        int[] before = new int[2]; category.getLocationOnScreen(before);
+                        getInstrumentation().sendKeyDownUpSync(key);
+                        getInstrumentation().waitForIdleSync();
+                        View focused = guide.getCurrentFocus();
+                        assertNotSame(category, focused);
+                        int[] after = new int[2]; focused.getLocationOnScreen(after);
+                        assertTrue(tag + ": key " + key + " moved from x=" + before[0] + " to x=" + after[0],
+                                key == android.view.KeyEvent.KEYCODE_DPAD_LEFT ? after[0] < before[0] : after[0] > before[0]);
+                        // At the toolbar edge, repeated arrows stay put; the opposite arrow returns.
+                        getInstrumentation().sendKeyDownUpSync(key);
+                        getInstrumentation().waitForIdleSync();
+                        assertSame(focused, guide.getCurrentFocus());
+                        getInstrumentation().sendKeyDownUpSync(key == android.view.KeyEvent.KEYCODE_DPAD_LEFT
+                                ? android.view.KeyEvent.KEYCODE_DPAD_RIGHT : android.view.KeyEvent.KEYCODE_DPAD_LEFT);
+                        getInstrumentation().waitForIdleSync();
+                        assertTrue(category.hasFocus());
+                    }
+                } finally { finish(guide); }
+            }
+        } finally { select(base, previous); }
+    }
+
     private void screenshot(String name) throws Exception {
         if (!"true".equals(((android.test.InstrumentationTestRunner)getInstrumentation()).getArguments().getString("screenshots"))) return;
         SystemClock.sleep(250);

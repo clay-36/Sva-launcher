@@ -26,10 +26,10 @@
     <string name="ui_nes_file_is_larger_than_32_mb">"حجم ملف NES أكبر من 32 ميجابايت."</string>
     <string name="ui_could_not_read_file">"لا يمكن قراءة الملف"</string>
     <string name="ui_missing_folder">"مجلد مفقود"</string>
-    <string name="ui_back">"خلف"</string>
-    <string name="ui_cancel">"يلغي"</string>
-    <string name="ui_off">"عن"</string>
-    <string name="ui_on">"على"</string>
+    <string name="ui_back">"رجوع"</string>
+    <string name="ui_cancel">"إلغاء"</string>
+    <string name="ui_off">"إيقاف"</string>
+    <string name="ui_on">"تشغيل"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"لم يتم العثور على صور. تأكد من مشاركة الألبوم بشكل عام."</string>
     <string name="ui_favourite">"، مفضل"</string>
     <string name="ui_next_1_s">"التالي · %1$s"</string>
@@ -56,7 +56,7 @@
     <string name="ui_channel">"قناة"</string>
     <string name="ui_on_device_channel_cache_1_s_2_s_3_s">"ذاكرة التخزين المؤقت للقناة على الجهاز · %1$s%2$s · %3$s"</string>
     <string name="ui_updated_1_s">"تم التحديث %1$s"</string>
-    <string name="ui_clear_single_wallpaper">"خلفية واحدة واضحة"</string>
+    <string name="ui_clear_single_wallpaper">"مسح الخلفية الفردية"</string>
     <string name="ui_choose_single_wallpaper">"اختر خلفية واحدة"</string>
     <string name="ui_no_single_wallpaper_using_the_default_landscape">"لا توجد خلفية واحدة - باستخدام المشهد الافتراضي"</string>
     <string name="ui_single_wallpaper_is_set">"تم تعيين خلفية واحدة"</string>
@@ -127,7 +127,7 @@
     <string name="ui_calendar_feeds_one_url_per_line">"خلاصات التقويم · عنوان URL واحد لكل سطر"</string>
     <string name="ui_add_icalendar_feed_urls_one_per_line_google_calendar_published_c">"قم بإضافة عناوين URL للخلاصات iCalendar، واحد في كل سطر. يتم دعم تقويم Google والتقويمات المنشورة وخوادم التقويم المحلية. يجب أن تكون الخلاصات قابلة للقراءة دون تسجيل الدخول. ويتم دمج الأحداث في علامة التبويب \"الأحداث\"."</string>
     <string name="ui_calendar_feeds">"يغذي التقويم"</string>
-    <string name="ui_save">"يحفظ"</string>
+    <string name="ui_save">"حفظ"</string>
     <string name="ui_clear_the_title_to_use_the_title_provided_by_youtube_when_availa">"امسح العنوان لاستخدام العنوان المقدم بواسطة YouTube عندما يكون متاحًا."</string>
     <string name="ui_card_title">"عنوان البطاقة"</string>
     <string name="ui_use_the_youtube_title">"استخدم عنوان YouTube"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube رابط الفيديو"</string>
     <string name="ui_removed_from_saved">"تمت الإزالة من الحفظ."</string>
     <string name="ui_edit_artwork_for_1_s">"تحرير العمل الفني لـ %1$s"</string>
-    <string name="ui_art">"فن"</string>
+    <string name="ui_art">"غلاف"</string>
     <string name="ui_edit_title_for_1_s">"تحرير عنوان %1$s"</string>
     <string name="ui_title">"عنوان"</string>
     <string name="ui_remove_1_s_from_saved">"قم بإزالة %1$s من الملفات المحفوظة"</string>
-    <string name="ui_remove">"يزيل"</string>
-    <string name="ui_add_art">"· إضافة الفن"</string>
+    <string name="ui_remove">"إزالة"</string>
+    <string name="ui_add_art">"· إضافة غلاف"</string>
     <string name="ui_playlist">"قائمة التشغيل"</string>
     <string name="ui_video">"فيديو"</string>
     <string name="ui_no_youtube_cards_saved_yet">"لم يتم حفظ بطاقات YouTube حتى الآن."</string>
@@ -205,12 +205,12 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"اختر مدينة أو استخدم موقع هذا التلفزيون لعرض الطقس على الصفحة الرئيسية."</string>
     <string name="ui_hidden_ce2680d">"· مختفي"</string>
     <string name="ui_last">"آخر"</string>
-    <string name="ui_third_after_home">"الثالثة بعد الوطن"</string>
-    <string name="ui_second_after_home">"الثانية بعد الوطن"</string>
-    <string name="ui_first_after_home">"أولًا بعد الوطن"</string>
-    <string name="ui_reset_item_order">"إعادة تعيين ترتيب العنصر"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"الوطن يبقى أولاً. حدد فئة لتغيير موضعها. الفئات المخفية تحافظ على مكانها."</string>
-    <string name="ui_item_order">"ترتيب السلعة"</string>
+    <string name="ui_third_after_home">"الثالث بعد الرئيسية"</string>
+    <string name="ui_second_after_home">"الثاني بعد الرئيسية"</string>
+    <string name="ui_first_after_home">"الأول بعد الرئيسية"</string>
+    <string name="ui_reset_item_order">"إعادة تعيين ترتيب العناصر"</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"الرئيسية تبقى أولاً. حدد فئة لتغيير موضعها. تحتفظ الفئات المخفية بمكانها."</string>
+    <string name="ui_item_order">"ترتيب العناصر"</string>
     <string name="ui_show_events_in_navigation">"إظهار الأحداث في التنقل"</string>
     <string name="ui_show_games_in_navigation">"عرض الألعاب في التنقل"</string>
     <string name="ui_show_live_tv_in_navigation">"عرض البث التلفزيوني المباشر في التنقل"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"إعدادات ترخيص Widevine الافتراضية"</string>
     <string name="ui_time_and_date_on_home">"الوقت والتاريخ على الصفحة الرئيسية"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"خلفية الصورة وورق الحائط"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"اختر واطلب اختصارات منزلك"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"اختر اختصارات الرئيسية ورتّبها"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"اختر القنوات التي تظهر في البث التلفزيوني المباشر"</string>
     <string name="ui_playlist_and_programme_guide">"قائمة التشغيل ودليل البرنامج"</string>
     <string name="ui_system">"نظام"</string>
@@ -286,7 +286,7 @@
     <string name="ui_loading_apps">"جارٍ تحميل التطبيقات…"</string>
     <string name="ui_could_not_save_calendar_cache">"لا يمكن حفظ ذاكرة التخزين المؤقت للتقويم."</string>
     <string name="ui_calendar_event">"حدث التقويم"</string>
-    <string name="ui_your_calendar_is_clear">"التقويم الخاص بك واضح"</string>
+    <string name="ui_your_calendar_is_clear">"لا توجد أحداث في تقويمك"</string>
     <string name="ui_add_a_calendar_in_settings">"أضف تقويمًا في الإعدادات"</string>
     <string name="ui_no_events_today">"لا توجد أحداث اليوم"</string>
     <string name="ui_today">"اليوم"</string>
@@ -304,7 +304,7 @@
     <string name="ui_weather_refreshed">"الطقس منتعش."</string>
     <string name="ui_could_not_refresh_weather">"لا يمكن تحديث الطقس."</string>
     <string name="ui_refreshing_weather">"طقس منعش…"</string>
-    <string name="ui_close">"يغلق"</string>
+    <string name="ui_close">"إغلاق"</string>
     <string name="ui_forecast_unavailable">"التوقعات غير متاحة"</string>
     <string name="ui_mph">"ميلا في الساعة"</string>
     <string name="ui_1_s_2_s_3_s_wind_4_s_5_s">"%1$s. %2$s. %3$s. الرياح %4$s%5$s."</string>
@@ -322,7 +322,7 @@
     <string name="ui_next_month">"الشهر المقبل"</string>
     <string name="ui_today_24345a1">"اليوم"</string>
     <string name="ui_previous_month">"الشهر السابق"</string>
-    <string name="ui_back_to_home">"العودة إلى المنزل"</string>
+    <string name="ui_back_to_home">"العودة إلى الرئيسية"</string>
     <string name="ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin">"لا توجد اختصارات YouTube محفوظة حتى الآن. أضف مقطع فيديو أو قائمة تشغيل في الإعدادات."</string>
     <string name="ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started">"أضف عنوان URL M3U وعنوان URL الاختياري XMLTV في الإعدادات للبدء."</string>
     <string name="ui_open_full_screen_tv_guide">"فتح دليل التلفزيون بملء الشاشة"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"الألبوم غير متاح · يتم عرض خلفية الشاشة ذات المناظر الطبيعية"</string>
     <string name="ui_loading_your_photographs">"جارٍ تحميل صورك…"</string>
     <string name="ui_could_not_remove_game">"لا يمكن إزالة اللعبة."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"سيتم حذف النسخة المستوردة والعمل الفني وحفظ البطارية الخاصة بـ Sva. لن يتم تغيير ملفك الأصلي."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"سيتم حذف النسخة المستوردة والغلاف وملف حفظ اللعبة الخاصة بـ Sva. لن يتم تغيير ملفك الأصلي."</string>
     <string name="ui_remove_1_s">"هل تريد إزالة %1$s؟"</string>
     <string name="ui_could_not_save_artwork">"لا يمكن حفظ العمل الفني."</string>
     <string name="ui_could_not_save_title">"لا يمكن حفظ العنوان."</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"تحتوي النسخة الاحتياطية على إدخال قناة غير صالح."</string>
     <string name="ui_backup_contains_too_many_channels">"تحتوي النسخة الاحتياطية على عدد كبير جدًا من القنوات."</string>
     <string name="ui_press_ok_for_reminders">". اضغط على \"موافق\" للتذكيرات."</string>
-    <string name="ui_live_now_press_ok_to_watch">"، عش الآن. اضغط موافق للمشاهدة."</string>
+    <string name="ui_live_now_press_ok_to_watch">"، البث المباشر الآن. اضغط موافق للمشاهدة."</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s على %2$s، %3$s%4$s"</string>
     <string name="ui_reminder">"◷ تذكير"</string>
     <string name="ui_live">"● مباشر"</string>
@@ -447,7 +447,7 @@
     <string name="ui_back_to_live_tv">"العودة إلى البث التلفزيوني المباشر"</string>
     <string name="ui_exit_to_sva">"الخروج إلى Sva"</string>
     <string name="ui_restart">"إعادة تشغيل"</string>
-    <string name="ui_resume">"سيرة ذاتية"</string>
+    <string name="ui_resume">"استئناف"</string>
     <string name="ui_this_game_could_not_be_started">"لا يمكن بدء هذه اللعبة."</string>
     <string name="ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair">"تكوين ClearKey غير صالح. قم بتوفير أزواج مفاتيح KID/مفاتيح 128 بت صالحة أو مجموعة مفاتيح JWK."</string>
     <string name="ui_1_s_2_s_3_s_min_left">"%1$s – %2$s · %3$s دقيقة متبقية"</string>
@@ -496,10 +496,10 @@
     <string name="ui_save_here">"احفظ هنا"</string>
     <string name="ui_use_this_folder">"استخدم هذا المجلد"</string>
     <string name="ui_add_selected_1_s">"إضافة المحدد (%1$s)"</string>
-    <string name="ui_select">"يختار"</string>
+    <string name="ui_select">"تحديد"</string>
     <string name="ui_backup_filename">"اسم ملف النسخ الاحتياطي"</string>
-    <string name="ui_dismiss">"رفض"</string>
-    <string name="ui_watch">"يشاهد"</string>
+    <string name="ui_dismiss">"تجاهل"</string>
+    <string name="ui_watch">"مشاهدة"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s يبدأ عند %2$s."</string>
     <string name="ui_starting_soon_1_s">"سيبدأ قريبًا · %1$s"</string>
     <string name="ui_weather_response_was_too_large">"كانت استجابة الطقس كبيرة جدًا."</string>
@@ -512,7 +512,7 @@
     <string name="ui_fog">"ضباب"</string>
     <string name="ui_overcast">"ملبد بالغيوم"</string>
     <string name="ui_partly_cloudy">"غائم جزئيا"</string>
-    <string name="ui_clear">"واضح"</string>
+    <string name="ui_clear">"صافٍ"</string>
     <string name="ui_forecast_did_not_include_upcoming_days">"التوقعات لم تشمل الأيام القادمة."</string>
     <string name="ui_this_link_did_not_return_an_icalendar_feed">"لم يُرجع هذا الرابط خلاصة iCalendar."</string>
     <string name="ui_calendar_feed_is_larger_than_6_mb">"حجم خلاصة التقويم أكبر من 6 ميغابايت."</string>
@@ -601,15 +601,15 @@
     <string name="ui_different_album_photographs_woven_into_a_slowly_changing_asymmet">"صور ألبومات مختلفة منسوجة في شبكة غير متماثلة تتغير ببطء."</string>
     <string name="ui_up">"أعلى"</string>
     <string name="ui_down">"تحت"</string>
-    <string name="ui_left">"غادر"</string>
+    <string name="ui_left">"يسار"</string>
     <string name="ui_right">"يمين"</string>
     <string name="ui_nes_b">"NES ب"</string>
     <string name="ui_nes_a">"NES أ"</string>
-    <string name="ui_start">"يبدأ"</string>
-    <string name="ui_pause">"يوقف"</string>
+    <string name="ui_start">"ابدأ"</string>
+    <string name="ui_pause">"إيقاف مؤقت"</string>
     <string name="ui_paused">"متوقف مؤقتًا"</string>
     <string name="ui_manual_only">"دليل فقط"</string>
-    <string name="ui_every_launch">"كل إطلاق"</string>
+    <string name="ui_every_launch">"عند كل تشغيل"</string>
     <string name="ui_location">"موقع"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva التطبيق المدمج GPLv3. المصدر: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d دقيقة متبقية"</item>
         <item quantity="other">"%1$d دقيقة متبقية"</item>
     </plurals>
+    <string name="ui_import_failed">"تعذّر استيراد الألعاب. يُرجى المحاولة مرة أخرى."</string>
 </resources>

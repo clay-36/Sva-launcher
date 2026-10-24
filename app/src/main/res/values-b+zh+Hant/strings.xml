@@ -28,8 +28,8 @@
     <string name="ui_missing_folder">"遺失資料夾"</string>
     <string name="ui_back">"後退"</string>
     <string name="ui_cancel">"取消"</string>
-    <string name="ui_off">"離開"</string>
-    <string name="ui_on">"在"</string>
+    <string name="ui_off">"關"</string>
+    <string name="ui_on">"開"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"沒有找到照片。檢查該相簿是否已公開分享。"</string>
     <string name="ui_favourite">"， 最喜歡的"</string>
     <string name="ui_next_1_s">"下一頁 · %1$s"</string>
@@ -42,8 +42,8 @@
     <string name="ui_removed_from">"已刪除自"</string>
     <string name="ui_added_to">"添加到"</string>
     <string name="ui_1_s_favourites_2_s">"%1$s 收藏：%2$s"</string>
-    <string name="ui_hidden">"隱"</string>
-    <string name="ui_shown">"如圖所示"</string>
+    <string name="ui_hidden">"隱藏"</string>
+    <string name="ui_shown">"顯示"</string>
     <string name="ui_uncategorized">"未分類"</string>
     <string name="ui_1_s_of_2_s_channels_3_s_shown_4_s_favourites_press_ok_to_toggle">"%2$s 頻道中的 %1$s · 顯示 %3$s · %4$s 收藏夾 \n 按 OK 切換可見性 · 長按切換收藏夾"</string>
     <string name="ui_choose_up_to_five_apps_for_home_use_arrows_to_change_their_order">"為家庭選擇最多五個應用程式。使用箭頭更改它們的順序。"</string>
@@ -56,7 +56,7 @@
     <string name="ui_channel">"頻道"</string>
     <string name="ui_on_device_channel_cache_1_s_2_s_3_s">"設備上通道快取 · %1$s%2$s · %3$s"</string>
     <string name="ui_updated_1_s">"更新了%1$s"</string>
-    <string name="ui_clear_single_wallpaper">"高清單張壁紙"</string>
+    <string name="ui_clear_single_wallpaper">"清除單張壁紙"</string>
     <string name="ui_choose_single_wallpaper">"選擇單張壁紙"</string>
     <string name="ui_no_single_wallpaper_using_the_default_landscape">"沒有單一桌布 - 使用預設風景"</string>
     <string name="ui_single_wallpaper_is_set">"已設定單張壁紙"</string>
@@ -127,7 +127,7 @@
     <string name="ui_calendar_feeds_one_url_per_line">"日曆提要 · 每行一個 URL"</string>
     <string name="ui_add_icalendar_feed_urls_one_per_line_google_calendar_published_c">"新增 iCalendar 提要 URL，每行一個。支援 Google 日曆、已發佈的日曆和本機日曆伺服器。無需登入即可讀取來源。事件在「事件」標籤中組合。"</string>
     <string name="ui_calendar_feeds">"日曆提要"</string>
-    <string name="ui_save">"節省"</string>
+    <string name="ui_save">"儲存"</string>
     <string name="ui_clear_the_title_to_use_the_title_provided_by_youtube_when_availa">"清除標題以使用 YouTube 提供的標題（如果可用）。"</string>
     <string name="ui_card_title">"卡標題"</string>
     <string name="ui_use_the_youtube_title">"使用 YouTube 標題"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube 視訊鏈接"</string>
     <string name="ui_removed_from_saved">"從已儲存中刪除。"</string>
     <string name="ui_edit_artwork_for_1_s">"編輯 %1$s 的圖稿"</string>
-    <string name="ui_art">"藝術"</string>
+    <string name="ui_art">"封面"</string>
     <string name="ui_edit_title_for_1_s">"編輯 %1$s 的標題"</string>
     <string name="ui_title">"標題"</string>
     <string name="ui_remove_1_s_from_saved">"從儲存中刪除 %1$s"</string>
-    <string name="ui_remove">"消除"</string>
-    <string name="ui_add_art">"· 增加藝術"</string>
+    <string name="ui_remove">"刪除"</string>
+    <string name="ui_add_art">"· 新增封面"</string>
     <string name="ui_playlist">"播放清單"</string>
     <string name="ui_video">"影片"</string>
     <string name="ui_no_youtube_cards_saved_yet">"尚未儲存 YouTube 卡。"</string>
@@ -205,12 +205,12 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"選擇一個城市或使用此電視的位置來顯示主頁上的天氣。"</string>
     <string name="ui_hidden_ce2680d">"· 隱藏"</string>
     <string name="ui_last">"最後的"</string>
-    <string name="ui_third_after_home">"主場後第三名"</string>
-    <string name="ui_second_after_home">"回家後第二個"</string>
-    <string name="ui_first_after_home">"先回家後"</string>
-    <string name="ui_reset_item_order">"重置商品順序"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"家先住。選擇一個類別以變更其位置。隱藏類別保留其位置。"</string>
-    <string name="ui_item_order">"商品訂單"</string>
+    <string name="ui_third_after_home">"首頁之後第三項"</string>
+    <string name="ui_second_after_home">"首頁之後第二項"</string>
+    <string name="ui_first_after_home">"首頁之後第一項"</string>
+    <string name="ui_reset_item_order">"重置項目順序"</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"首頁始終排在第一位。選擇一個類別以變更其位置。已隱藏的類別保留其位置。"</string>
+    <string name="ui_item_order">"項目順序"</string>
     <string name="ui_show_events_in_navigation">"在導覽中顯示活動"</string>
     <string name="ui_show_games_in_navigation">"在導航中顯示遊戲"</string>
     <string name="ui_show_live_tv_in_navigation">"在導航中顯示直播電視"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"預設 Widevine 許可證設置"</string>
     <string name="ui_time_and_date_on_home">"主頁上的時間和日期"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"照片背景和桌布"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"選擇並訂購您的主頁快捷方式"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"選擇並排列您的首頁快捷方式"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"選擇直播電視中顯示的頻道"</string>
     <string name="ui_playlist_and_programme_guide">"播放清單和節目指南"</string>
     <string name="ui_system">"系統"</string>
@@ -286,11 +286,11 @@
     <string name="ui_loading_apps">"正在載入應用程式..."</string>
     <string name="ui_could_not_save_calendar_cache">"無法保存日曆快取。"</string>
     <string name="ui_calendar_event">"日曆事件"</string>
-    <string name="ui_your_calendar_is_clear">"你的日曆一目了然"</string>
+    <string name="ui_your_calendar_is_clear">"您的日曆沒有日程"</string>
     <string name="ui_add_a_calendar_in_settings">"在設定中新增日曆"</string>
     <string name="ui_no_events_today">"今天沒有活動"</string>
     <string name="ui_today">"今天"</string>
-    <string name="ui_up_next">"上一個"</string>
+    <string name="ui_up_next">"接下來"</string>
     <string name="ui_all_day">"全天"</string>
     <string name="ui_location_denied_search_for_a_city_instead">"位置被拒絕。而是搜尋一個城市。"</string>
     <string name="ui_current_location">"目前位置"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"相簿不可用·顯示風景壁紙"</string>
     <string name="ui_loading_your_photographs">"正在加載您的照片..."</string>
     <string name="ui_could_not_remove_game">"無法刪除遊戲。"</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva 匯入的副本、圖稿和電池保存將會被刪除。您的原始文件不會被更改。"</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva 匯入的副本、圖稿和遊戲存檔將會被刪除。您的原始文件不會被更改。"</string>
     <string name="ui_remove_1_s">"刪除%1$s？"</string>
     <string name="ui_could_not_save_artwork">"無法保存藝術品。"</string>
     <string name="ui_could_not_save_title">"無法儲存標題。"</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"備份包含無效的通道條目。"</string>
     <string name="ui_backup_contains_too_many_channels">"備份包含太多通道。"</string>
     <string name="ui_press_ok_for_reminders">"。按“確定”以獲得提醒。"</string>
-    <string name="ui_live_now_press_ok_to_watch">"，現在就住。按確定即可觀看。"</string>
+    <string name="ui_live_now_press_ok_to_watch">"，正在直播。按確定即可觀看。"</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s 上 %2$s、%3$s%4$s"</string>
     <string name="ui_reminder">"◷ 提醒"</string>
     <string name="ui_live">"● 現場直播"</string>
@@ -423,7 +423,7 @@
     <string name="ui_ok_to_watch_channel">"· 可以觀看頻道"</string>
     <string name="ui_upcoming">"即將推出"</string>
     <string name="ui_ended">"已結束"</string>
-    <string name="ui_live_now">"● 立即直播"</string>
+    <string name="ui_live_now">"● 正在直播"</string>
     <string name="ui_press_ok_to_watch_this_channel">"按下「確定」即可觀看該頻道"</string>
     <string name="ui_no_programme_information">"無節目資訊"</string>
     <string name="ui_schedule_unavailable">"時間表不可用"</string>
@@ -447,7 +447,7 @@
     <string name="ui_back_to_live_tv">"返回電視直播"</string>
     <string name="ui_exit_to_sva">"退出至 Sva"</string>
     <string name="ui_restart">"重新啟動"</string>
-    <string name="ui_resume">"恢復"</string>
+    <string name="ui_resume">"繼續"</string>
     <string name="ui_this_game_could_not_be_started">"該遊戲無法開始。"</string>
     <string name="ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair">"ClearKey 配置無效。提供有效的 128 位元 KID/金鑰對或 JWK 金鑰集。"</string>
     <string name="ui_1_s_2_s_3_s_min_left">"%1$s – %2$s · %3$s 剩餘時間"</string>
@@ -498,8 +498,8 @@
     <string name="ui_add_selected_1_s">"新增選定的 (%1$s)"</string>
     <string name="ui_select">"選擇"</string>
     <string name="ui_backup_filename">"備份檔案名稱"</string>
-    <string name="ui_dismiss">"解僱"</string>
-    <string name="ui_watch">"手錶"</string>
+    <string name="ui_dismiss">"忽略"</string>
+    <string name="ui_watch">"觀看"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s 從 %2$s 開始。"</string>
     <string name="ui_starting_soon_1_s">"即將開始 · %1$s"</string>
     <string name="ui_weather_response_was_too_large">"天氣反應太大。"</string>
@@ -509,10 +509,10 @@
     <string name="ui_snow">"雪"</string>
     <string name="ui_rain">"雨"</string>
     <string name="ui_drizzle">"細雨"</string>
-    <string name="ui_fog">"多霧路段"</string>
+    <string name="ui_fog">"霧"</string>
     <string name="ui_overcast">"灰濛濛"</string>
     <string name="ui_partly_cloudy">"多雲"</string>
-    <string name="ui_clear">"清除"</string>
+    <string name="ui_clear">"晴"</string>
     <string name="ui_forecast_did_not_include_upcoming_days">"預測不包括未來幾天。"</string>
     <string name="ui_this_link_did_not_return_an_icalendar_feed">"此連結未傳回 iCalendar feed。"</string>
     <string name="ui_calendar_feed_is_larger_than_6_mb">"日曆來源大於 6 MB。"</string>
@@ -601,15 +601,15 @@
     <string name="ui_different_album_photographs_woven_into_a_slowly_changing_asymmet">"不同的相簿照片編織成緩慢變化的不對稱網格。"</string>
     <string name="ui_up">"向上"</string>
     <string name="ui_down">"向下"</string>
-    <string name="ui_left">"左邊"</string>
-    <string name="ui_right">"正確的"</string>
+    <string name="ui_left">"向左"</string>
+    <string name="ui_right">"向右"</string>
     <string name="ui_nes_b">"NES B"</string>
     <string name="ui_nes_a">"NES A"</string>
     <string name="ui_start">"開始"</string>
     <string name="ui_pause">"暫停"</string>
     <string name="ui_paused">"已暫停"</string>
     <string name="ui_manual_only">"僅手動"</string>
-    <string name="ui_every_launch">"每次發射"</string>
+    <string name="ui_every_launch">"每次啟動"</string>
     <string name="ui_location">"地點"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva 組合應用GPLv3。來源：github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -622,7 +622,7 @@
     <string name="ui_favourite_removed">"從收藏夾中刪除：%1$s"</string>
     <plurals name="duration_seconds">
         <item quantity="zero">"%1$d 秒"</item>
-        <item quantity="one">"%1$d 第二"</item>
+        <item quantity="one">"%1$d 秒"</item>
         <item quantity="two">"%1$d 秒"</item>
         <item quantity="few">"%1$d 秒"</item>
         <item quantity="many">"%1$d 秒"</item>
@@ -662,7 +662,7 @@
     </plurals>
     <plurals name="source_count">
         <item quantity="zero">"%1$d 來源"</item>
-        <item quantity="one">"%1$d 源"</item>
+        <item quantity="one">"%1$d 來源"</item>
         <item quantity="two">"%1$d 來源"</item>
         <item quantity="few">"%1$d 來源"</item>
         <item quantity="many">"%1$d 來源"</item>
@@ -670,7 +670,7 @@
     </plurals>
     <plurals name="channel_count">
         <item quantity="zero">"%1$d 頻道"</item>
-        <item quantity="one">"%1$d 通道"</item>
+        <item quantity="one">"%1$d 頻道"</item>
         <item quantity="two">"%1$d 頻道"</item>
         <item quantity="few">"%1$d 頻道"</item>
         <item quantity="many">"%1$d 頻道"</item>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d 剩餘分鐘"</item>
         <item quantity="other">"%1$d 剩餘分鐘"</item>
     </plurals>
+    <string name="ui_import_failed">"無法匯入遊戲。請再試一次。"</string>
 </resources>
