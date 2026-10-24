@@ -46,7 +46,16 @@ public final class TvFilePickerActivity extends MotionActivity {
     private String mode;
     private File directory;
     private final LinkedHashSet<File> selected = new LinkedHashSet<>();
-    private LinearLayout rows;
+    private androidx.recyclerview.widget.RecyclerView rows;
+    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final LifecycleWork work = new LifecycleWork(this, main);
+    private final java.util.concurrent.ExecutorService browserWorker = java.util.concurrent.Executors.newFixedThreadPool(2);
+    private java.util.concurrent.Future<?> pendingDirectory;
+    private int directoryGeneration;
+    private boolean directoryReady;
+    private List<File> availableRoots = new ArrayList<>();
+    private final List<PickerRow> entries = new ArrayList<>();
+    private PickerAdapter adapter;
     private TextView path;
     private TextView instruction;
     private Button action;
@@ -71,7 +80,6 @@ public final class TvFilePickerActivity extends MotionActivity {
             if (paths != null) for (String value : paths) selected.add(new File(value));
         }
         build();
-        showDirectory();
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -123,18 +131,12 @@ public final class TvFilePickerActivity extends MotionActivity {
         browser.addView(path, new LinearLayout.LayoutParams(-1, dp(44)));
         View divider = new View(this); divider.setBackgroundColor(SettingsUi.raised(this));
         browser.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setClipToPadding(false);
-        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        scroll.setPadding(0, dp(6), 0, dp(6));
-        rows = new LinearLayout(this);
-        rows.setOrientation(LinearLayout.VERTICAL);
-        rows.setPadding(dp(12), dp(4), dp(12), dp(4));
-        rows.setClipChildren(false);
-        rows.setClipToPadding(false);
-        scroll.addView(rows, new ScrollView.LayoutParams(-1, -2));
-        browser.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        rows = new androidx.recyclerview.widget.RecyclerView(this);
+        rows.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this));
+        rows.setItemAnimator(null); rows.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        rows.setPadding(dp(12), dp(10), dp(12), dp(10)); rows.setClipToPadding(false);
+        adapter = new PickerAdapter(); rows.setAdapter(adapter);
+        browser.addView(rows, new LinearLayout.LayoutParams(-1, 0, 1));
         page.addView(browser, new LinearLayout.LayoutParams(-1, 0, 1));
         if (isSaveMode()) {
             filename = new EditText(this);
@@ -184,7 +186,7 @@ public final class TvFilePickerActivity extends MotionActivity {
     private void updateAction() {
         action.setText(isMultiMode() ? AppLanguage.get(R.string.ui_add_selected_1_s, selected.size())
                 : isFolderMode() ? AppLanguage.get(R.string.ui_use_this_folder) : isSaveMode() ? AppLanguage.get(R.string.ui_save_here) : AppLanguage.get(R.string.ui_select_a_file));
-        boolean enabled = hasAccess() && (isMultiMode() ? !selected.isEmpty()
+        boolean enabled = directoryReady && hasAccess() && (isMultiMode() ? !selected.isEmpty()
                 : directory != null && (isFolderMode() || isSaveMode()));
         action.setEnabled(enabled);
         action.setAlpha(enabled ? 1f : .5f);
@@ -251,51 +253,82 @@ public final class TvFilePickerActivity extends MotionActivity {
     }
 
     private void showDirectory() {
-        rows.removeAllViews();
+        int generation = ++directoryGeneration;
+        if (pendingDirectory != null) pendingDirectory.cancel(true);
+        directoryReady = false;
+        entries.clear();
         path.setContentDescription(null);
-        if (directory != null && !directory.isDirectory()) directory = null;
         updateAction();
         if (!hasAccess()) {
             path.setText(AppLanguage.get(R.string.ui_storage_access_needed));
             instruction.setText(AppLanguage.get(R.string.ui_allow_storage_access_to_browse_files_on_this_device_and_connecte));
             row(AppLanguage.get(R.string.ui_allow_storage_access), this::requestAccess);
-            rows.getChildAt(0).requestFocus();
+            publishRows(generation);
             return;
         }
-        if (directory == null) {
-            path.setText(AppLanguage.get(R.string.ui_storage_locations));
-            instruction.setText(AppLanguage.get(R.string.ui_choose_internal_storage_or_a_connected_usb_drive));
+        File requested = directory;
+        path.setText(requested == null ? AppLanguage.get(R.string.ui_storage_locations) : requested.getAbsolutePath());
+        instruction.setText(AppLanguage.get(R.string.ui_loading_1_s_2_s, "", ""));
+        adapter.notifyDataSetChanged();
+        back.requestFocus();
+        pendingDirectory = browserWorker.submit(() -> {
+            File valid = requested != null && requested.isDirectory() ? requested : null;
             List<File> roots = roots();
-            for (File root : roots) row(root.equals(Environment.getExternalStorageDirectory())
-                    ? AppLanguage.get(R.string.ui_internal_storage) : AppLanguage.get(R.string.ui_usb_1_s, root.getName()), () -> navigate(root));
-            if (roots.isEmpty()) row(AppLanguage.get(R.string.ui_no_local_storage_found), null);
-            if (!roots.isEmpty()) rows.getChildAt(0).requestFocus();
-            return;
-        }
-        path.setText(directory.getAbsolutePath());
-        path.setContentDescription(AppLanguage.get(R.string.ui_current_folder_1_s, directory.getAbsolutePath()));
-        instruction.setText(isMultiMode() ? AppLanguage.get(R.string.ui_1_s_selected_press_ok_on_files_then_add_selected, selected.size())
-                : isFolderMode() ? AppLanguage.get(R.string.ui_open_a_folder_then_choose_use_this_folder) : isSaveMode()
-                ? AppLanguage.get(R.string.ui_enter_a_filename_and_save_in_this_folder) : AppLanguage.get(R.string.ui_select_a_file_with_ok));
-        File[] children = directory.listFiles();
-        if (children == null) {
-            row(AppLanguage.get(R.string.ui_this_folder_cannot_be_read), null);
-        } else {
-            Arrays.sort(children, Comparator.comparing(File::isDirectory).reversed()
-                    .thenComparing(File::getName, String.CASE_INSENSITIVE_ORDER));
-            int shown = 0;
-            for (File child : children) {
-                if (child.isDirectory()) {
-                    if (child.canRead()) { fileRow(child, true); shown++; }
-                } else if (accepts(child)) {
-                    fileRow(child, false);
-                    shown++;
+            File[] children = valid == null ? null : valid.listFiles();
+            List<PickerRow> loaded = new ArrayList<>();
+            if (valid == null) {
+                for (File root : roots) loaded.add(new PickerRow(root.equals(Environment.getExternalStorageDirectory())
+                        ? AppLanguage.get(R.string.ui_internal_storage) : AppLanguage.get(R.string.ui_usb_1_s, root.getName()),
+                        () -> navigate(root), null, false));
+                if (loaded.isEmpty()) loaded.add(new PickerRow(AppLanguage.get(R.string.ui_no_local_storage_found), null, null, false));
+            } else if (children == null) {
+                loaded.add(new PickerRow(AppLanguage.get(R.string.ui_this_folder_cannot_be_read), null, null, false));
+            } else {
+                for (File child : children) {
+                    if (Thread.currentThread().isInterrupted()) return;
+                    boolean folder = child.isDirectory();
+                    if (folder ? child.canRead() : accepts(child)) loaded.add(new PickerRow(child.getName(),
+                            folder ? () -> navigate(child) : () -> chooseFile(child), child, folder));
                 }
+                loaded.sort(Comparator.comparing((PickerRow entry) -> entry.folder).reversed()
+                        .thenComparing(entry -> entry.title, String.CASE_INSENSITIVE_ORDER));
+                if (loaded.isEmpty()) loaded.add(new PickerRow(AppLanguage.get(R.string.ui_no_matching_files_here), null, null, false));
             }
-            if (shown == 0) row(AppLanguage.get(R.string.ui_no_matching_files_here), null);
-        }
-        if (rows.getChildCount() > 0 && rows.getChildAt(0).isFocusable()) rows.getChildAt(0).requestFocus();
-        else (action.isEnabled() ? action : back).requestFocus();
+            work.post(() -> {
+                if (generation != directoryGeneration) return;
+                directory = valid; availableRoots = roots; directoryReady = true;
+                entries.clear(); entries.addAll(loaded);
+                if (valid == null) {
+                    path.setText(AppLanguage.get(R.string.ui_storage_locations));
+                    instruction.setText(AppLanguage.get(R.string.ui_choose_internal_storage_or_a_connected_usb_drive));
+                } else {
+                    path.setText(valid.getAbsolutePath());
+                    path.setContentDescription(AppLanguage.get(R.string.ui_current_folder_1_s, valid.getAbsolutePath()));
+                    instruction.setText(isMultiMode() ? AppLanguage.get(R.string.ui_1_s_selected_press_ok_on_files_then_add_selected, selected.size())
+                            : isFolderMode() ? AppLanguage.get(R.string.ui_open_a_folder_then_choose_use_this_folder)
+                            : isSaveMode() ? AppLanguage.get(R.string.ui_enter_a_filename_and_save_in_this_folder)
+                            : AppLanguage.get(R.string.ui_select_a_file_with_ok));
+                }
+                updateAction(); publishRows(generation);
+            });
+        });
+    }
+
+    private void publishRows(int generation) {
+        adapter.notifyDataSetChanged();
+        rows.scrollToPosition(0);
+        rows.post(() -> {
+            if (generation != directoryGeneration || !work.active()) return;
+            androidx.recyclerview.widget.RecyclerView.ViewHolder holder = rows.findViewHolderForAdapterPosition(0);
+            if (holder != null && entries.get(0).click != null) holder.itemView.requestFocus();
+            else (action.isEnabled() ? action : back).requestFocus();
+        });
+    }
+
+    @Override protected void onDestroy() {
+        directoryGeneration++;
+        if (pendingDirectory != null) pendingDirectory.cancel(true);
+        work.close(); browserWorker.shutdownNow(); super.onDestroy();
     }
 
     private boolean accepts(File file) {
@@ -308,25 +341,40 @@ public final class TvFilePickerActivity extends MotionActivity {
                 || name.endsWith(".heic") || name.endsWith(".heif") || name.endsWith(".avif");
     }
 
-    private Button row(String title, Runnable click) {
-        Button button = pickerButton(title);
-        button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
-        button.setPadding(dp(16), 0, dp(16), 0);
-        button.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        button.setEnabled(click != null);
-        button.setFocusable(click != null);
-        if (click != null) button.setOnClickListener(v -> click.run());
-        else button.setTextColor(SettingsUi.muted(this));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(56));
-        params.setMargins(dp(4), dp(4), dp(4), dp(4));
-        rows.addView(button, params);
-        return button;
-    }
+    private void row(String title, Runnable click) { entries.add(new PickerRow(title, click, null, false)); }
 
-    private void fileRow(File file, boolean folder) {
-        Button button = row(file.getName(), folder ? () -> navigate(file) : () -> chooseFile(file));
-        button.setTag(file);
-        styleFileRow(button, file, folder);
+    private static final class PickerRow {
+        final String title; final Runnable click; final File file; final boolean folder;
+        PickerRow(String title, Runnable click, File file, boolean folder) {
+            this.title = title; this.click = click; this.file = file; this.folder = folder;
+        }
+    }
+    private final class PickerAdapter extends androidx.recyclerview.widget.RecyclerView.Adapter<PickerAdapter.Holder> {
+        public Holder onCreateViewHolder(android.view.ViewGroup parent, int type) {
+            Button button = pickerButton("");
+            button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+            button.setPadding(dp(16), 0, dp(16), 0);
+            button.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            androidx.recyclerview.widget.RecyclerView.LayoutParams params =
+                    new androidx.recyclerview.widget.RecyclerView.LayoutParams(-1, dp(56));
+            params.setMargins(dp(4), dp(4), dp(4), dp(4)); button.setLayoutParams(params);
+            return new Holder(button);
+        }
+        public void onBindViewHolder(Holder holder, int position) {
+            PickerRow entry = entries.get(position); Button button = holder.button;
+            button.setText(entry.title); button.setTag(entry.file);
+            button.setEnabled(entry.click != null); button.setFocusable(entry.click != null);
+            button.setBackground(SettingsUi.states(TvFilePickerActivity.this, false));
+            button.setCompoundDrawablesRelative(null, null, null, null);
+            button.setContentDescription(entry.title);
+            button.setOnClickListener(entry.click == null ? null : view -> entry.click.run());
+            if (entry.file != null) styleFileRow(button, entry.file, entry.folder);
+        }
+        public int getItemCount() { return entries.size(); }
+        final class Holder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
+            final Button button;
+            Holder(Button button) { super(button); this.button = button; }
+        }
     }
 
     private void styleFileRow(Button button, File file, boolean folder) {
@@ -369,16 +417,15 @@ public final class TvFilePickerActivity extends MotionActivity {
     private void chooseFile(File file) {
         if (isMultiMode()) {
             if (!selected.add(file)) selected.remove(file);
-            for (int i = 0; i < rows.getChildCount(); i++) {
-                View row = rows.getChildAt(i);
-                if (row instanceof Button && file.equals(row.getTag())) styleFileRow((Button) row, file, false);
-            }
+            for (int i = 0; i < entries.size(); i++)
+                if (file.equals(entries.get(i).file)) { adapter.notifyItemChanged(i); break; }
             instruction.setText(AppLanguage.get(R.string.ui_1_s_selected_press_ok_on_files_then_add_selected, selected.size()));
             updateAction();
         } else finishWithFiles(Arrays.asList(file));
     }
 
     private void confirm() {
+        if (!directoryReady) return;
         if (isMultiMode()) {
             if (!selected.isEmpty()) finishWithFiles(new ArrayList<>(selected));
         } else if (isFolderMode()) {
@@ -430,7 +477,7 @@ public final class TvFilePickerActivity extends MotionActivity {
 
     private void up() {
         if (directory == null) { finish(); return; }
-        for (File root : roots()) if (root.equals(directory)) { directory = null; showDirectory(); return; }
+        for (File root : availableRoots) if (root.equals(directory)) { directory = null; showDirectory(); return; }
         directory = directory.getParentFile();
         showDirectory();
     }

@@ -29,7 +29,7 @@
     <string name="ui_back">"மீண்டும்"</string>
     <string name="ui_cancel">"ரத்து செய்"</string>
     <string name="ui_off">"ஆஃப்"</string>
-    <string name="ui_on">"அன்று"</string>
+    <string name="ui_on">"ஆன்"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"புகைப்படங்கள் எதுவும் கிடைக்கவில்லை. ஆல்பம் பொதுவில் பகிரப்பட்டுள்ளதா என சரிபார்க்கவும்."</string>
     <string name="ui_favourite">", பிடித்தது"</string>
     <string name="ui_next_1_s">"அடுத்து · %1$s"</string>
@@ -79,7 +79,7 @@
     <string name="ui_screensaver">"ஸ்கிரீன்சேவர்"</string>
     <string name="ui_manage_now_playing_access">"Now Playing அணுகலை நிர்வகிக்கவும்"</string>
     <string name="ui_appears_on_home_only_while_media_is_playing_allow_notification_a">"மீடியா இயங்கும் போது மட்டுமே முகப்பில் தோன்றும். பிற பயன்பாடுகளிலிருந்து பிளேபேக்கைக் காட்ட, அறிவிப்பு அணுகலை அனுமதிக்கவும்."</string>
-    <string name="ui_now_playing">"இப்போது விளையாடுகிறது"</string>
+    <string name="ui_now_playing">"தற்போது இயங்குகிறது"</string>
     <string name="ui_dark">"இருள்"</string>
     <string name="ui_light">"ஒளி"</string>
     <string name="ui_system_default">"கணினி இயல்புநிலை"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube வீடியோ இணைப்பு"</string>
     <string name="ui_removed_from_saved">"சேமித்ததில் இருந்து அகற்றப்பட்டது."</string>
     <string name="ui_edit_artwork_for_1_s">"%1$sக்கான கலைப்படைப்பைத் திருத்தவும்"</string>
-    <string name="ui_art">"கலை"</string>
+    <string name="ui_art">"படம்"</string>
     <string name="ui_edit_title_for_1_s">"%1$sக்கான தலைப்பைத் திருத்து"</string>
     <string name="ui_title">"தலைப்பு"</string>
     <string name="ui_remove_1_s_from_saved">"சேமித்ததில் இருந்து %1$s ஐ அகற்றவும்"</string>
     <string name="ui_remove">"அகற்று"</string>
-    <string name="ui_add_art">"· கலை சேர்க்கவும்"</string>
+    <string name="ui_add_art">"· படம் சேர்க்கவும்"</string>
     <string name="ui_playlist">"பிளேலிஸ்ட்"</string>
     <string name="ui_video">"வீடியோ"</string>
     <string name="ui_no_youtube_cards_saved_yet">"இதுவரை YouTube கார்டுகள் எதுவும் சேமிக்கப்படவில்லை."</string>
@@ -205,11 +205,11 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"முகப்பில் வானிலையைக் காட்ட நகரத்தைத் தேர்வு செய்யவும் அல்லது இந்த டிவியின் இருப்பிடத்தைப் பயன்படுத்தவும்."</string>
     <string name="ui_hidden_ce2680d">"· மறைக்கப்பட்டது"</string>
     <string name="ui_last">"கடைசியாக"</string>
-    <string name="ui_third_after_home">"வீட்டிற்குப் பிறகு மூன்றாவது"</string>
-    <string name="ui_second_after_home">"வீட்டிற்கு அடுத்து இரண்டாவது"</string>
-    <string name="ui_first_after_home">"முதலில் வீட்டிற்குப் பிறகு"</string>
+    <string name="ui_third_after_home">"முகப்புக்கு அடுத்த மூன்றாவது"</string>
+    <string name="ui_second_after_home">"முகப்புக்கு அடுத்த இரண்டாவது"</string>
+    <string name="ui_first_after_home">"முகப்புக்கு அடுத்தது"</string>
     <string name="ui_reset_item_order">"உருப்படி வரிசையை மீட்டமைக்கவும்"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"வீட்டில் தங்குவது முதலில். அதன் நிலையை மாற்ற ஒரு வகையைத் தேர்ந்தெடுக்கவும். மறைக்கப்பட்ட வகைகள் தங்கள் இடத்தைத் தக்கவைத்துக்கொள்கின்றன."</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"முகப்பு எப்போதும் முதலிடத்தில் இருக்கும். நிலையை மாற்ற ஒரு வகையைத் தேர்ந்தெடுக்கவும். மறைக்கப்பட்ட வகைகள் அவற்றின் இடத்தைத் தக்கவைத்துக் கொள்ளும்."</string>
     <string name="ui_item_order">"பொருள் வரிசை"</string>
     <string name="ui_show_events_in_navigation">"வழிசெலுத்தலில் நிகழ்வுகளைக் காட்டு"</string>
     <string name="ui_show_games_in_navigation">"வழிசெலுத்தலில் கேம்களைக் காட்டு"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"இயல்புநிலை Widevine உரிம அமைப்புகள்"</string>
     <string name="ui_time_and_date_on_home">"வீட்டில் நேரம் மற்றும் தேதி"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"புகைப்பட பின்னணி மற்றும் வால்பேப்பர்"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"உங்கள் வீட்டுக் குறுக்குவழிகளைத் தேர்ந்தெடுத்து ஆர்டர் செய்யுங்கள்"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"உங்கள் முகப்புக் குறுக்குவழிகளைத் தேர்ந்தெடுத்து வரிசைப்படுத்துங்கள்"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"லைவ் டிவியில் எந்த சேனல்கள் தோன்றும் என்பதைத் தேர்வுசெய்யவும்"</string>
     <string name="ui_playlist_and_programme_guide">"பிளேலிஸ்ட் மற்றும் நிரல் வழிகாட்டி"</string>
     <string name="ui_system">"அமைப்பு"</string>
@@ -286,7 +286,7 @@
     <string name="ui_loading_apps">"பயன்பாடுகளை ஏற்றுகிறது…"</string>
     <string name="ui_could_not_save_calendar_cache">"காலெண்டர் தற்காலிக சேமிப்பை சேமிக்க முடியவில்லை."</string>
     <string name="ui_calendar_event">"காலண்டர் நிகழ்வு"</string>
-    <string name="ui_your_calendar_is_clear">"உங்கள் காலண்டர் தெளிவாக உள்ளது"</string>
+    <string name="ui_your_calendar_is_clear">"உங்கள் காலெண்டரில் நிகழ்வுகள் எதுவும் இல்லை"</string>
     <string name="ui_add_a_calendar_in_settings">"அமைப்புகளில் காலெண்டரைச் சேர்க்கவும்"</string>
     <string name="ui_no_events_today">"இன்று நிகழ்வுகள் இல்லை"</string>
     <string name="ui_today">"இன்று"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"ஆல்பம் கிடைக்கவில்லை · இயற்கை வால்பேப்பரைக் காட்டுகிறது"</string>
     <string name="ui_loading_your_photographs">"உங்கள் புகைப்படங்களை ஏற்றுகிறது…"</string>
     <string name="ui_could_not_remove_game">"விளையாட்டை அகற்ற முடியவில்லை."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva இன் இறக்குமதி செய்யப்பட்ட நகல், கலைப்படைப்பு மற்றும் பேட்டரி சேமிப்பு ஆகியவை நீக்கப்படும். உங்கள் அசல் கோப்பு மாற்றப்படாது."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva இன் இறக்குமதி செய்யப்பட்ட நகல், கலைப்படைப்பு மற்றும் கேம் சேமிப்பு ஆகியவை நீக்கப்படும். உங்கள் அசல் கோப்பு மாற்றப்படாது."</string>
     <string name="ui_remove_1_s">"%1$sஐ அகற்றவா?"</string>
     <string name="ui_could_not_save_artwork">"கலைப்படைப்பைச் சேமிக்க முடியவில்லை."</string>
     <string name="ui_could_not_save_title">"தலைப்பைச் சேமிக்க முடியவில்லை."</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"காப்புப்பிரதியில் தவறான சேனல் உள்ளீடு உள்ளது."</string>
     <string name="ui_backup_contains_too_many_channels">"காப்புப்பிரதியில் பல சேனல்கள் உள்ளன."</string>
     <string name="ui_press_ok_for_reminders">". நினைவூட்டல்களுக்கு சரி என்பதை அழுத்தவும்."</string>
-    <string name="ui_live_now_press_ok_to_watch">", இப்போது வாழ்க. பார்க்க சரி என்பதை அழுத்தவும்."</string>
+    <string name="ui_live_now_press_ok_to_watch">", இப்போது நேரலையில் உள்ளது. பார்க்க சரி என்பதை அழுத்தவும்."</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s இல் %2$s, %3$s%4$s"</string>
     <string name="ui_reminder">"◷ நினைவூட்டல்"</string>
     <string name="ui_live">"● நேரலை"</string>
@@ -601,15 +601,15 @@
     <string name="ui_different_album_photographs_woven_into_a_slowly_changing_asymmet">"வெவ்வேறு ஆல்பம் புகைப்படங்கள் மெதுவாக மாறும் சமச்சீரற்ற கட்டத்தில் பிணைக்கப்பட்டுள்ளன."</string>
     <string name="ui_up">"மேலே"</string>
     <string name="ui_down">"கீழே"</string>
-    <string name="ui_left">"விட்டு"</string>
-    <string name="ui_right">"சரி"</string>
+    <string name="ui_left">"இடது"</string>
+    <string name="ui_right">"வலது"</string>
     <string name="ui_nes_b">"NES பி"</string>
     <string name="ui_nes_a">"NES ஏ"</string>
     <string name="ui_start">"தொடங்கு"</string>
     <string name="ui_pause">"இடைநிறுத்தம்"</string>
     <string name="ui_paused">"இடைநிறுத்தப்பட்டது"</string>
     <string name="ui_manual_only">"கையேடு மட்டுமே"</string>
-    <string name="ui_every_launch">"ஒவ்வொரு துவக்கமும்"</string>
+    <string name="ui_every_launch">"ஒவ்வொரு தொடக்கத்திலும்"</string>
     <string name="ui_location">"இடம்"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva ஒருங்கிணைந்த பயன்பாடு GPLv3. ஆதாரம்: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d நிமிடம் மீதமுள்ளது"</item>
         <item quantity="other">"%1$d நிமிடம் மீதமுள்ளது"</item>
     </plurals>
+    <string name="ui_import_failed">"கேம்களை இறக்குமதி செய்ய முடியவில்லை. மீண்டும் முயலவும்."</string>
 </resources>

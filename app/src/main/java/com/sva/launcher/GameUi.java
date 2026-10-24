@@ -59,7 +59,7 @@ final class GameUi {
         return button;
     }
 
-    static LinearLayout card(Activity activity, GameRecord game, View.OnClickListener click) {
+    static LinearLayout card(Activity activity, GameRecord game, View.OnClickListener click, File art, long artworkVersion) {
         LinearLayout card = new LinearLayout(activity);
         card.setOrientation(LinearLayout.VERTICAL); card.setGravity(Gravity.CENTER_HORIZONTAL);
         card.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
@@ -72,23 +72,36 @@ final class GameUi {
         Motion.interaction(card, true);
         ImageView image = new ImageView(activity);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        File art = new GameRepository(activity).artworkFile(game);
-        if (art.isFile()) loadArtwork(image, art, dp(activity, 220));
-        else {
-            image.setImageResource(R.drawable.sva_image);
-            image.setBackgroundColor(LiquidTheme.background(activity));
-            image.setPadding(dp(activity, 24), dp(activity, 24), dp(activity, 24), dp(activity, 24));
-        }
         card.addView(image, new LinearLayout.LayoutParams(-1, dp(activity, 142)));
         TextView title = text(activity, game.title, 14, true);
         title.setGravity(Gravity.CENTER); title.setMaxLines(2);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, dp(activity, 48));
         titleParams.topMargin = dp(activity, 6); card.addView(title, titleParams);
+        bindCard(activity, card, game, click, art, artworkVersion);
         return card;
     }
 
+    static void bindCard(Activity activity, LinearLayout card, GameRecord game,
+                         View.OnClickListener click, File art, long artworkVersion) {
+        card.setTag(game.id); card.setOnClickListener(click);
+        ((TextView)card.getChildAt(1)).setText(game.title);
+        ImageView image = (ImageView)card.getChildAt(0);
+        image.setTag(null);
+        if (artworkVersion > 0) {
+            image.setPadding(0, 0, 0, 0); image.setBackgroundColor(Color.TRANSPARENT);
+            loadArtwork(image, art, dp(activity, 220), artworkVersion);
+        } else {
+            image.setImageResource(R.drawable.sva_image);
+            image.setBackgroundColor(LiquidTheme.background(activity));
+            image.setPadding(dp(activity, 24), dp(activity, 24), dp(activity, 24), dp(activity, 24));
+        }
+    }
+
     static void loadArtwork(ImageView image, File file, int targetPx) {
-        String key = file.getAbsolutePath() + ':' + file.lastModified() + ':' + targetPx;
+        loadArtwork(image, file, targetPx, file.lastModified());
+    }
+    static void loadArtwork(ImageView image, File file, int targetPx, long version) {
+        String key = file.getAbsolutePath() + ':' + version + ':' + targetPx;
         image.setTag(key);
         Bitmap cached = ARTWORK_CACHE.get(key);
         if (cached != null) { image.setPadding(0, 0, 0, 0); image.setImageBitmap(cached); return; }

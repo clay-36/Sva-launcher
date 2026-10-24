@@ -188,14 +188,38 @@ final class PublicCalendarRepository {
         ArrayList<Event> result = new ArrayList<>();
         if (source == null || source.trim().isEmpty()) return result;
         List<String> lines = unfold(source);
+        List<List<String>> records = new ArrayList<>();
         ArrayList<String> eventLines = null;
         for (String line : lines) {
             if ("BEGIN:VEVENT".equalsIgnoreCase(line.trim())) eventLines = new ArrayList<>();
             else if ("END:VEVENT".equalsIgnoreCase(line.trim())) {
-                if (eventLines != null) parseEvent(eventLines, nowMs, result);
-                if (result.size() >= MAX_EVENTS) break;
+                if (eventLines != null) records.add(eventLines);
                 eventLines = null;
             } else if (eventLines != null) eventLines.add(line);
+        }
+        // Detached edits identify the original instance, even when moved earlier/later,
+        // cancelled, or outside the display window. Collect them before expanding masters.
+        Set<String> overridden = new HashSet<>();
+        for (List<String> recordLines : records) {
+            Map<String, Property> record = eventProperties(recordLines);
+            String uid = unescape(value(record, "UID"));
+            Property recurrenceId = record.get("RECURRENCE-ID");
+            if (uid.isEmpty() || recurrenceId == null) continue;
+            try {
+                long instance = parseDate(recurrenceId).toInstant().toEpochMilli();
+                if (!"CANCELLED".equalsIgnoreCase(value(record, "STATUS"))) {
+                    Property startProperty = record.get("DTSTART");
+                    if (startProperty == null) continue;
+                    ZonedDateTime start = parseDate(startProperty);
+                    Property endProperty = record.get("DTEND");
+                    if (endProperty != null && !parseDate(endProperty).isAfter(start)) continue;
+                }
+                overridden.add(instanceKey(uid, instance));
+            } catch (Exception ignored) { }
+        }
+        for (List<String> recordLines : records) {
+            parseEvent(eventProperties(recordLines), nowMs, result, overridden);
+            if (result.size() >= MAX_EVENTS) break;
         }
         Collections.sort(result, Comparator.comparingLong(event -> event.startMs));
         return result;
@@ -213,7 +237,7 @@ final class PublicCalendarRepository {
         return lines;
     }
 
-    private static void parseEvent(List<String> lines, long nowMs, List<Event> output) {
+    private static Map<String, Property> eventProperties(List<String> lines) {
         Map<String, Property> properties = new LinkedHashMap<>();
         for (String line : lines) {
             int colon = line.indexOf(':');
@@ -226,6 +250,15 @@ final class PublicCalendarRepository {
             }
             properties.put(head[0].toUpperCase(Locale.ROOT), new Property(parameters, line.substring(colon + 1)));
         }
+        return properties;
+    }
+
+    private static String instanceKey(String uid, long instance) {
+        return uid.length() + ":" + uid + ":" + instance;
+    }
+
+    private static void parseEvent(Map<String, Property> properties, long nowMs, List<Event> output,
+                                   Set<String> overridden) {
         Property startProperty = properties.get("DTSTART");
         if (startProperty == null) return;
         if ("CANCELLED".equalsIgnoreCase(value(properties, "STATUS"))) return;
@@ -250,6 +283,10 @@ final class PublicCalendarRepository {
             Property recurrenceId = properties.get("RECURRENCE-ID");
             for (int i = firstEvent; i < output.size(); i++) {
                 Event event = output.get(i);
+                if (recurrenceId == null && overridden.contains(instanceKey(uid, event.startMs))) {
+                    output.remove(i--);
+                    continue;
+                }
                 String instance = recurrenceId != null ? Long.toString(parseDate(recurrenceId).toInstant().toEpochMilli())
                         : recurrence != null ? Long.toString(event.startMs) : "";
                 output.set(i, new Event(event.title, event.startMs, event.endMs, event.allDay, uid, instance));

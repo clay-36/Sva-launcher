@@ -27,9 +27,9 @@
     <string name="ui_could_not_read_file">"Tidak dapat membaca file"</string>
     <string name="ui_missing_folder">"Foldernya hilang"</string>
     <string name="ui_back">"Kembali"</string>
-    <string name="ui_cancel">"Membatalkan"</string>
-    <string name="ui_off">"Mati"</string>
-    <string name="ui_on">"Pada"</string>
+    <string name="ui_cancel">"Batal"</string>
+    <string name="ui_off">"Nonaktif"</string>
+    <string name="ui_on">"Aktif"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"Tidak ada foto yang ditemukan. Periksa apakah album tersebut dibagikan secara publik."</string>
     <string name="ui_favourite">", favorit"</string>
     <string name="ui_next_1_s">"Selanjutnya · %1$s"</string>
@@ -79,7 +79,7 @@
     <string name="ui_screensaver">"Penghemat layar"</string>
     <string name="ui_manage_now_playing_access">"Kelola akses Sedang Diputar"</string>
     <string name="ui_appears_on_home_only_while_media_is_playing_allow_notification_a">"Muncul di Beranda hanya saat media diputar. Izinkan akses notifikasi untuk menampilkan pemutaran dari aplikasi lain."</string>
-    <string name="ui_now_playing">"Sedang Dimainkan"</string>
+    <string name="ui_now_playing">"Sedang Diputar"</string>
     <string name="ui_dark">"Gelap"</string>
     <string name="ui_light">"Lampu"</string>
     <string name="ui_system_default">"Bawaan sistem"</string>
@@ -127,7 +127,7 @@
     <string name="ui_calendar_feeds_one_url_per_line">"Umpan kalender · satu URL per baris"</string>
     <string name="ui_add_icalendar_feed_urls_one_per_line_google_calendar_published_c">"Tambahkan URL umpan iCalendar, satu URL per baris. Google Kalender, kalender yang diterbitkan, dan server kalender lokal didukung. Feed harus dapat dibaca tanpa perlu login. Acara digabungkan di tab Acara."</string>
     <string name="ui_calendar_feeds">"Umpan kalender"</string>
-    <string name="ui_save">"Menyimpan"</string>
+    <string name="ui_save">"Simpan"</string>
     <string name="ui_clear_the_title_to_use_the_title_provided_by_youtube_when_availa">"Hapus judul untuk menggunakan judul yang disediakan oleh YouTube bila tersedia."</string>
     <string name="ui_card_title">"Judul kartu"</string>
     <string name="ui_use_the_youtube_title">"Gunakan judul YouTube"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube tautan video"</string>
     <string name="ui_removed_from_saved">"Dihapus dari Tersimpan."</string>
     <string name="ui_edit_artwork_for_1_s">"Edit karya seni untuk %1$s"</string>
-    <string name="ui_art">"Seni"</string>
+    <string name="ui_art">"Sampul"</string>
     <string name="ui_edit_title_for_1_s">"Sunting judul untuk %1$s"</string>
     <string name="ui_title">"Judul"</string>
     <string name="ui_remove_1_s_from_saved">"Hapus %1$s dari Tersimpan"</string>
-    <string name="ui_remove">"Menghapus"</string>
-    <string name="ui_add_art">"· Tambahkan seni"</string>
+    <string name="ui_remove">"Hapus"</string>
+    <string name="ui_add_art">"· Tambahkan sampul"</string>
     <string name="ui_playlist">"DAFTAR PUTAR"</string>
     <string name="ui_video">"VIDEO"</string>
     <string name="ui_no_youtube_cards_saved_yet">"Belum ada kartu YouTube yang disimpan."</string>
@@ -205,12 +205,12 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"Pilih kota atau gunakan lokasi TV ini untuk menampilkan cuaca di Beranda."</string>
     <string name="ui_hidden_ce2680d">"· Tersembunyi"</string>
     <string name="ui_last">"Terakhir"</string>
-    <string name="ui_third_after_home">"Ketiga setelah Rumah"</string>
-    <string name="ui_second_after_home">"Kedua setelah Rumah"</string>
-    <string name="ui_first_after_home">"Pertama setelah Rumah"</string>
+    <string name="ui_third_after_home">"Ketiga setelah Beranda"</string>
+    <string name="ui_second_after_home">"Kedua setelah Beranda"</string>
+    <string name="ui_first_after_home">"Pertama setelah Beranda"</string>
     <string name="ui_reset_item_order">"Atur ulang urutan item"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"Tinggal di rumah terlebih dahulu. Pilih kategori untuk mengubah posisinya. Kategori tersembunyi mempertahankan tempatnya."</string>
-    <string name="ui_item_order">"Pesanan barang"</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"Beranda selalu di posisi pertama. Pilih kategori untuk mengubah posisinya. Kategori tersembunyi mempertahankan posisinya."</string>
+    <string name="ui_item_order">"Urutan item"</string>
     <string name="ui_show_events_in_navigation">"Tampilkan Acara di navigasi"</string>
     <string name="ui_show_games_in_navigation">"Tampilkan Game di navigasi"</string>
     <string name="ui_show_live_tv_in_navigation">"Tampilkan TV Langsung di navigasi"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"Pengaturan lisensi Widevine default"</string>
     <string name="ui_time_and_date_on_home">"Waktu dan tanggal di Beranda"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"Latar belakang foto dan wallpaper"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"Pilih dan pesan pintasan rumah Anda"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"Pilih dan atur urutan pintasan Beranda Anda"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"Pilih saluran mana yang muncul di TV Langsung"</string>
     <string name="ui_playlist_and_programme_guide">"Daftar putar dan panduan program"</string>
     <string name="ui_system">"Sistem"</string>
@@ -286,7 +286,7 @@
     <string name="ui_loading_apps">"Memuat aplikasi…"</string>
     <string name="ui_could_not_save_calendar_cache">"Tidak dapat menyimpan cache kalender."</string>
     <string name="ui_calendar_event">"Acara kalender"</string>
-    <string name="ui_your_calendar_is_clear">"Kalender Anda jelas"</string>
+    <string name="ui_your_calendar_is_clear">"Tidak ada jadwal di kalender Anda"</string>
     <string name="ui_add_a_calendar_in_settings">"Tambahkan kalender di Pengaturan"</string>
     <string name="ui_no_events_today">"Tidak ada acara hari ini"</string>
     <string name="ui_today">"HARI INI"</string>
@@ -304,7 +304,7 @@
     <string name="ui_weather_refreshed">"Cuaca segar."</string>
     <string name="ui_could_not_refresh_weather">"Tidak dapat menyegarkan cuaca."</string>
     <string name="ui_refreshing_weather">"Cuaca yang menyegarkan…"</string>
-    <string name="ui_close">"Menutup"</string>
+    <string name="ui_close">"Tutup"</string>
     <string name="ui_forecast_unavailable">"Perkiraan tidak tersedia"</string>
     <string name="ui_mph">"mph"</string>
     <string name="ui_1_s_2_s_3_s_wind_4_s_5_s">"%1$s. %2$s. %3$s. Angin %4$s%5$s."</string>
@@ -322,7 +322,7 @@
     <string name="ui_next_month">"Bulan depan"</string>
     <string name="ui_today_24345a1">"Hari ini"</string>
     <string name="ui_previous_month">"Bulan sebelumnya"</string>
-    <string name="ui_back_to_home">"Kembali ke Rumah"</string>
+    <string name="ui_back_to_home">"Kembali ke Beranda"</string>
     <string name="ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin">"Belum ada pintasan YouTube yang disimpan. Tambahkan video atau daftar putar di Pengaturan."</string>
     <string name="ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started">"Tambahkan URL M3U dan XMLTV opsional di Pengaturan untuk memulai."</string>
     <string name="ui_open_full_screen_tv_guide">"Buka panduan TV layar penuh"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"Album tidak tersedia · menampilkan wallpaper lanskap"</string>
     <string name="ui_loading_your_photographs">"Memuat foto Anda…"</string>
     <string name="ui_could_not_remove_game">"Tidak dapat menghapus permainan."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Salinan, karya seni, dan penyimpanan baterai Sva yang diimpor akan dihapus. File asli Anda tidak akan diubah."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Salinan, karya seni, dan simpanan permainan Sva yang diimpor akan dihapus. File asli Anda tidak akan diubah."</string>
     <string name="ui_remove_1_s">"Hapus %1$s?"</string>
     <string name="ui_could_not_save_artwork">"Tidak dapat menyimpan karya seni."</string>
     <string name="ui_could_not_save_title">"Tidak dapat menyimpan judul."</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"Cadangan berisi entri saluran yang tidak valid."</string>
     <string name="ui_backup_contains_too_many_channels">"Cadangan berisi terlalu banyak saluran."</string>
     <string name="ui_press_ok_for_reminders">". Tekan OK untuk pengingat."</string>
-    <string name="ui_live_now_press_ok_to_watch">", hiduplah sekarang. Tekan OK untuk menonton."</string>
+    <string name="ui_live_now_press_ok_to_watch">", sedang siaran langsung. Tekan OK untuk menonton."</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s pada %2$s, %3$s%4$s"</string>
     <string name="ui_reminder">"◷ PENGINGAT"</string>
     <string name="ui_live">"● LANGSUNG"</string>
@@ -423,7 +423,7 @@
     <string name="ui_ok_to_watch_channel">"· OK untuk menonton saluran"</string>
     <string name="ui_upcoming">"MENDATANG"</string>
     <string name="ui_ended">"BERAKHIR"</string>
-    <string name="ui_live_now">"● HIDUP SEKARANG"</string>
+    <string name="ui_live_now">"● SIARAN LANGSUNG"</string>
     <string name="ui_press_ok_to_watch_this_channel">"Tekan OK untuk menonton saluran ini"</string>
     <string name="ui_no_programme_information">"Tidak ada informasi program"</string>
     <string name="ui_schedule_unavailable">"JADWAL TIDAK TERSEDIA"</string>
@@ -447,7 +447,7 @@
     <string name="ui_back_to_live_tv">"Kembali ke TV Langsung"</string>
     <string name="ui_exit_to_sva">"Keluar ke Sva"</string>
     <string name="ui_restart">"Mulai ulang"</string>
-    <string name="ui_resume">"Melanjutkan"</string>
+    <string name="ui_resume">"Lanjutkan"</string>
     <string name="ui_this_game_could_not_be_started">"Permainan ini tidak dapat dimulai."</string>
     <string name="ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair">"Konfigurasi ClearKey tidak valid. Menyediakan pasangan KID/kunci 128-bit yang valid atau set kunci JWK."</string>
     <string name="ui_1_s_2_s_3_s_min_left">"%1$s – %2$s · %3$s menit lagi"</string>
@@ -496,10 +496,10 @@
     <string name="ui_save_here">"Simpan di sini"</string>
     <string name="ui_use_this_folder">"Gunakan folder ini"</string>
     <string name="ui_add_selected_1_s">"Tambahkan yang dipilih (%1$s)"</string>
-    <string name="ui_select">"Memilih"</string>
+    <string name="ui_select">"Pilih"</string>
     <string name="ui_backup_filename">"Nama file cadangan"</string>
-    <string name="ui_dismiss">"Membubarkan"</string>
-    <string name="ui_watch">"Jam tangan"</string>
+    <string name="ui_dismiss">"Tutup"</string>
+    <string name="ui_watch">"Tonton"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s dimulai pada %2$s."</string>
     <string name="ui_starting_soon_1_s">"Segera dimulai · %1$s"</string>
     <string name="ui_weather_response_was_too_large">"Respon cuaca terlalu besar."</string>
@@ -602,14 +602,14 @@
     <string name="ui_up">"Ke atas"</string>
     <string name="ui_down">"Turun"</string>
     <string name="ui_left">"Kiri"</string>
-    <string name="ui_right">"Benar"</string>
+    <string name="ui_right">"Kanan"</string>
     <string name="ui_nes_b">"NES B"</string>
     <string name="ui_nes_a">"NES A"</string>
-    <string name="ui_start">"Awal"</string>
-    <string name="ui_pause">"Berhenti sebentar"</string>
+    <string name="ui_start">"Mulai"</string>
+    <string name="ui_pause">"Jeda"</string>
     <string name="ui_paused">"Dijeda"</string>
     <string name="ui_manual_only">"Hanya panduan saja"</string>
-    <string name="ui_every_launch">"Setiap peluncuran"</string>
+    <string name="ui_every_launch">"Setiap kali dibuka"</string>
     <string name="ui_location">"Lokasi"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva aplikasi gabungan GPLv3. Sumber: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -670,7 +670,7 @@
     </plurals>
     <plurals name="channel_count">
         <item quantity="zero">"%1$d saluran"</item>
-        <item quantity="one">"saluran %1$d"</item>
+        <item quantity="one">"%1$d saluran"</item>
         <item quantity="two">"%1$d saluran"</item>
         <item quantity="few">"%1$d saluran"</item>
         <item quantity="many">"%1$d saluran"</item>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d menit lagi"</item>
         <item quantity="other">"%1$d menit lagi"</item>
     </plurals>
+    <string name="ui_import_failed">"Tidak dapat mengimpor game. Silakan coba lagi."</string>
 </resources>

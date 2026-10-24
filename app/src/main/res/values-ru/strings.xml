@@ -28,8 +28,8 @@
     <string name="ui_missing_folder">"Отсутствует папка"</string>
     <string name="ui_back">"Назад"</string>
     <string name="ui_cancel">"Отмена"</string>
-    <string name="ui_off">"Выключенный"</string>
-    <string name="ui_on">"На"</string>
+    <string name="ui_off">"Выкл."</string>
+    <string name="ui_on">"Вкл."</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"Фотографии не найдены. Убедитесь, что альбом общедоступен."</string>
     <string name="ui_favourite">", любимый"</string>
     <string name="ui_next_1_s">"Далее · %1$s"</string>
@@ -42,8 +42,8 @@
     <string name="ui_removed_from">"Удалено из"</string>
     <string name="ui_added_to">"Добавлено в"</string>
     <string name="ui_1_s_favourites_2_s">"%1$s избранное: %2$s"</string>
-    <string name="ui_hidden">"Скрытый"</string>
-    <string name="ui_shown">"показано"</string>
+    <string name="ui_hidden">"Скрыто"</string>
+    <string name="ui_shown">"Показано"</string>
     <string name="ui_uncategorized">"Без категории"</string>
     <string name="ui_1_s_of_2_s_channels_3_s_shown_4_s_favourites_press_ok_to_toggle">"%1$s из %2$s каналов · Показан %3$s · %4$s избранное\nНажмите OK, чтобы переключить видимость · Длительное нажатие, чтобы переключить избранное"</string>
     <string name="ui_choose_up_to_five_apps_for_home_use_arrows_to_change_their_order">"Выберите до пяти приложений для дома. Используйте стрелки, чтобы изменить их порядок."</string>
@@ -127,7 +127,7 @@
     <string name="ui_calendar_feeds_one_url_per_line">"Ленты календаря · по одному URL в строке"</string>
     <string name="ui_add_icalendar_feed_urls_one_per_line_google_calendar_published_c">"Добавьте URL-адреса фида iCalendar, по одному в каждой строке. Поддерживаются Календарь Google, опубликованные календари и локальные серверы календарей. Ленты должны быть доступны для чтения без входа в систему. События объединяются на вкладке «События»."</string>
     <string name="ui_calendar_feeds">"Ленты календаря"</string>
-    <string name="ui_save">"Сохранять"</string>
+    <string name="ui_save">"Сохранить"</string>
     <string name="ui_clear_the_title_to_use_the_title_provided_by_youtube_when_availa">"Очистите заголовок, чтобы использовать заголовок, предоставленный YouTube, если он доступен."</string>
     <string name="ui_card_title">"Название карты"</string>
     <string name="ui_use_the_youtube_title">"Используйте заголовок YouTube"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube ссылка на видео"</string>
     <string name="ui_removed_from_saved">"Удален из сохраненных."</string>
     <string name="ui_edit_artwork_for_1_s">"Редактировать обложку для %1$s"</string>
-    <string name="ui_art">"Искусство"</string>
+    <string name="ui_art">"Обложка"</string>
     <string name="ui_edit_title_for_1_s">"Изменить заголовок для %1$s"</string>
     <string name="ui_title">"Заголовок"</string>
     <string name="ui_remove_1_s_from_saved">"Удалить %1$s из сохраненных"</string>
-    <string name="ui_remove">"Удалять"</string>
-    <string name="ui_add_art">"· Добавить искусство"</string>
+    <string name="ui_remove">"Удалить"</string>
+    <string name="ui_add_art">"· Добавить обложку"</string>
     <string name="ui_playlist">"ПЛЕЙЛИСТ"</string>
     <string name="ui_video">"ВИДЕО"</string>
     <string name="ui_no_youtube_cards_saved_yet">"Карты YouTube пока не сохранены."</string>
@@ -205,12 +205,12 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"Выберите город или используйте местоположение этого телевизора, чтобы показывать погоду на «Доме»."</string>
     <string name="ui_hidden_ce2680d">"· Скрытый"</string>
     <string name="ui_last">"Последний"</string>
-    <string name="ui_third_after_home">"Третий после Дома"</string>
-    <string name="ui_second_after_home">"Второй после дома"</string>
-    <string name="ui_first_after_home">"Сначала после дома"</string>
+    <string name="ui_third_after_home">"Третий после Главной"</string>
+    <string name="ui_second_after_home">"Второй после Главной"</string>
+    <string name="ui_first_after_home">"Первый после Главной"</string>
     <string name="ui_reset_item_order">"Сбросить порядок элементов"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"Дом остается первым. Выберите категорию, чтобы изменить ее положение. Скрытые категории сохраняют свое место."</string>
-    <string name="ui_item_order">"Порядок товаров"</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"Главная всегда первая. Выберите категорию, чтобы изменить ее положение. Скрытые категории сохраняют свое место."</string>
+    <string name="ui_item_order">"Порядок элементов"</string>
     <string name="ui_show_events_in_navigation">"Показать события в навигации"</string>
     <string name="ui_show_games_in_navigation">"Показать игры в навигации"</string>
     <string name="ui_show_live_tv_in_navigation">"Показать Live TV в навигации"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"Настройки лицензии Widevine по умолчанию"</string>
     <string name="ui_time_and_date_on_home">"Время и дата на главном экране"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"Фотофон и обои"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"Выбирайте и заказывайте ярлыки для домашнего экрана"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"Выберите и упорядочьте ярлыки на Главной"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"Выберите, какие каналы будут отображаться в Live TV"</string>
     <string name="ui_playlist_and_programme_guide">"Плейлист и программа передач"</string>
     <string name="ui_system">"Система"</string>
@@ -286,7 +286,7 @@
     <string name="ui_loading_apps">"Загрузка приложений…"</string>
     <string name="ui_could_not_save_calendar_cache">"Не удалось сохранить кеш календаря."</string>
     <string name="ui_calendar_event">"Событие календаря"</string>
-    <string name="ui_your_calendar_is_clear">"Ваш календарь чист"</string>
+    <string name="ui_your_calendar_is_clear">"В календаре нет событий"</string>
     <string name="ui_add_a_calendar_in_settings">"Добавить календарь в настройках"</string>
     <string name="ui_no_events_today">"Сегодня нет событий"</string>
     <string name="ui_today">"СЕГОДНЯ"</string>
@@ -304,7 +304,7 @@
     <string name="ui_weather_refreshed">"Погода посвежела."</string>
     <string name="ui_could_not_refresh_weather">"Не удалось обновить погоду."</string>
     <string name="ui_refreshing_weather">"Освежающая погода…"</string>
-    <string name="ui_close">"Закрывать"</string>
+    <string name="ui_close">"Закрыть"</string>
     <string name="ui_forecast_unavailable">"Прогноз недоступен"</string>
     <string name="ui_mph">"миль в час"</string>
     <string name="ui_1_s_2_s_3_s_wind_4_s_5_s">"%1$s. %2$s. %3$s. Ветер %4$s%5$s."</string>
@@ -322,7 +322,7 @@
     <string name="ui_next_month">"В следующем месяце"</string>
     <string name="ui_today_24345a1">"Сегодня"</string>
     <string name="ui_previous_month">"Предыдущий месяц"</string>
-    <string name="ui_back_to_home">"Вернуться домой"</string>
+    <string name="ui_back_to_home">"Назад на Главную"</string>
     <string name="ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin">"Пока нет сохраненных ярлыков YouTube. Добавьте видео или плейлист в настройках."</string>
     <string name="ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started">"Чтобы начать, добавьте URL-адрес M3U и дополнительный URL-адрес XMLTV в настройках."</string>
     <string name="ui_open_full_screen_tv_guide">"Открыть полноэкранный телегид"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"Альбом недоступен · показаны обои с пейзажем"</string>
     <string name="ui_loading_your_photographs">"Загрузка фотографий…"</string>
     <string name="ui_could_not_remove_game">"Не удалось удалить игру."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Импортированная копия Sva, обложка и сохранение заряда батареи будут удалены. Ваш исходный файл не будет изменен."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Импортированная копия Sva, обложка и сохранение игры будут удалены. Ваш исходный файл не будет изменен."</string>
     <string name="ui_remove_1_s">"Удалить %1$s?"</string>
     <string name="ui_could_not_save_artwork">"Не удалось сохранить иллюстрацию."</string>
     <string name="ui_could_not_save_title">"Не удалось сохранить заголовок."</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"Резервная копия содержит недопустимую запись канала."</string>
     <string name="ui_backup_contains_too_many_channels">"Резервная копия содержит слишком много каналов."</string>
     <string name="ui_press_ok_for_reminders">". Нажмите ОК для напоминаний."</string>
-    <string name="ui_live_now_press_ok_to_watch">", живи сейчас. Нажмите ОК, чтобы посмотреть."</string>
+    <string name="ui_live_now_press_ok_to_watch">", в прямом эфире. Нажмите ОК для просмотра."</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s на %2$s, %3$s%4$s"</string>
     <string name="ui_reminder">"◷ НАПОМИНАНИЕ"</string>
     <string name="ui_live">"● ПРЯМОЙ ЭФИР"</string>
@@ -423,7 +423,7 @@
     <string name="ui_ok_to_watch_channel">"· ОК, чтобы смотреть канал"</string>
     <string name="ui_upcoming">"ПРЕДСТОЯЩИЕ"</string>
     <string name="ui_ended">"ЗАВЕРШЕНО"</string>
-    <string name="ui_live_now">"● ЖИТЬ СЕЙЧАС"</string>
+    <string name="ui_live_now">"● В ЭФИРЕ"</string>
     <string name="ui_press_ok_to_watch_this_channel">"Нажмите ОК, чтобы посмотреть этот канал"</string>
     <string name="ui_no_programme_information">"Нет информации о программе"</string>
     <string name="ui_schedule_unavailable">"РАСПИСАНИЕ НЕДОСТУПНО"</string>
@@ -445,9 +445,9 @@
     <string name="ui_all_channels_318a2aa">"Все каналы ▾"</string>
     <string name="ui_tv_guide_046eb4e">"телегид"</string>
     <string name="ui_back_to_live_tv">"Вернуться к прямому эфиру"</string>
-    <string name="ui_exit_to_sva">"Выход в Sva"</string>
+    <string name="ui_exit_to_sva">"Выйти в Sva"</string>
     <string name="ui_restart">"Перезапуск"</string>
-    <string name="ui_resume">"Резюме"</string>
+    <string name="ui_resume">"Продолжить"</string>
     <string name="ui_this_game_could_not_be_started">"Эту игру невозможно запустить."</string>
     <string name="ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair">"Неверная конфигурация ClearKey. Предоставьте действительные 128-битные пары KID/ключ или набор ключей JWK."</string>
     <string name="ui_1_s_2_s_3_s_min_left">"%1$s – %2$s · %3$s осталось минут"</string>
@@ -496,9 +496,9 @@
     <string name="ui_save_here">"Сохранить здесь"</string>
     <string name="ui_use_this_folder">"Используйте эту папку"</string>
     <string name="ui_add_selected_1_s">"Добавить выбранное (%1$s)"</string>
-    <string name="ui_select">"Выбирать"</string>
+    <string name="ui_select">"Выбрать"</string>
     <string name="ui_backup_filename">"Имя файла резервной копии"</string>
-    <string name="ui_dismiss">"Увольнять"</string>
+    <string name="ui_dismiss">"Закрыть"</string>
     <string name="ui_watch">"Смотреть"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s начинается с %2$s."</string>
     <string name="ui_starting_soon_1_s">"Скоро начнем · %1$s"</string>
@@ -512,7 +512,7 @@
     <string name="ui_fog">"Туман"</string>
     <string name="ui_overcast">"Пасмурно"</string>
     <string name="ui_partly_cloudy">"Переменная облачность"</string>
-    <string name="ui_clear">"Прозрачный"</string>
+    <string name="ui_clear">"Ясно"</string>
     <string name="ui_forecast_did_not_include_upcoming_days">"Прогноз не включал ближайшие дни."</string>
     <string name="ui_this_link_did_not_return_an_icalendar_feed">"Эта ссылка не вернула фид iCalendar."</string>
     <string name="ui_calendar_feed_is_larger_than_6_mb">"Лента календаря имеет размер более 6 МБ."</string>
@@ -601,15 +601,15 @@
     <string name="ui_different_album_photographs_woven_into_a_slowly_changing_asymmet">"Различные альбомные фотографии сплетены в медленно меняющуюся асимметричную сетку."</string>
     <string name="ui_up">"Вверх"</string>
     <string name="ui_down">"Вниз"</string>
-    <string name="ui_left">"Левый"</string>
-    <string name="ui_right">"Верно"</string>
+    <string name="ui_left">"Влево"</string>
+    <string name="ui_right">"Вправо"</string>
     <string name="ui_nes_b">"NES Б"</string>
     <string name="ui_nes_a">"NES А"</string>
-    <string name="ui_start">"Начинать"</string>
+    <string name="ui_start">"Старт"</string>
     <string name="ui_pause">"Пауза"</string>
     <string name="ui_paused">"Приостановлено"</string>
     <string name="ui_manual_only">"Только вручную"</string>
-    <string name="ui_every_launch">"Каждый запуск"</string>
+    <string name="ui_every_launch">"При каждом запуске"</string>
     <string name="ui_location">"Расположение"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva комбинированное приложение GPLv3. Источник: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -706,4 +706,5 @@
         <item quantity="many">"Осталось %1$d мин."</item>
         <item quantity="other">"Осталось %1$d мин."</item>
     </plurals>
+    <string name="ui_import_failed">"Не удалось импортировать игры. Повторите попытку."</string>
 </resources>

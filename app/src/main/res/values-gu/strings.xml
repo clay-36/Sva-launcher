@@ -26,7 +26,7 @@
     <string name="ui_nes_file_is_larger_than_32_mb">"NES ફાઇલ 32 MB કરતા મોટી છે."</string>
     <string name="ui_could_not_read_file">"ફાઇલ વાંચી શકાઈ નથી"</string>
     <string name="ui_missing_folder">"ફોલ્ડર ખૂટે છે"</string>
-    <string name="ui_back">"પાછળ"</string>
+    <string name="ui_back">"પાછા"</string>
     <string name="ui_cancel">"રદ કરો"</string>
     <string name="ui_off">"બંધ"</string>
     <string name="ui_on">"ચાલુ"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube વિડિઓ લિંક"</string>
     <string name="ui_removed_from_saved">"સાચવેલામાંથી દૂર કર્યું."</string>
     <string name="ui_edit_artwork_for_1_s">"%1$s માટે આર્ટવર્ક સંપાદિત કરો"</string>
-    <string name="ui_art">"કલા"</string>
+    <string name="ui_art">"કવર"</string>
     <string name="ui_edit_title_for_1_s">"%1$s માટે શીર્ષક સંપાદિત કરો"</string>
     <string name="ui_title">"શીર્ષક"</string>
     <string name="ui_remove_1_s_from_saved">"સાચવેલામાંથી %1$s ને દૂર કરો"</string>
     <string name="ui_remove">"દૂર કરો"</string>
-    <string name="ui_add_art">"· કલા ઉમેરો"</string>
+    <string name="ui_add_art">"· કવર ઉમેરો"</string>
     <string name="ui_playlist">"પ્લેલિસ્ટ"</string>
     <string name="ui_video">"વિડિયો"</string>
     <string name="ui_no_youtube_cards_saved_yet">"હજુ સુધી કોઈ YouTube કાર્ડ્સ સાચવ્યા નથી."</string>
@@ -205,11 +205,11 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"ઘર પર હવામાન બતાવવા માટે શહેર પસંદ કરો અથવા આ ટીવીના સ્થાનનો ઉપયોગ કરો."</string>
     <string name="ui_hidden_ce2680d">"· છુપાયેલું"</string>
     <string name="ui_last">"છેલ્લું"</string>
-    <string name="ui_third_after_home">"ઘર પછી ત્રીજો"</string>
-    <string name="ui_second_after_home">"ઘર પછી બીજું"</string>
-    <string name="ui_first_after_home">"ઘર પછી પ્રથમ"</string>
+    <string name="ui_third_after_home">"હોમ પછી ત્રીજું"</string>
+    <string name="ui_second_after_home">"હોમ પછી બીજું"</string>
+    <string name="ui_first_after_home">"હોમ પછી પહેલું"</string>
     <string name="ui_reset_item_order">"આઇટમ ઓર્ડર રીસેટ કરો"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"ઘર પહેલા રહે છે. તેની સ્થિતિ બદલવા માટે શ્રેણી પસંદ કરો. છુપાયેલી શ્રેણીઓ તેમનું સ્થાન જાળવી રાખે છે."</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"હોમ હંમેશા પહેલા સ્થાને રહેશે. તેનું સ્થાન બદલવા માટે શ્રેણી પસંદ કરો. છુપાયેલ શ્રેણીઓ તેનું સ્થાન જાળવી રાખે છે."</string>
     <string name="ui_item_order">"આઇટમ ઓર્ડર"</string>
     <string name="ui_show_events_in_navigation">"નેવિગેશનમાં ઇવેન્ટ્સ બતાવો"</string>
     <string name="ui_show_games_in_navigation">"નેવિગેશનમાં ગેમ્સ બતાવો"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"ડિફૉલ્ટ Widevine લાઇસન્સ સેટિંગ્સ"</string>
     <string name="ui_time_and_date_on_home">"હોમ પરનો સમય અને તારીખ"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"ફોટો બેકડ્રોપ અને વોલપેપર"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"તમારા હોમ શોર્ટકટ્સ પસંદ કરો અને ઓર્ડર કરો"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"તમારા હોમ શોર્ટકટ્સ પસંદ કરો અને ગોઠવો"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"લાઈવ ટીવીમાં કઈ ચેનલો દેખાય તે પસંદ કરો"</string>
     <string name="ui_playlist_and_programme_guide">"પ્લેલિસ્ટ અને પ્રોગ્રામ માર્ગદર્શિકા"</string>
     <string name="ui_system">"સિસ્ટમ"</string>
@@ -286,11 +286,11 @@
     <string name="ui_loading_apps">"એપ્લિકેશનો લોડ કરી રહ્યાં છે..."</string>
     <string name="ui_could_not_save_calendar_cache">"કૅલેન્ડર કૅશ સાચવી શકાયું નથી."</string>
     <string name="ui_calendar_event">"કૅલેન્ડર ઇવેન્ટ"</string>
-    <string name="ui_your_calendar_is_clear">"તમારું કેલેન્ડર સ્પષ્ટ છે"</string>
+    <string name="ui_your_calendar_is_clear">"તમારા કેલેન્ડરમાં કોઈ ઇવેન્ટ નથી"</string>
     <string name="ui_add_a_calendar_in_settings">"સેટિંગ્સમાં કૅલેન્ડર ઉમેરો"</string>
     <string name="ui_no_events_today">"આજે કોઈ ઇવેન્ટ નથી"</string>
     <string name="ui_today">"આજે"</string>
-    <string name="ui_up_next">"આગળ ઉપર"</string>
+    <string name="ui_up_next">"આગળ"</string>
     <string name="ui_all_day">"આખો દિવસ"</string>
     <string name="ui_location_denied_search_for_a_city_instead">"સ્થાન નકાર્યું. તેના બદલે શહેર શોધો."</string>
     <string name="ui_current_location">"વર્તમાન સ્થાન"</string>
@@ -322,7 +322,7 @@
     <string name="ui_next_month">"આવતા મહિને"</string>
     <string name="ui_today_24345a1">"આજે"</string>
     <string name="ui_previous_month">"પાછલો મહિનો"</string>
-    <string name="ui_back_to_home">"ઘરે પાછા"</string>
+    <string name="ui_back_to_home">"હોમ પર પાછા"</string>
     <string name="ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin">"હજુ સુધી કોઈ સાચવેલ YouTube શોર્ટકટ્સ નથી. સેટિંગ્સમાં વિડિઓ અથવા પ્લેલિસ્ટ ઉમેરો."</string>
     <string name="ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started">"પ્રારંભ કરવા માટે સેટિંગ્સમાં M3U અને વૈકલ્પિક XMLTV URL ઉમેરો."</string>
     <string name="ui_open_full_screen_tv_guide">"પૂર્ણ-સ્ક્રીન ટીવી માર્ગદર્શિકા ખોલો"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"આલ્બમ અનુપલબ્ધ · લેન્ડસ્કેપ વોલપેપર દર્શાવે છે"</string>
     <string name="ui_loading_your_photographs">"તમારા ફોટોગ્રાફ્સ લોડ કરી રહ્યાં છીએ..."</string>
     <string name="ui_could_not_remove_game">"રમત દૂર કરી શકાઈ નથી."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva ની આયાત કરેલી નકલ, આર્ટવર્ક અને બેટરી સેવ કાઢી નાખવામાં આવશે. તમારી મૂળ ફાઇલ બદલવામાં આવશે નહીં."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva ની આયાત કરેલી નકલ, આર્ટવર્ક અને ગેમ સેવ કાઢી નાખવામાં આવશે. તમારી મૂળ ફાઇલ બદલવામાં આવશે નહીં."</string>
     <string name="ui_remove_1_s">"%1$s દૂર કરીએ?"</string>
     <string name="ui_could_not_save_artwork">"આર્ટવર્ક સાચવી શકાયું નથી."</string>
     <string name="ui_could_not_save_title">"શીર્ષક સાચવી શકાયું નથી."</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"બેકઅપમાં અમાન્ય ચેનલ એન્ટ્રી છે."</string>
     <string name="ui_backup_contains_too_many_channels">"બેકઅપમાં ઘણી બધી ચેનલો છે."</string>
     <string name="ui_press_ok_for_reminders">". રીમાઇન્ડર્સ માટે ઓકે દબાવો."</string>
-    <string name="ui_live_now_press_ok_to_watch">", હવે જીવો. જોવા માટે OK દબાવો."</string>
+    <string name="ui_live_now_press_ok_to_watch">", અત્યારે લાઈવ છે. જોવા માટે OK દબાવો."</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s પર %2$s, %3$s%4$s"</string>
     <string name="ui_reminder">"◷ રીમાઇન્ડર"</string>
     <string name="ui_live">"● લાઈવ"</string>
@@ -445,7 +445,7 @@
     <string name="ui_all_channels_318a2aa">"બધી ચેનલો ▾"</string>
     <string name="ui_tv_guide_046eb4e">"ટીવી માર્ગદર્શિકા"</string>
     <string name="ui_back_to_live_tv">"લાઈવ ટીવી પર પાછા"</string>
-    <string name="ui_exit_to_sva">"Sva માટે બહાર નીકળો"</string>
+    <string name="ui_exit_to_sva">"Sva પર પાછા જાઓ"</string>
     <string name="ui_restart">"પુનઃપ્રારંભ કરો"</string>
     <string name="ui_resume">"ફરી શરૂ કરો"</string>
     <string name="ui_this_game_could_not_be_started">"આ રમત શરૂ કરી શકાઈ નથી."</string>
@@ -498,8 +498,8 @@
     <string name="ui_add_selected_1_s">"પસંદ કરેલ ઉમેરો (%1$s)"</string>
     <string name="ui_select">"પસંદ કરો"</string>
     <string name="ui_backup_filename">"બેકઅપ ફાઇલનામ"</string>
-    <string name="ui_dismiss">"કાઢી નાખો"</string>
-    <string name="ui_watch">"વોચ"</string>
+    <string name="ui_dismiss">"खारिज કરો"</string>
+    <string name="ui_watch">"જુઓ"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s %2$s થી શરૂ થાય છે."</string>
     <string name="ui_starting_soon_1_s">"ટૂંક સમયમાં શરૂ થઈ રહ્યું છે · %1$s"</string>
     <string name="ui_weather_response_was_too_large">"હવામાન પ્રતિસાદ ખૂબ મોટો હતો."</string>
@@ -512,7 +512,7 @@
     <string name="ui_fog">"ધુમ્મસ"</string>
     <string name="ui_overcast">"વાદળછાયું"</string>
     <string name="ui_partly_cloudy">"આંશિક વાદળછાયું"</string>
-    <string name="ui_clear">"સાફ કરો"</string>
+    <string name="ui_clear">"ચોખ્ખું"</string>
     <string name="ui_forecast_did_not_include_upcoming_days">"આગાહીમાં આગામી દિવસોનો સમાવેશ થતો નથી."</string>
     <string name="ui_this_link_did_not_return_an_icalendar_feed">"આ લિંકે iCalendar ફીડ પરત કર્યું નથી."</string>
     <string name="ui_calendar_feed_is_larger_than_6_mb">"કૅલેન્ડર ફીડ 6 MB કરતાં મોટી છે."</string>
@@ -602,14 +602,14 @@
     <string name="ui_up">"ઉપર"</string>
     <string name="ui_down">"નીચે"</string>
     <string name="ui_left">"ડાબી"</string>
-    <string name="ui_right">"અધિકાર"</string>
+    <string name="ui_right">"જમણે"</string>
     <string name="ui_nes_b">"NES B"</string>
     <string name="ui_nes_a">"NES એ"</string>
     <string name="ui_start">"શરૂ કરો"</string>
     <string name="ui_pause">"વિરામ"</string>
     <string name="ui_paused">"થોભાવ્યું"</string>
     <string name="ui_manual_only">"ફક્ત મેન્યુઅલ"</string>
-    <string name="ui_every_launch">"દરેક લોન્ચ"</string>
+    <string name="ui_every_launch">"દરેક શરૂઆત વખતે"</string>
     <string name="ui_location">"સ્થાન"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva સંયુક્ત એપ્લિકેશન GPLv3. સ્ત્રોત: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d મિનિટ બાકી"</item>
         <item quantity="other">"%1$d મિનિટ બાકી"</item>
     </plurals>
+    <string name="ui_import_failed">"ગેમ આયાત કરી શકાઈ નથી. કૃપા કરીને ફરી પ્રયાસ કરો."</string>
 </resources>

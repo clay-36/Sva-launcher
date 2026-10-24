@@ -236,7 +236,7 @@ final class ScreensaverView extends View {
             else art.draw(canvas, theme, outgoingScene, w, h, outgoingAge, outgoingTime,
                     Math.max(0, frame - 1), android.animation.ValueAnimator.areAnimatorsEnabled());
         }
-        int layer = canvas.saveLayerAlpha(0, 0, w, h, Math.round(255 * fade));
+        int layer = fade < 1f ? canvas.saveLayerAlpha(0, 0, w, h, Math.round(255 * fade)) : canvas.save();
         if (theme == 0) scene(canvas, current, w, h, age, time, frame);
         else art.draw(canvas, theme, artScene, w, h, age, time, frame,
                 android.animation.ValueAnimator.areAnimatorsEnabled());

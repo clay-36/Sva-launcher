@@ -54,9 +54,10 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 ## Features
 
 - **Remote-first navigation** — focusing a top-level tab selects it immediately, with clear focus states throughout the UI. Settings dialog supports seamless two-way D-pad navigation between categories and controls without remote focus traps.
-- **23 interface languages** (🇺🇸 🇬🇧 🇮🇳 🇪🇸 🇫🇷 🇸🇦 🇧🇷 🇨🇳 🇹🇼 🇩🇪 🇯🇵 🇰🇷 🇷🇺 🇮🇩 🇹🇷 🇧🇩 🇵🇰...) — follow the TV language or choose a language under **Settings → System → Language**, with offline translations and right-to-left layouts for Arabic and Urdu.
+- **23 interface languages** (🇺🇸 🇬🇧 🇮🇳 🇪🇸 🇫🇷 🇸🇦 🇧🇷 🇨🇳 🇹🇼 🇩🇪 🇯🇵 🇰🇷 🇷🇺 🇮🇩 🇹🇷 🇧🇩 🇵🇰...) — follow the TV language or choose a language under **Settings → System → Language**, with refined offline translations and right-to-left layouts for Arabic and Urdu.
 - **Personal home screen** — select and reorder app shortcuts; keep the clock, date, weather, Wi-Fi, tools, and settings close by.
-- **Photo backdrops** — use a single image, rotate a local folder, or connect a public Google Photos album.
+- **Photo backdrops & dynamic contrast** — use a single image, rotate a local folder, or connect a public Google Photos album. Per-region luminance analysis dynamically adapts header widget text, accents, and drop shadows for optimal contrast over any wallpaper.
+- **Fast, lightweight performance** — lazy tab loading, bounded view recycling for games, saved videos, and file browsing, and non-intrusive task progress indicators that reserve layout space without stealing remote focus.
 - **Live TV and guide** — combine multiple M3U/M3U8 playlists and XMLTV, XMLTV.GZ, or JSON programme guides, browse `group-title` categories, display `tvg-logo` artwork, and hide unwanted channels.
 - **Integrated playback** — watch with Media3 ExoPlayer, move between channels with Up/Down, view programme progress, prefer Hindi audio when available, and configure global or per-channel Widevine settings.
 - **NES library** — import your own `.nes` files and launch them directly through the embedded Nestopia UE core, without a separate emulator menu.

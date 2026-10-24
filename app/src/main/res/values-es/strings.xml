@@ -28,8 +28,8 @@
     <string name="ui_missing_folder">"Carpeta faltante"</string>
     <string name="ui_back">"Atrás"</string>
     <string name="ui_cancel">"Cancelar"</string>
-    <string name="ui_off">"Apagado"</string>
-    <string name="ui_on">"En"</string>
+    <string name="ui_off">"Desactivado"</string>
+    <string name="ui_on">"Activado"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"No se encontraron fotos. Comprueba que el álbum esté compartido públicamente."</string>
     <string name="ui_favourite">", favorito"</string>
     <string name="ui_next_1_s">"Siguiente · %1$s"</string>
@@ -79,7 +79,7 @@
     <string name="ui_screensaver">"Protector de pantalla"</string>
     <string name="ui_manage_now_playing_access">"Administrar el acceso Ahora Reproduciendo"</string>
     <string name="ui_appears_on_home_only_while_media_is_playing_allow_notification_a">"Aparece en Inicio solo mientras se reproducen medios. Permitir el acceso a notificaciones para mostrar la reproducción de otras aplicaciones."</string>
-    <string name="ui_now_playing">"Ahora jugando"</string>
+    <string name="ui_now_playing">"En reproducción"</string>
     <string name="ui_dark">"Oscuro"</string>
     <string name="ui_light">"Luz"</string>
     <string name="ui_system_default">"Valor predeterminado del sistema"</string>
@@ -127,7 +127,7 @@
     <string name="ui_calendar_feeds_one_url_per_line">"Feeds de calendario · una URL por línea"</string>
     <string name="ui_add_icalendar_feed_urls_one_per_line_google_calendar_published_c">"Agregue URL de feed iCalendar, una por línea. Se admiten Google Calendar, calendarios publicados y servidores de calendario locales. Los feeds deben poder leerse sin iniciar sesión. Los eventos se combinan en la pestaña Eventos."</string>
     <string name="ui_calendar_feeds">"Feeds de calendario"</string>
-    <string name="ui_save">"Ahorrar"</string>
+    <string name="ui_save">"Guardar"</string>
     <string name="ui_clear_the_title_to_use_the_title_provided_by_youtube_when_availa">"Borre el título para utilizar el título proporcionado por YouTube cuando esté disponible."</string>
     <string name="ui_card_title">"Título de la tarjeta"</string>
     <string name="ui_use_the_youtube_title">"Utilice el título YouTube"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube enlace de vídeo"</string>
     <string name="ui_removed_from_saved">"Eliminado de Guardado."</string>
     <string name="ui_edit_artwork_for_1_s">"Editar ilustraciones para %1$s"</string>
-    <string name="ui_art">"Arte"</string>
+    <string name="ui_art">"Portada"</string>
     <string name="ui_edit_title_for_1_s">"Editar título para %1$s"</string>
     <string name="ui_title">"Título"</string>
     <string name="ui_remove_1_s_from_saved">"Eliminar %1$s de Guardado"</string>
     <string name="ui_remove">"Eliminar"</string>
-    <string name="ui_add_art">"· Añadir arte"</string>
+    <string name="ui_add_art">"· Añadir portada"</string>
     <string name="ui_playlist">"LISTA DE REPRODUCCIÓN"</string>
     <string name="ui_video">"VIDEO"</string>
     <string name="ui_no_youtube_cards_saved_yet">"Aún no se han guardado tarjetas YouTube."</string>
@@ -205,11 +205,11 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"Elija una ciudad o use la ubicación de este televisor para mostrar el clima en Inicio."</string>
     <string name="ui_hidden_ce2680d">"· Oculto"</string>
     <string name="ui_last">"Último"</string>
-    <string name="ui_third_after_home">"Tercero después de casa"</string>
-    <string name="ui_second_after_home">"Segundo después de casa"</string>
-    <string name="ui_first_after_home">"Primero después de casa"</string>
+    <string name="ui_third_after_home">"Tercero después de Inicio"</string>
+    <string name="ui_second_after_home">"Segundo después de Inicio"</string>
+    <string name="ui_first_after_home">"Primero después de Inicio"</string>
     <string name="ui_reset_item_order">"Restablecer orden de artículos"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"El hogar es lo primero. Seleccione una categoría para cambiar su posición. Las categorías ocultas mantienen su lugar."</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"Inicio siempre va primero. Seleccione una categoría para cambiar su posición. Las categorías ocultas mantienen su lugar."</string>
     <string name="ui_item_order">"Orden del artículo"</string>
     <string name="ui_show_events_in_navigation">"Mostrar eventos en la navegación"</string>
     <string name="ui_show_games_in_navigation">"Mostrar juegos en la navegación"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"Configuración de licencia predeterminada Widevine"</string>
     <string name="ui_time_and_date_on_home">"Hora y fecha en Inicio"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"Fondo de fotografía y papel tapiz"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"Elige y ordena tus atajos de casa"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"Elige y ordena los accesos directos de Inicio"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"Elige qué canales aparecen en Live TV"</string>
     <string name="ui_playlist_and_programme_guide">"Lista de reproducción y guía de programas."</string>
     <string name="ui_system">"Sistema"</string>
@@ -286,11 +286,11 @@
     <string name="ui_loading_apps">"Cargando aplicaciones…"</string>
     <string name="ui_could_not_save_calendar_cache">"No se pudo guardar el caché del calendario."</string>
     <string name="ui_calendar_event">"Evento del calendario"</string>
-    <string name="ui_your_calendar_is_clear">"Tu calendario está claro"</string>
+    <string name="ui_your_calendar_is_clear">"Tu calendario está despejado"</string>
     <string name="ui_add_a_calendar_in_settings">"Agregar un calendario en Configuración"</string>
     <string name="ui_no_events_today">"No hay eventos hoy"</string>
     <string name="ui_today">"HOY"</string>
-    <string name="ui_up_next">"ARRIBA SIGUIENTE"</string>
+    <string name="ui_up_next">"A CONTINUACIÓN"</string>
     <string name="ui_all_day">"Todo el día"</string>
     <string name="ui_location_denied_search_for_a_city_instead">"Ubicación denegada. En su lugar, busque una ciudad."</string>
     <string name="ui_current_location">"Ubicación actual"</string>
@@ -304,7 +304,7 @@
     <string name="ui_weather_refreshed">"Clima renovado."</string>
     <string name="ui_could_not_refresh_weather">"No se pudo actualizar el clima."</string>
     <string name="ui_refreshing_weather">"Clima refrescante…"</string>
-    <string name="ui_close">"Cerca"</string>
+    <string name="ui_close">"Cerrar"</string>
     <string name="ui_forecast_unavailable">"Pronóstico no disponible"</string>
     <string name="ui_mph">"mph"</string>
     <string name="ui_1_s_2_s_3_s_wind_4_s_5_s">"%1$s. %2$s. %3$s. Viento %4$s%5$s."</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"Álbum no disponible · muestra fondo de pantalla horizontal"</string>
     <string name="ui_loading_your_photographs">"Cargando tus fotografías…"</string>
     <string name="ui_could_not_remove_game">"No se pudo eliminar el juego."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Se eliminarán la copia importada, el arte y el ahorro de batería de Sva. Su archivo original no será modificado."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Se eliminarán la copia importada, la portada y la partida guardada de Sva. Su archivo original no será modificado."</string>
     <string name="ui_remove_1_s">"¿Quitar %1$s?"</string>
     <string name="ui_could_not_save_artwork">"No se pudo guardar la obra de arte."</string>
     <string name="ui_could_not_save_title">"No se pudo guardar el título."</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"La copia de seguridad contiene una entrada de canal no válida."</string>
     <string name="ui_backup_contains_too_many_channels">"La copia de seguridad contiene demasiados canales."</string>
     <string name="ui_press_ok_for_reminders">". Presione Aceptar para recibir recordatorios."</string>
-    <string name="ui_live_now_press_ok_to_watch">", vive ahora. Presione Aceptar para mirar."</string>
+    <string name="ui_live_now_press_ok_to_watch">", en vivo ahora. Presione OK para ver."</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s en %2$s, %3$s%4$s"</string>
     <string name="ui_reminder">"◷ RECORDATORIO"</string>
     <string name="ui_live">"● EN VIVO"</string>
@@ -446,7 +446,7 @@
     <string name="ui_tv_guide_046eb4e">"guía de televisión"</string>
     <string name="ui_back_to_live_tv">"Volver a TV en vivo"</string>
     <string name="ui_exit_to_sva">"Salir a Sva"</string>
-    <string name="ui_restart">"Reanudar"</string>
+    <string name="ui_restart">"Reiniciar"</string>
     <string name="ui_resume">"Reanudar"</string>
     <string name="ui_this_game_could_not_be_started">"Este juego no se pudo iniciar."</string>
     <string name="ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair">"Configuración ClearKey no válida. Proporcione pares de claves/KID de 128 bits válidos o un conjunto de claves JWK."</string>
@@ -498,8 +498,8 @@
     <string name="ui_add_selected_1_s">"Agregar seleccionado (%1$s)"</string>
     <string name="ui_select">"Seleccionar"</string>
     <string name="ui_backup_filename">"Nombre del archivo de respaldo"</string>
-    <string name="ui_dismiss">"Despedir"</string>
-    <string name="ui_watch">"Mirar"</string>
+    <string name="ui_dismiss">"Descartar"</string>
+    <string name="ui_watch">"Ver"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s comienza en %2$s."</string>
     <string name="ui_starting_soon_1_s">"A partir de pronto · %1$s"</string>
     <string name="ui_weather_response_was_too_large">"La respuesta meteorológica fue demasiado grande."</string>
@@ -512,7 +512,7 @@
     <string name="ui_fog">"Niebla"</string>
     <string name="ui_overcast">"Nublado"</string>
     <string name="ui_partly_cloudy">"Parcialmente nublado"</string>
-    <string name="ui_clear">"Claro"</string>
+    <string name="ui_clear">"Despejado"</string>
     <string name="ui_forecast_did_not_include_upcoming_days">"El pronóstico no incluía los próximos días."</string>
     <string name="ui_this_link_did_not_return_an_icalendar_feed">"Este enlace no devolvió un feed iCalendar."</string>
     <string name="ui_calendar_feed_is_larger_than_6_mb">"El feed del calendario tiene más de 6 MB."</string>
@@ -602,14 +602,14 @@
     <string name="ui_up">"Arriba"</string>
     <string name="ui_down">"Abajo"</string>
     <string name="ui_left">"Izquierda"</string>
-    <string name="ui_right">"Bien"</string>
+    <string name="ui_right">"Derecha"</string>
     <string name="ui_nes_b">"NES B"</string>
     <string name="ui_nes_a">"NES A"</string>
-    <string name="ui_start">"Comenzar"</string>
+    <string name="ui_start">"Iniciar"</string>
     <string name="ui_pause">"Pausa"</string>
     <string name="ui_paused">"En pausa"</string>
     <string name="ui_manual_only">"Sólo manual"</string>
-    <string name="ui_every_launch">"Cada lanzamiento"</string>
+    <string name="ui_every_launch">"En cada inicio"</string>
     <string name="ui_location">"Ubicación"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva aplicación combinada GPLv3. Fuente: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -654,7 +654,7 @@
     </plurals>
     <plurals name="playlist_count">
         <item quantity="zero">"%1$d listas de reproducción"</item>
-        <item quantity="one">"Lista de reproducción %1$d"</item>
+        <item quantity="one">"%1$d lista de reproducción"</item>
         <item quantity="two">"%1$d listas de reproducción"</item>
         <item quantity="few">"%1$d listas de reproducción"</item>
         <item quantity="many">"%1$d listas de reproducción"</item>
@@ -670,7 +670,7 @@
     </plurals>
     <plurals name="channel_count">
         <item quantity="zero">"%1$d canales"</item>
-        <item quantity="one">"Canal %1$d"</item>
+        <item quantity="one">"%1$d canal"</item>
         <item quantity="two">"%1$d canales"</item>
         <item quantity="few">"%1$d canales"</item>
         <item quantity="many">"%1$d canales"</item>
@@ -686,7 +686,7 @@
     </plurals>
     <plurals name="event_count">
         <item quantity="zero">"%1$d eventos"</item>
-        <item quantity="one">"Evento %1$d"</item>
+        <item quantity="one">"%1$d evento"</item>
         <item quantity="two">"%1$d eventos"</item>
         <item quantity="few">"%1$d eventos"</item>
         <item quantity="many">"%1$d eventos"</item>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d minutos restantes"</item>
         <item quantity="other">"%1$d minutos restantes"</item>
     </plurals>
+    <string name="ui_import_failed">"No se pudieron importar los juegos. Inténtalo de nuevo."</string>
 </resources>

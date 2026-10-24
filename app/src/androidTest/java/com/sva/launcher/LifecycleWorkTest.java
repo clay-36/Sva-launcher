@@ -18,7 +18,7 @@ public final class LifecycleWorkTest extends InstrumentationTestCase {
     @Override protected void setUp() throws Exception {
         super.setUp();
         activity = getInstrumentation().startActivitySync(new Intent(getInstrumentation().getTargetContext(), MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
         java.lang.reflect.Field field = MainActivity.class.getDeclaredField("lifecycleWork");
         field.setAccessible(true); work = (LifecycleWork) field.get(activity);
     }

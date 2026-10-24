@@ -26,10 +26,10 @@
     <string name="ui_nes_file_is_larger_than_32_mb">"NES 파일이 32MB보다 큽니다."</string>
     <string name="ui_could_not_read_file">"파일을 읽을 수 없습니다."</string>
     <string name="ui_missing_folder">"폴더 누락"</string>
-    <string name="ui_back">"뒤쪽에"</string>
+    <string name="ui_back">"뒤로"</string>
     <string name="ui_cancel">"취소"</string>
-    <string name="ui_off">"끄다"</string>
-    <string name="ui_on">"~에"</string>
+    <string name="ui_off">"꺼짐"</string>
+    <string name="ui_on">"켜짐"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"사진을 찾을 수 없습니다. 앨범이 공개적으로 공유되었는지 확인하세요."</string>
     <string name="ui_favourite">", 가장 좋아하는"</string>
     <string name="ui_next_1_s">"다음 · %1$s"</string>
@@ -42,8 +42,8 @@
     <string name="ui_removed_from">"다음에서 삭제됨"</string>
     <string name="ui_added_to">"다음에 추가됨"</string>
     <string name="ui_1_s_favourites_2_s">"%1$s 즐겨찾기: %2$s"</string>
-    <string name="ui_hidden">"숨겨진"</string>
-    <string name="ui_shown">"표시됨"</string>
+    <string name="ui_hidden">"숨김"</string>
+    <string name="ui_shown">"표시"</string>
     <string name="ui_uncategorized">"분류되지 않음"</string>
     <string name="ui_1_s_of_2_s_channels_3_s_shown_4_s_favourites_press_ok_to_toggle">"%2$s 채널 중 %1$s · %3$s 표시됨 · %4$s 즐겨찾기\n가시 상태로 전환하려면 확인을 누르세요. · 즐겨찾기로 전환하려면 길게 누르세요."</string>
     <string name="ui_choose_up_to_five_apps_for_home_use_arrows_to_change_their_order">"홈용 앱을 최대 5개 선택하세요. 순서를 변경하려면 화살표를 사용하세요."</string>
@@ -60,7 +60,7 @@
     <string name="ui_choose_single_wallpaper">"단일 배경화면 선택"</string>
     <string name="ui_no_single_wallpaper_using_the_default_landscape">"단일 배경화면 없음 — 기본 풍경 사용"</string>
     <string name="ui_single_wallpaper_is_set">"단일 배경화면이 설정되었습니다."</string>
-    <string name="ui_single_wallpaper">"단일 벽지"</string>
+    <string name="ui_single_wallpaper">"단일 배경화면"</string>
     <string name="ui_clear_google_photos_album">"Google Photos 앨범 지우기"</string>
     <string name="ui_loading_public_album">"공개 앨범 로드 중…"</string>
     <string name="ui_paste_a_google_photos_shared_album_link_first">"먼저 Google Photos 공유 앨범 링크를 붙여넣으세요."</string>
@@ -127,7 +127,7 @@
     <string name="ui_calendar_feeds_one_url_per_line">"캘린더 피드 · 한 줄에 하나의 URL"</string>
     <string name="ui_add_icalendar_feed_urls_one_per_line_google_calendar_published_c">"iCalendar 피드 URL을 한 줄에 하나씩 추가하세요. Google 캘린더, 게시된 캘린더, 로컬 캘린더 서버가 지원됩니다. 피드는 로그인하지 않고도 읽을 수 있어야 합니다. 이벤트는 이벤트 탭에 결합되어 있습니다."</string>
     <string name="ui_calendar_feeds">"캘린더 피드"</string>
-    <string name="ui_save">"구하다"</string>
+    <string name="ui_save">"저장"</string>
     <string name="ui_clear_the_title_to_use_the_title_provided_by_youtube_when_availa">"가능한 경우 YouTube에서 제공한 제목을 사용하려면 제목을 지우세요."</string>
     <string name="ui_card_title">"카드 제목"</string>
     <string name="ui_use_the_youtube_title">"YouTube 제목을 사용하세요."</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube 비디오 링크"</string>
     <string name="ui_removed_from_saved">"저장됨에서 삭제되었습니다."</string>
     <string name="ui_edit_artwork_for_1_s">"%1$s의 작품 편집"</string>
-    <string name="ui_art">"미술"</string>
+    <string name="ui_art">"이미지"</string>
     <string name="ui_edit_title_for_1_s">"%1$s 제목 편집"</string>
     <string name="ui_title">"제목"</string>
     <string name="ui_remove_1_s_from_saved">"저장된 항목에서 %1$s 제거"</string>
-    <string name="ui_remove">"제거하다"</string>
-    <string name="ui_add_art">"· 아트 추가"</string>
+    <string name="ui_remove">"삭제"</string>
+    <string name="ui_add_art">"· 이미지 추가"</string>
     <string name="ui_playlist">"재생목록"</string>
     <string name="ui_video">"동영상"</string>
     <string name="ui_no_youtube_cards_saved_yet">"아직 저장된 YouTube 카드가 없습니다."</string>
@@ -205,11 +205,11 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"도시를 선택하거나 이 TV의 위치를 ​​사용하여 홈에 날씨를 표시하세요."</string>
     <string name="ui_hidden_ce2680d">"· 숨김"</string>
     <string name="ui_last">"마지막"</string>
-    <string name="ui_third_after_home">"집 다음으로 세 번째"</string>
-    <string name="ui_second_after_home">"집 다음으로 두 번째"</string>
-    <string name="ui_first_after_home">"집 다음으로 먼저"</string>
+    <string name="ui_third_after_home">"홈 다음 세 번째"</string>
+    <string name="ui_second_after_home">"홈 다음 두 번째"</string>
+    <string name="ui_first_after_home">"홈 다음 첫 번째"</string>
     <string name="ui_reset_item_order">"항목 순서 재설정"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"집이 먼저입니다. 위치를 변경하려면 카테고리를 선택하세요. 숨겨진 카테고리는 제자리를 유지합니다."</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"홈이 항상 첫 번째로 유지됩니다. 위치를 변경하려면 카테고리를 선택하세요. 숨겨진 카테고리는 원래 위치를 유지합니다."</string>
     <string name="ui_item_order">"품목 순서"</string>
     <string name="ui_show_events_in_navigation">"탐색에 이벤트 표시"</string>
     <string name="ui_show_games_in_navigation">"탐색에 게임 표시"</string>
@@ -240,8 +240,8 @@
     <string name="ui_open_sva_when_the_tv_home_button_opens_its_built_in_launcher">"TV 홈 버튼이 내장 실행기를 열면 Sva을 엽니다."</string>
     <string name="ui_default_widevine_license_settings">"기본 Widevine 라이센스 설정"</string>
     <string name="ui_time_and_date_on_home">"집의 시간과 날짜"</string>
-    <string name="ui_photo_backdrop_and_wallpaper">"사진 배경 및 벽지"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"홈 바로가기를 선택하고 주문하세요"</string>
+    <string name="ui_photo_backdrop_and_wallpaper">"사진 배경 및 배경화면"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"홈 바로가기를 선택하고 순서를 정렬하세요"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"라이브 TV에 표시할 채널을 선택하세요"</string>
     <string name="ui_playlist_and_programme_guide">"재생 목록 및 프로그램 가이드"</string>
     <string name="ui_system">"체계"</string>
@@ -286,7 +286,7 @@
     <string name="ui_loading_apps">"앱 로드 중…"</string>
     <string name="ui_could_not_save_calendar_cache">"캘린더 캐시를 저장할 수 없습니다."</string>
     <string name="ui_calendar_event">"캘린더 이벤트"</string>
-    <string name="ui_your_calendar_is_clear">"달력이 깨끗해요"</string>
+    <string name="ui_your_calendar_is_clear">"달력에 예정된 일정이 없습니다"</string>
     <string name="ui_add_a_calendar_in_settings">"설정에서 캘린더 추가"</string>
     <string name="ui_no_events_today">"오늘은 이벤트가 없습니다"</string>
     <string name="ui_today">"오늘"</string>
@@ -304,7 +304,7 @@
     <string name="ui_weather_refreshed">"날씨가 상쾌해졌습니다."</string>
     <string name="ui_could_not_refresh_weather">"날씨를 새로고침할 수 없습니다."</string>
     <string name="ui_refreshing_weather">"상쾌한 날씨…"</string>
-    <string name="ui_close">"닫다"</string>
+    <string name="ui_close">"닫기"</string>
     <string name="ui_forecast_unavailable">"예측 불가"</string>
     <string name="ui_mph">"시속"</string>
     <string name="ui_1_s_2_s_3_s_wind_4_s_5_s">"%1$s. %2$s. %3$s. 바람 %4$s%5$s."</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"앨범을 사용할 수 없음 · 가로 배경화면 표시 중"</string>
     <string name="ui_loading_your_photographs">"사진 로드 중…"</string>
     <string name="ui_could_not_remove_game">"게임을 제거할 수 없습니다."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva의 가져온 사본, 아트워크, 배터리 저장이 삭제됩니다. 원본 파일은 변경되지 않습니다."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva의 가져온 사본, 아트워크, 게임 세이브가 삭제됩니다. 원본 파일은 변경되지 않습니다."</string>
     <string name="ui_remove_1_s">"%1$s을(를) 제거하시겠습니까?"</string>
     <string name="ui_could_not_save_artwork">"예술작품을 저장할 수 없습니다."</string>
     <string name="ui_could_not_save_title">"제목을 저장할 수 없습니다."</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"백업에 잘못된 채널 항목이 포함되어 있습니다."</string>
     <string name="ui_backup_contains_too_many_channels">"백업에 채널이 너무 많습니다."</string>
     <string name="ui_press_ok_for_reminders">". 알림을 받으려면 확인을 누르세요."</string>
-    <string name="ui_live_now_press_ok_to_watch">", 지금 살아요. 시청하려면 확인을 누르세요."</string>
+    <string name="ui_live_now_press_ok_to_watch">", 현재 방송 중. 시청하려면 확인을 누르세요."</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s의 %2$s, %3$s%4$s"</string>
     <string name="ui_reminder">"◷ 알림"</string>
     <string name="ui_live">"● 라이브"</string>
@@ -423,7 +423,7 @@
     <string name="ui_ok_to_watch_channel">"· 채널 시청 가능"</string>
     <string name="ui_upcoming">"다가오는"</string>
     <string name="ui_ended">"종료됨"</string>
-    <string name="ui_live_now">"● 지금 바로 이용하세요"</string>
+    <string name="ui_live_now">"● 현재 생방송"</string>
     <string name="ui_press_ok_to_watch_this_channel">"이 채널을 시청하려면 확인을 누르세요."</string>
     <string name="ui_no_programme_information">"프로그램 정보가 없습니다"</string>
     <string name="ui_schedule_unavailable">"일정을 이용할 수 없습니다"</string>
@@ -445,9 +445,9 @@
     <string name="ui_all_channels_318a2aa">"모든 채널 ▾"</string>
     <string name="ui_tv_guide_046eb4e">"TV 가이드"</string>
     <string name="ui_back_to_live_tv">"실시간 TV로 돌아가기"</string>
-    <string name="ui_exit_to_sva">"Sva로 종료"</string>
+    <string name="ui_exit_to_sva">"Sva로 나가기"</string>
     <string name="ui_restart">"다시 시작"</string>
-    <string name="ui_resume">"재개하다"</string>
+    <string name="ui_resume">"재개"</string>
     <string name="ui_this_game_could_not_be_started">"이 게임을 시작할 수 없습니다."</string>
     <string name="ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair">"ClearKey 구성이 잘못되었습니다. 유효한 128비트 KID/키 쌍 또는 JWK 키 세트를 제공하세요."</string>
     <string name="ui_1_s_2_s_3_s_min_left">"%1$s – %2$s · %3$s분 남음"</string>
@@ -496,10 +496,10 @@
     <string name="ui_save_here">"여기에 저장하세요"</string>
     <string name="ui_use_this_folder">"이 폴더를 사용하세요"</string>
     <string name="ui_add_selected_1_s">"선택 항목 추가(%1$s)"</string>
-    <string name="ui_select">"선택하다"</string>
+    <string name="ui_select">"선택"</string>
     <string name="ui_backup_filename">"백업 파일 이름"</string>
-    <string name="ui_dismiss">"해고하다"</string>
-    <string name="ui_watch">"보다"</string>
+    <string name="ui_dismiss">"닫기"</string>
+    <string name="ui_watch">"시청"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s은 %2$s에서 시작됩니다."</string>
     <string name="ui_starting_soon_1_s">"곧 시작됩니다 · %1$s"</string>
     <string name="ui_weather_response_was_too_large">"날씨 반응이 너무 컸습니다."</string>
@@ -512,7 +512,7 @@
     <string name="ui_fog">"안개"</string>
     <string name="ui_overcast">"흐린"</string>
     <string name="ui_partly_cloudy">"약간 흐림"</string>
-    <string name="ui_clear">"분명한"</string>
+    <string name="ui_clear">"맑음"</string>
     <string name="ui_forecast_did_not_include_upcoming_days">"예측에는 향후 날짜가 포함되지 않았습니다."</string>
     <string name="ui_this_link_did_not_return_an_icalendar_feed">"이 링크는 iCalendar 피드를 반환하지 않았습니다."</string>
     <string name="ui_calendar_feed_is_larger_than_6_mb">"캘린더 피드가 6MB보다 큽니다."</string>
@@ -585,7 +585,7 @@
     <string name="ui_darkroom">"암실"</string>
     <string name="ui_editorial">"사설"</string>
     <string name="ui_floating_prints">"플로팅 프린트"</string>
-    <string name="ui_monolith">"하나로 된 돌"</string>
+    <string name="ui_monolith">"모놀리스"</string>
     <string name="ui_prism">"프리즘"</string>
     <string name="ui_silhouette">"실루엣"</string>
     <string name="ui_travel_journal">"여행 일지"</string>
@@ -606,10 +606,10 @@
     <string name="ui_nes_b">"NES B"</string>
     <string name="ui_nes_a">"NES A"</string>
     <string name="ui_start">"시작"</string>
-    <string name="ui_pause">"정지시키다"</string>
+    <string name="ui_pause">"일시정지"</string>
     <string name="ui_paused">"일시중지됨"</string>
     <string name="ui_manual_only">"수동으로만"</string>
-    <string name="ui_every_launch">"출시할 때마다"</string>
+    <string name="ui_every_launch">"실행할 때마다"</string>
     <string name="ui_location">"위치"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva 통합 애플리케이션 GPLv3. 출처: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d분 남음"</item>
         <item quantity="other">"%1$d분 남음"</item>
     </plurals>
+    <string name="ui_import_failed">"게임을 가져오지 못했습니다. 다시 시도해 주세요."</string>
 </resources>

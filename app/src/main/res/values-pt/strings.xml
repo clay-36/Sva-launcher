@@ -28,8 +28,8 @@
     <string name="ui_missing_folder">"Pasta ausente"</string>
     <string name="ui_back">"Voltar"</string>
     <string name="ui_cancel">"Cancelar"</string>
-    <string name="ui_off">"Desligado"</string>
-    <string name="ui_on">"Sobre"</string>
+    <string name="ui_off">"Desativado"</string>
+    <string name="ui_on">"Ativado"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"Nenhuma foto encontrada. Verifique se o álbum é compartilhado publicamente."</string>
     <string name="ui_favourite">", favorito"</string>
     <string name="ui_next_1_s">"Próximo · %1$s"</string>
@@ -42,8 +42,8 @@
     <string name="ui_removed_from">"Removido de"</string>
     <string name="ui_added_to">"Adicionado a"</string>
     <string name="ui_1_s_favourites_2_s">"%1$s favoritos: %2$s"</string>
-    <string name="ui_hidden">"Escondido"</string>
-    <string name="ui_shown">"Mostrado"</string>
+    <string name="ui_hidden">"Oculto"</string>
+    <string name="ui_shown">"Exibido"</string>
     <string name="ui_uncategorized">"Sem categoria"</string>
     <string name="ui_1_s_of_2_s_channels_3_s_shown_4_s_favourites_press_ok_to_toggle">"%1$s de %2$s canais · %3$s mostrado · %4$s favoritos\nPressione OK para alternar a visibilidade · Pressione longamente para alternar entre favoritos"</string>
     <string name="ui_choose_up_to_five_apps_for_home_use_arrows_to_change_their_order">"Escolha até cinco aplicativos para o Home. Use as setas para alterar sua ordem."</string>
@@ -79,7 +79,7 @@
     <string name="ui_screensaver">"Protetor de tela"</string>
     <string name="ui_manage_now_playing_access">"Gerenciar o acesso do Now Playing"</string>
     <string name="ui_appears_on_home_only_while_media_is_playing_allow_notification_a">"Aparece na página inicial apenas enquanto a mídia está sendo reproduzida. Permitir acesso a notificações para mostrar a reprodução de outros aplicativos."</string>
-    <string name="ui_now_playing">"Agora jogando"</string>
+    <string name="ui_now_playing">"Em reprodução"</string>
     <string name="ui_dark">"Escuro"</string>
     <string name="ui_light">"Luz"</string>
     <string name="ui_system_default">"Padrão do sistema"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube link do vídeo"</string>
     <string name="ui_removed_from_saved">"Removido de Salvo."</string>
     <string name="ui_edit_artwork_for_1_s">"Editar arte de %1$s"</string>
-    <string name="ui_art">"Arte"</string>
+    <string name="ui_art">"Capa"</string>
     <string name="ui_edit_title_for_1_s">"Editar título para %1$s"</string>
     <string name="ui_title">"Título"</string>
     <string name="ui_remove_1_s_from_saved">"Remover %1$s de Salvo"</string>
     <string name="ui_remove">"Remover"</string>
-    <string name="ui_add_art">"· Adicionar arte"</string>
+    <string name="ui_add_art">"· Adicionar capa"</string>
     <string name="ui_playlist">"LISTA DE REPRODUÇÃO"</string>
     <string name="ui_video">"VÍDEO"</string>
     <string name="ui_no_youtube_cards_saved_yet">"Nenhum cartão YouTube foi salvo ainda."</string>
@@ -205,11 +205,11 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"Escolha uma cidade ou use a localização desta TV para mostrar a previsão do tempo na página inicial."</string>
     <string name="ui_hidden_ce2680d">"· Escondido"</string>
     <string name="ui_last">"Durar"</string>
-    <string name="ui_third_after_home">"Terceiro depois de casa"</string>
-    <string name="ui_second_after_home">"Segundo depois de casa"</string>
-    <string name="ui_first_after_home">"Primeiro depois de casa"</string>
+    <string name="ui_third_after_home">"Terceiro após o Início"</string>
+    <string name="ui_second_after_home">"Segundo após o Início"</string>
+    <string name="ui_first_after_home">"Primeiro após o Início"</string>
     <string name="ui_reset_item_order">"Redefinir ordem dos itens"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"A casa fica primeiro. Selecione uma categoria para alterar sua posição. As categorias ocultas mantêm seu lugar."</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"O Início fica sempre em primeiro. Selecione uma categoria para alterar sua posição. Categorias ocultas mantêm seu lugar."</string>
     <string name="ui_item_order">"Ordem dos itens"</string>
     <string name="ui_show_events_in_navigation">"Mostrar eventos na navegação"</string>
     <string name="ui_show_games_in_navigation">"Mostrar jogos na navegação"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"Configurações de licença padrão Widevine"</string>
     <string name="ui_time_and_date_on_home">"Hora e data na página inicial"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"Cenário fotográfico e papel de parede"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"Escolha e ordene seus atalhos de casa"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"Escolha e organize os atalhos do Início"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"Escolha quais canais aparecem na TV ao vivo"</string>
     <string name="ui_playlist_and_programme_guide">"Lista de reprodução e guia de programação"</string>
     <string name="ui_system">"Sistema"</string>
@@ -286,7 +286,7 @@
     <string name="ui_loading_apps">"Carregando aplicativos…"</string>
     <string name="ui_could_not_save_calendar_cache">"Não foi possível salvar o cache do calendário."</string>
     <string name="ui_calendar_event">"Evento do calendário"</string>
-    <string name="ui_your_calendar_is_clear">"Seu calendário está claro"</string>
+    <string name="ui_your_calendar_is_clear">"Nenhum evento no seu calendário"</string>
     <string name="ui_add_a_calendar_in_settings">"Adicione um calendário em Configurações"</string>
     <string name="ui_no_events_today">"Nenhum evento hoje"</string>
     <string name="ui_today">"HOJE"</string>
@@ -322,7 +322,7 @@
     <string name="ui_next_month">"Próximo mês"</string>
     <string name="ui_today_24345a1">"Hoje"</string>
     <string name="ui_previous_month">"Mês anterior"</string>
-    <string name="ui_back_to_home">"De volta para casa"</string>
+    <string name="ui_back_to_home">"Voltar ao Início"</string>
     <string name="ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin">"Nenhum atalho YouTube salvo ainda. Adicione um vídeo ou playlist em Configurações."</string>
     <string name="ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started">"Adicione um URL M3U e XMLTV opcional em Configurações para começar."</string>
     <string name="ui_open_full_screen_tv_guide">"Abra o guia de TV em tela cheia"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"Álbum indisponível · mostrando papel de parede de paisagem"</string>
     <string name="ui_loading_your_photographs">"Carregando suas fotos…"</string>
     <string name="ui_could_not_remove_game">"Não foi possível remover o jogo."</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"A cópia importada, a arte e a economia de bateria de Sva serão excluídas. Seu arquivo original não será alterado."</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"A cópia importada, a capa e o jogo salvo do Sva serão excluídos. Seu arquivo original não será alterado."</string>
     <string name="ui_remove_1_s">"Remover %1$s?"</string>
     <string name="ui_could_not_save_artwork">"Não foi possível salvar a arte."</string>
     <string name="ui_could_not_save_title">"Não foi possível salvar o título."</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"O backup contém uma entrada de canal inválida."</string>
     <string name="ui_backup_contains_too_many_channels">"O backup contém muitos canais."</string>
     <string name="ui_press_ok_for_reminders">". Pressione OK para lembretes."</string>
-    <string name="ui_live_now_press_ok_to_watch">", viva agora. Pressione OK para assistir."</string>
+    <string name="ui_live_now_press_ok_to_watch">", ao vivo agora. Pressione OK para assistir."</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s em %2$s, %3$s%4$s"</string>
     <string name="ui_reminder">"◷ LEMBRETE"</string>
     <string name="ui_live">"● AO VIVO"</string>
@@ -445,7 +445,7 @@
     <string name="ui_all_channels_318a2aa">"Todos os canais ▾"</string>
     <string name="ui_tv_guide_046eb4e">"Guia de TV"</string>
     <string name="ui_back_to_live_tv">"Voltar para TV ao vivo"</string>
-    <string name="ui_exit_to_sva">"Saia para Sva"</string>
+    <string name="ui_exit_to_sva">"Sair para o Sva"</string>
     <string name="ui_restart">"Reiniciar"</string>
     <string name="ui_resume">"Retomar"</string>
     <string name="ui_this_game_could_not_be_started">"Este jogo não pôde ser iniciado."</string>
@@ -498,7 +498,7 @@
     <string name="ui_add_selected_1_s">"Adicionar selecionado (%1$s)"</string>
     <string name="ui_select">"Selecione"</string>
     <string name="ui_backup_filename">"Nome do arquivo de backup"</string>
-    <string name="ui_dismiss">"Liberar"</string>
+    <string name="ui_dismiss">"Dispensar"</string>
     <string name="ui_watch">"Assistir"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s começa em %2$s."</string>
     <string name="ui_starting_soon_1_s">"Começando em breve · %1$s"</string>
@@ -512,7 +512,7 @@
     <string name="ui_fog">"Névoa"</string>
     <string name="ui_overcast">"Nublado"</string>
     <string name="ui_partly_cloudy">"Parcialmente nublado"</string>
-    <string name="ui_clear">"Claro"</string>
+    <string name="ui_clear">"Limpo"</string>
     <string name="ui_forecast_did_not_include_upcoming_days">"A previsão não incluiu os próximos dias."</string>
     <string name="ui_this_link_did_not_return_an_icalendar_feed">"Este link não retornou um feed iCalendar."</string>
     <string name="ui_calendar_feed_is_larger_than_6_mb">"O feed do calendário tem mais de 6 MB."</string>
@@ -602,14 +602,14 @@
     <string name="ui_up">"Acima"</string>
     <string name="ui_down">"Abaixo"</string>
     <string name="ui_left">"Esquerda"</string>
-    <string name="ui_right">"Certo"</string>
+    <string name="ui_right">"Direita"</string>
     <string name="ui_nes_b">"NESB"</string>
     <string name="ui_nes_a">"NES A"</string>
-    <string name="ui_start">"Começar"</string>
+    <string name="ui_start">"Iniciar"</string>
     <string name="ui_pause">"Pausa"</string>
     <string name="ui_paused">"Pausado"</string>
     <string name="ui_manual_only">"Somente manual"</string>
-    <string name="ui_every_launch">"Cada lançamento"</string>
+    <string name="ui_every_launch">"A cada início"</string>
     <string name="ui_location">"Localização"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva aplicação combinada GPLv3. Fonte: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -653,24 +653,24 @@
         <item quantity="other">"%1$d dias"</item>
     </plurals>
     <plurals name="playlist_count">
-        <item quantity="zero">"Listas de reprodução %1$d"</item>
-        <item quantity="one">"Lista de reprodução %1$d"</item>
-        <item quantity="two">"Listas de reprodução %1$d"</item>
-        <item quantity="few">"Listas de reprodução %1$d"</item>
-        <item quantity="many">"Listas de reprodução %1$d"</item>
-        <item quantity="other">"Listas de reprodução %1$d"</item>
+        <item quantity="zero">"%1$d playlists"</item>
+        <item quantity="one">"%1$d playlist"</item>
+        <item quantity="two">"%1$d playlists"</item>
+        <item quantity="few">"%1$d playlists"</item>
+        <item quantity="many">"%1$d playlists"</item>
+        <item quantity="other">"%1$d playlists"</item>
     </plurals>
     <plurals name="source_count">
-        <item quantity="zero">"Fontes %1$d"</item>
-        <item quantity="one">"Fonte %1$d"</item>
-        <item quantity="two">"Fontes %1$d"</item>
-        <item quantity="few">"Fontes %1$d"</item>
-        <item quantity="many">"Fontes %1$d"</item>
-        <item quantity="other">"Fontes %1$d"</item>
+        <item quantity="zero">"%1$d fontes"</item>
+        <item quantity="one">"%1$d fonte"</item>
+        <item quantity="two">"%1$d fontes"</item>
+        <item quantity="few">"%1$d fontes"</item>
+        <item quantity="many">"%1$d fontes"</item>
+        <item quantity="other">"%1$d fontes"</item>
     </plurals>
     <plurals name="channel_count">
         <item quantity="zero">"%1$d canais"</item>
-        <item quantity="one">"canal %1$d"</item>
+        <item quantity="one">"%1$d canal"</item>
         <item quantity="two">"%1$d canais"</item>
         <item quantity="few">"%1$d canais"</item>
         <item quantity="many">"%1$d canais"</item>
@@ -678,19 +678,19 @@
     </plurals>
     <plurals name="photo_count">
         <item quantity="zero">"%1$d fotos"</item>
-        <item quantity="one">"foto %1$d"</item>
+        <item quantity="one">"%1$d foto"</item>
         <item quantity="two">"%1$d fotos"</item>
         <item quantity="few">"%1$d fotos"</item>
         <item quantity="many">"%1$d fotos"</item>
         <item quantity="other">"%1$d fotos"</item>
     </plurals>
     <plurals name="event_count">
-        <item quantity="zero">"Eventos %1$d"</item>
-        <item quantity="one">"Evento %1$d"</item>
-        <item quantity="two">"Eventos %1$d"</item>
-        <item quantity="few">"Eventos %1$d"</item>
-        <item quantity="many">"Eventos %1$d"</item>
-        <item quantity="other">"Eventos %1$d"</item>
+        <item quantity="zero">"%1$d eventos"</item>
+        <item quantity="one">"%1$d evento"</item>
+        <item quantity="two">"%1$d eventos"</item>
+        <item quantity="few">"%1$d eventos"</item>
+        <item quantity="many">"%1$d eventos"</item>
+        <item quantity="other">"%1$d eventos"</item>
     </plurals>
     <plurals name="import_added">
         <item quantity="zero">"%1$d adicionado"</item>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d minutos restantes"</item>
         <item quantity="other">"%1$d minutos restantes"</item>
     </plurals>
+    <string name="ui_import_failed">"Não foi possível importar os jogos. Tente novamente."</string>
 </resources>

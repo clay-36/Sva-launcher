@@ -27,9 +27,9 @@
     <string name="ui_could_not_read_file">"فائل نہیں پڑھ سکی"</string>
     <string name="ui_missing_folder">"غائب فولڈر"</string>
     <string name="ui_back">"پیچھے"</string>
-    <string name="ui_cancel">"منسوخ کریں۔"</string>
+    <string name="ui_cancel">"منسوخ کریں"</string>
     <string name="ui_off">"آف"</string>
-    <string name="ui_on">"پر"</string>
+    <string name="ui_on">"آن"</string>
     <string name="ui_no_photos_found_check_that_the_album_is_publicly_shared">"کوئی تصویر نہیں ملی۔ چیک کریں کہ البم کا عوامی طور پر اشتراک کیا گیا ہے۔"</string>
     <string name="ui_favourite">"، پسندیدہ"</string>
     <string name="ui_next_1_s">"اگلا · %1$s"</string>
@@ -127,7 +127,7 @@
     <string name="ui_calendar_feeds_one_url_per_line">"کیلنڈر فیڈز · ایک یو آر ایل فی لائن"</string>
     <string name="ui_add_icalendar_feed_urls_one_per_line_google_calendar_published_c">"iCalendar فیڈ URLs شامل کریں، فی لائن ایک۔ گوگل کیلنڈر، شائع شدہ کیلنڈرز، اور مقامی کیلنڈر سرورز معاون ہیں۔ سائن ان کیے بغیر فیڈز کو پڑھنے کے قابل ہونا چاہیے۔ ایونٹس ٹیب میں ایونٹس کو یکجا کیا جاتا ہے۔"</string>
     <string name="ui_calendar_feeds">"کیلنڈر فیڈز"</string>
-    <string name="ui_save">"محفوظ کریں۔"</string>
+    <string name="ui_save">"محفوظ کریں"</string>
     <string name="ui_clear_the_title_to_use_the_title_provided_by_youtube_when_availa">"دستیاب ہونے پر YouTube کی طرف سے فراہم کردہ عنوان کو استعمال کرنے کے لیے عنوان کو صاف کریں۔"</string>
     <string name="ui_card_title">"کارڈ کا عنوان"</string>
     <string name="ui_use_the_youtube_title">"YouTube عنوان استعمال کریں۔"</string>
@@ -137,12 +137,12 @@
     <string name="ui_youtube_video_link">"YouTube ویڈیو لنک"</string>
     <string name="ui_removed_from_saved">"محفوظ کردہ سے ہٹا دیا گیا۔"</string>
     <string name="ui_edit_artwork_for_1_s">"%1$s کے لیے آرٹ ورک میں ترمیم کریں"</string>
-    <string name="ui_art">"فن"</string>
+    <string name="ui_art">"تصویر"</string>
     <string name="ui_edit_title_for_1_s">"%1$s کے عنوان میں ترمیم کریں"</string>
     <string name="ui_title">"عنوان"</string>
     <string name="ui_remove_1_s_from_saved">"محفوظ کردہ سے %1$s کو ہٹا دیں۔"</string>
-    <string name="ui_remove">"ہٹا دیں۔"</string>
-    <string name="ui_add_art">"· آرٹ شامل کریں۔"</string>
+    <string name="ui_remove">"ہٹائیں"</string>
+    <string name="ui_add_art">"· تصویر شامل کریں"</string>
     <string name="ui_playlist">"پلے لسٹ"</string>
     <string name="ui_video">"ویڈیو"</string>
     <string name="ui_no_youtube_cards_saved_yet">"ابھی تک کوئی YouTube کارڈز محفوظ نہیں ہوئے۔"</string>
@@ -205,11 +205,11 @@
     <string name="ui_choose_a_city_or_use_this_tv_s_location_to_show_weather_on_home">"گھر پر موسم دکھانے کے لیے شہر کا انتخاب کریں یا اس TV کا مقام استعمال کریں۔"</string>
     <string name="ui_hidden_ce2680d">"· پوشیدہ"</string>
     <string name="ui_last">"آخری"</string>
-    <string name="ui_third_after_home">"گھر کے بعد تیسرا"</string>
-    <string name="ui_second_after_home">"گھر کے بعد دوسرا"</string>
-    <string name="ui_first_after_home">"گھر کے بعد سب سے پہلے"</string>
+    <string name="ui_third_after_home">"ہوم کے بعد تیسرا"</string>
+    <string name="ui_second_after_home">"ہوم کے بعد دوسرا"</string>
+    <string name="ui_first_after_home">"ہوم کے بعد پہلا"</string>
     <string name="ui_reset_item_order">"آئٹم آرڈر کو دوبارہ ترتیب دیں۔"</string>
-    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"گھر پہلے رہتا ہے۔ اس کی پوزیشن تبدیل کرنے کے لیے زمرہ منتخب کریں۔ پوشیدہ زمرے اپنی جگہ برقرار رکھتے ہیں۔"</string>
+    <string name="ui_home_stays_first_select_a_category_to_change_its_position_hidden">"ہوم ہمیشہ پہلے رہے گا۔ پوزیشن تبدیل کرنے کے لیے زمرہ منتخب کریں۔ پوشیدہ زمرے اپنی جگہ برقرار رکھتے ہیں۔"</string>
     <string name="ui_item_order">"آئٹم آرڈر"</string>
     <string name="ui_show_events_in_navigation">"نیویگیشن میں ایونٹس دکھائیں۔"</string>
     <string name="ui_show_games_in_navigation">"نیویگیشن میں گیمز دکھائیں۔"</string>
@@ -241,7 +241,7 @@
     <string name="ui_default_widevine_license_settings">"ڈیفالٹ Widevine لائسنس کی ترتیبات"</string>
     <string name="ui_time_and_date_on_home">"ہوم پر وقت اور تاریخ"</string>
     <string name="ui_photo_backdrop_and_wallpaper">"تصویر کا پس منظر اور وال پیپر"</string>
-    <string name="ui_choose_and_order_your_home_shortcuts">"اپنے گھر کے شارٹ کٹس کا انتخاب کریں اور آرڈر کریں۔"</string>
+    <string name="ui_choose_and_order_your_home_shortcuts">"اپنے ہوم شارٹ کٹس منتخب کریں اور ترتیب دیں۔"</string>
     <string name="ui_choose_which_channels_appear_in_live_tv">"منتخب کریں کہ کون سے چینلز لائیو ٹی وی میں نظر آتے ہیں۔"</string>
     <string name="ui_playlist_and_programme_guide">"پلے لسٹ اور پروگرام گائیڈ"</string>
     <string name="ui_system">"سسٹم"</string>
@@ -286,11 +286,11 @@
     <string name="ui_loading_apps">"ایپس لوڈ ہو رہی ہیں…"</string>
     <string name="ui_could_not_save_calendar_cache">"کیلنڈر کیشے کو محفوظ نہیں کیا جا سکا۔"</string>
     <string name="ui_calendar_event">"کیلنڈر ایونٹ"</string>
-    <string name="ui_your_calendar_is_clear">"آپ کا کیلنڈر صاف ہے۔"</string>
+    <string name="ui_your_calendar_is_clear">"آپ کے کیلنڈر میں کوئی تقریب نہیں ہے۔"</string>
     <string name="ui_add_a_calendar_in_settings">"ترتیبات میں کیلنڈر شامل کریں۔"</string>
     <string name="ui_no_events_today">"آج کوئی ایونٹ نہیں ہے۔"</string>
     <string name="ui_today">"آج"</string>
-    <string name="ui_up_next">"اگلا اوپر"</string>
+    <string name="ui_up_next">"اگلا"</string>
     <string name="ui_all_day">"سارا دن"</string>
     <string name="ui_location_denied_search_for_a_city_instead">"مقام سے انکار کر دیا گیا۔ اس کے بجائے شہر تلاش کریں۔"</string>
     <string name="ui_current_location">"موجودہ مقام"</string>
@@ -304,7 +304,7 @@
     <string name="ui_weather_refreshed">"موسم تازہ ہو گیا۔"</string>
     <string name="ui_could_not_refresh_weather">"موسم کو تازہ نہیں کیا جا سکا۔"</string>
     <string name="ui_refreshing_weather">"موسم کی تازگی…"</string>
-    <string name="ui_close">"بند"</string>
+    <string name="ui_close">"بند کریں"</string>
     <string name="ui_forecast_unavailable">"پیشن گوئی دستیاب نہیں ہے۔"</string>
     <string name="ui_mph">"میل فی گھنٹہ"</string>
     <string name="ui_1_s_2_s_3_s_wind_4_s_5_s">"%1$s %2$s %3$s ہوا %4$s%5$s۔"</string>
@@ -322,7 +322,7 @@
     <string name="ui_next_month">"اگلے مہینے"</string>
     <string name="ui_today_24345a1">"آج"</string>
     <string name="ui_previous_month">"پچھلا مہینہ"</string>
-    <string name="ui_back_to_home">"واپس گھر پر"</string>
+    <string name="ui_back_to_home">"ہوم پر واپس جائیں"</string>
     <string name="ui_no_saved_youtube_shortcuts_yet_add_a_video_or_playlist_in_settin">"ابھی تک کوئی محفوظ شدہ YouTube شارٹ کٹس نہیں ہیں۔ ترتیبات میں ایک ویڈیو یا پلے لسٹ شامل کریں۔"</string>
     <string name="ui_add_an_m3u_and_optional_xmltv_url_in_settings_to_get_started">"شروع کرنے کے لیے ترتیبات میں ایک M3U اور اختیاری XMLTV URL شامل کریں۔"</string>
     <string name="ui_open_full_screen_tv_guide">"فل سکرین ٹی وی گائیڈ کھولیں۔"</string>
@@ -365,7 +365,7 @@
     <string name="ui_album_unavailable_showing_landscape_wallpaper">"البم دستیاب نہیں ہے · لینڈ اسکیپ وال پیپر دکھا رہا ہے۔"</string>
     <string name="ui_loading_your_photographs">"آپ کی تصاویر لوڈ ہو رہی ہیں…"</string>
     <string name="ui_could_not_remove_game">"گیم کو ہٹایا نہیں جا سکا۔"</string>
-    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva کی درآمد شدہ کاپی، آرٹ ورک، اور بیٹری کی بچت کو حذف کر دیا جائے گا۔ آپ کی اصل فائل کو تبدیل نہیں کیا جائے گا۔"</string>
+    <string name="ui_sva_s_imported_copy_artwork_and_battery_save_will_be_deleted_you">"Sva کی درآمد شدہ کاپی، آرٹ ورک، اور گیم سیو کو حذف کر دیا جائے گا۔ آپ کی اصل فائل کو تبدیل نہیں کیا جائے گا۔"</string>
     <string name="ui_remove_1_s">"%1$s کو ہٹائیں؟"</string>
     <string name="ui_could_not_save_artwork">"آرٹ ورک کو محفوظ نہیں کیا جا سکا۔"</string>
     <string name="ui_could_not_save_title">"عنوان محفوظ نہیں ہو سکا۔"</string>
@@ -406,7 +406,7 @@
     <string name="ui_backup_contains_an_invalid_channel_entry">"بیک اپ میں ایک غلط چینل اندراج شامل ہے۔"</string>
     <string name="ui_backup_contains_too_many_channels">"بیک اپ میں بہت زیادہ چینلز شامل ہیں۔"</string>
     <string name="ui_press_ok_for_reminders">". یاد دہانیوں کے لیے ٹھیک ہے دبائیں۔"</string>
-    <string name="ui_live_now_press_ok_to_watch">"، اب جیو۔ دیکھنے کے لیے ٹھیک ہے دبائیں۔"</string>
+    <string name="ui_live_now_press_ok_to_watch">", ابھی لائیو ہے۔ دیکھنے کے لیے OK دبائیں۔"</string>
     <string name="ui_1_s_on_2_s_3_s_4_s">"%1$s پر %2$s، %3$s%4$s"</string>
     <string name="ui_reminder">"◷ یاد دہانی"</string>
     <string name="ui_live">"● لائیو"</string>
@@ -445,9 +445,9 @@
     <string name="ui_all_channels_318a2aa">"تمام چینلز ▾"</string>
     <string name="ui_tv_guide_046eb4e">"ٹی وی گائیڈ"</string>
     <string name="ui_back_to_live_tv">"لائیو ٹی وی پر واپس جائیں۔"</string>
-    <string name="ui_exit_to_sva">"Sva پر نکلیں"</string>
-    <string name="ui_restart">"دوبارہ شروع کریں۔"</string>
-    <string name="ui_resume">"دوبارہ شروع کریں۔"</string>
+    <string name="ui_exit_to_sva">"Sva پر واپس جائیں"</string>
+    <string name="ui_restart">"دوبارہ شروع کریں"</string>
+    <string name="ui_resume">"جاری رکھیں"</string>
     <string name="ui_this_game_could_not_be_started">"یہ کھیل شروع نہیں ہو سکا۔"</string>
     <string name="ui_invalid_clearkey_configuration_supply_valid_128_bit_kid_key_pair">"غلط ClearKey کنفیگریشن۔ درست 128 بٹ KID/key جوڑے یا JWK کلیدی سیٹ فراہم کریں۔"</string>
     <string name="ui_1_s_2_s_3_s_min_left">"%1$s - %2$s · %3$s منٹ باقی"</string>
@@ -496,9 +496,9 @@
     <string name="ui_save_here">"یہاں محفوظ کریں۔"</string>
     <string name="ui_use_this_folder">"اس فولڈر کو استعمال کریں۔"</string>
     <string name="ui_add_selected_1_s">"منتخب شامل کریں (%1$s)"</string>
-    <string name="ui_select">"منتخب کریں۔"</string>
+    <string name="ui_select">"منتخب کریں"</string>
     <string name="ui_backup_filename">"بیک اپ فائل کا نام"</string>
-    <string name="ui_dismiss">"برطرف کرنا"</string>
+    <string name="ui_dismiss">"رد کریں"</string>
     <string name="ui_watch">"دیکھو"</string>
     <string name="ui_1_s_starts_at_2_s">"%1$s شروع ہوتا ہے %2$s سے۔"</string>
     <string name="ui_starting_soon_1_s">"جلد شروع ہو رہا ہے · %1$s"</string>
@@ -602,14 +602,14 @@
     <string name="ui_up">"اوپر"</string>
     <string name="ui_down">"نیچے"</string>
     <string name="ui_left">"بائیں"</string>
-    <string name="ui_right">"ٹھیک ہے۔"</string>
+    <string name="ui_right">"دائیں"</string>
     <string name="ui_nes_b">"NES B"</string>
     <string name="ui_nes_a">"NES A"</string>
-    <string name="ui_start">"شروع کریں۔"</string>
+    <string name="ui_start">"شروع"</string>
     <string name="ui_pause">"توقف"</string>
     <string name="ui_paused">"روک دیا گیا"</string>
     <string name="ui_manual_only">"صرف دستی"</string>
-    <string name="ui_every_launch">"ہر لانچ"</string>
+    <string name="ui_every_launch">"ہر آغاز پر"</string>
     <string name="ui_location">"مقام"</string>
     <string name="ui_licenses">"Nestopia UE · GPL-2.0-or-later · Sva مشترکہ ایپلیکیشن GPLv3۔ ماخذ: github.com/libretro/nestopia"</string>
     <string name="ui_import_counts">"%1$s · %2$s · %3$s"</string>
@@ -724,4 +724,5 @@
         <item quantity="many">"%1$d منٹ باقی"</item>
         <item quantity="other">"%1$d منٹ باقی"</item>
     </plurals>
+    <string name="ui_import_failed">"گیمز درآمد نہیں ہو سکیں۔ براہ کرم دوبارہ کوشش کریں۔"</string>
 </resources>
