@@ -158,6 +158,13 @@ public final class GameDetailActivity extends MotionActivity {
             try { repository.updateTitle(id, value); render(); } catch (Exception e) { Toast.makeText(this, AppLanguage.get(R.string.ui_could_not_save_title), Toast.LENGTH_LONG).show(); }
         }).setNegativeButton(AppLanguage.get(R.string.ui_cancel), null).create();
         Motion.dialog(dialog); dialog.show();
+        // Set soft input mode so OEM TV firmware (e.g. TCL P615) cannot steal focus
+        // away from the EditText — without this the keyboard appears briefly then
+        // focus jumps to the dialog buttons.
+        android.view.Window w = dialog.getWindow();
+        if (w != null) w.setSoftInputMode(
+                android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
+                | android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
     }
 
     private void pickArtwork() {
