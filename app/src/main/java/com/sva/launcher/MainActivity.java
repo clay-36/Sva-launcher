@@ -3037,14 +3037,19 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         double latitude = location.getLatitude(), longitude = location.getLongitude();
         lifecycleWork.execute(ioWorker, () -> {
             String label = AppLanguage.get(R.string.ui_current_location);
-            try {
-                List<Address> addresses = new Geocoder(this, AppLanguage.locale()).getFromLocation(latitude, longitude, 1);
-                if (addresses != null && !addresses.isEmpty()) {
-                    Address address = addresses.get(0);
-                    String locality = address.getLocality() == null ? address.getSubAdminArea() : address.getLocality();
-                    if (locality != null && !locality.trim().isEmpty()) label = locality;
-                }
-            } catch (Exception ignored) { }
+            // Geocoder requires Google Play Services. Many budget/OEM TV devices ship
+            // without GMS; isPresent() returns false and getFromLocation() throws
+            // IOException("Service not available"). Guard to avoid the silent failure.
+            if (Geocoder.isPresent()) {
+                try {
+                    List<Address> addresses = new Geocoder(this, AppLanguage.locale()).getFromLocation(latitude, longitude, 1);
+                    if (addresses != null && !addresses.isEmpty()) {
+                        Address address = addresses.get(0);
+                        String locality = address.getLocality() == null ? address.getSubAdminArea() : address.getLocality();
+                        if (locality != null && !locality.trim().isEmpty()) label = locality;
+                    }
+                } catch (Exception ignored) { }
+            }
             String result = label;
             lifecycleWork.post(() -> saveWeatherLocation("device", new WeatherRepository.Location(result, latitude, longitude)));
         });
@@ -4659,6 +4664,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (window != null) {
             window.setBackgroundDrawable(roundedShape(LiquidTheme.surface(this), LiquidTheme.border(this), 1, 26));
             window.setDimAmount(.35f);
+            // Ensure the window resizes for the soft keyboard so OEM TV firmwares
+            // (e.g. TCL P615) cannot steal focus away from EditText inputs inside
+            // these dialogs. Harmless on dialogs that contain no text fields.
+            window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         }
         for (int which : new int[]{AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL}) {
             Button button = dialog.getButton(which);
@@ -4920,7 +4929,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     if (canScrollWithinPage(focused, rail, direction)) return false;
                     return true;
                 }
-                if (isWithinPage(focused, detail)) {
+                if (isWithinPage(focused, detail) && !(focused instanceof EditText)) {
                     if (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN) {
                         View ordered = formFocusNeighbor(focused, direction);
                         if (ordered != null && ordered.requestFocus()) return true;
@@ -5007,6 +5016,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 WindowManager.LayoutParams windowAttributes = window.getAttributes();
                 windowAttributes.dimAmount = .12f;
                 window.setAttributes(windowAttributes);
+                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
                 window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
                         | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -5253,10 +5263,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 firstControl.setId(View.generateViewId());
                 if (isRtl()) {
                     tabs[section].setNextFocusLeftId(firstControl.getId());
-                    firstControl.setNextFocusRightId(tabs[section].getId());
+                    if (!(firstControl instanceof EditText)) firstControl.setNextFocusRightId(tabs[section].getId());
                 } else {
                     tabs[section].setNextFocusRightId(firstControl.getId());
-                    firstControl.setNextFocusLeftId(tabs[section].getId());
+                    if (!(firstControl instanceof EditText)) firstControl.setNextFocusLeftId(tabs[section].getId());
                 }
                 firstControl.setNextFocusUpId(tabs[section].getId());
             }
@@ -5927,6 +5937,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             field.setGravity(multiline ? Gravity.TOP | Gravity.START : Gravity.CENTER_VERTICAL | Gravity.START);
             field.setPadding(dp(16), dp(10), dp(16), dp(10));
             SettingsUi.styleInput(field, multiline);
+            field.setOnClickListener(v -> {
+                android.view.inputmethod.InputMethodManager imm =
+                        (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) imm.showSoftInput(field, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            });
             LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(-1, -2);
             fieldParams.setMargins(dp(8), dp(4), dp(8), dp(12));
             form.addView(field, fieldParams);

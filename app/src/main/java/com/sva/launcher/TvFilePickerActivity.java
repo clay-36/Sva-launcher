@@ -71,6 +71,7 @@ public final class TvFilePickerActivity extends MotionActivity {
         BackNavigation.install(this, this::up);
         mode = getIntent().getStringExtra(EXTRA_MODE);
         if (!isSupportedMode()) { finish(); return; }
+        getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         if (state != null) {
@@ -146,6 +147,11 @@ public final class TvFilePickerActivity extends MotionActivity {
             filename.setHint(AppLanguage.get(R.string.ui_backup_filename));
             filename.setContentDescription(AppLanguage.get(R.string.ui_backup_filename));
             SettingsUi.styleInput(filename, false);
+            filename.setOnClickListener(v -> {
+                android.view.inputmethod.InputMethodManager imm =
+                        (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) imm.showSoftInput(v, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            });
             LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(-1, dp(56));
             inputParams.topMargin = dp(12);
             page.addView(filename, inputParams);
@@ -211,13 +217,23 @@ public final class TvFilePickerActivity extends MotionActivity {
 
     private void requestAccess() {
         if (Build.VERSION.SDK_INT >= 30) {
-            try {
-                startActivityForResult(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                        Uri.parse("package:" + getPackageName())), STORAGE_SETTINGS);
-            } catch (Exception e) {
-                try { startActivityForResult(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION), STORAGE_SETTINGS); }
-                catch (Exception ignored) { Toast.makeText(this, AppLanguage.get(R.string.ui_storage_settings_are_unavailable), Toast.LENGTH_LONG).show(); }
+            // Try the per-app "All files access" settings page first (Android 11+).
+            // Some OEM TV firmwares (e.g. TCL P615) don't expose this screen, so we
+            // fall through a series of intents until one resolves, then finally land
+            // on the general App Info page where the user can grant the permission
+            // manually via Permissions → Files and media → Allow management of all files.
+            Intent appFilesIntent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            Intent allFilesIntent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+            Intent appDetailsIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + getPackageName()));
+            for (Intent intent : new Intent[]{appFilesIntent, allFilesIntent, appDetailsIntent}) {
+                try {
+                    startActivityForResult(intent, STORAGE_SETTINGS);
+                    return;
+                } catch (Exception ignored) { }
             }
+            Toast.makeText(this, AppLanguage.get(R.string.ui_storage_settings_are_unavailable), Toast.LENGTH_LONG).show();
         } else {
             requestPermissions(isSaveMode()
                     ? new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}
