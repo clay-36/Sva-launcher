@@ -227,7 +227,11 @@ public final class TvFilePickerActivity extends MotionActivity {
             Intent allFilesIntent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
             Intent appDetailsIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                     Uri.parse("package:" + getPackageName()));
-            for (Intent intent : new Intent[]{appFilesIntent, allFilesIntent, appDetailsIntent}) {
+            // Some Android TV builds do not expose any of the dedicated storage
+            // permission screens. General Settings is still useful on those builds:
+            // the user can open Sva from Apps and enable file access there.
+            Intent settingsIntent = new Intent(Settings.ACTION_SETTINGS);
+            for (Intent intent : new Intent[]{appFilesIntent, allFilesIntent, appDetailsIntent, settingsIntent}) {
                 try {
                     startActivityForResult(intent, STORAGE_SETTINGS);
                     return;

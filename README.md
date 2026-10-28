@@ -175,7 +175,7 @@ Android DreamService runs independently of the launcher and exits on user input.
 
 Choose **Open TV guide** in Live TV for the full-screen schedule. The guide opens in the selected channel category, with an **All channels** option, a shared time ruler, live progress, and programme reminders. Use Up/Down for channels, Left/Right for programmes, **Now** to return to the current time, and Back to return to Live TV. Hidden channels stay hidden; channels without guide data remain watchable.
 
-Guide entries are matched to channels by `tvg-id`. Selecting a current programme starts playback; selecting an upcoming programme creates an in-app reminder five minutes before it begins. Reminders are shown only while Sva is open and do not create background notifications.
+Guide entries are matched to channels by `tvg-id`. Selecting a current programme starts playback; selecting an upcoming programme creates a reminder five minutes before it begins. With notifications enabled, reminders can notify you while Sva is closed and open the matching channel when selected. Android may ask for notification and exact-alarm access; if notifications are disabled, reminders can still appear while Sva is open.
 
 Sva supports HLS and DASH streams with Widevine and ClearKey DRM, custom HTTP headers, and per-channel playlist overrides. For advanced playlist properties, Kodi options, and license setup, see the [IPTV & DRM guide](DEVELOPER.md#iptv--drm-stream-configuration).
 

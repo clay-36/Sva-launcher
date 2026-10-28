@@ -5938,15 +5938,24 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             field.setPadding(dp(16), dp(10), dp(16), dp(10));
             SettingsUi.styleInput(field, multiline);
             field.setOnClickListener(v -> {
-                android.view.inputmethod.InputMethodManager imm =
-                        (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-                if (imm != null) imm.showSoftInput(field, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                field.requestFocus();
+                showSettingsKeyboard(field);
             });
             LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(-1, -2);
             fieldParams.setMargins(dp(8), dp(4), dp(8), dp(12));
             form.addView(field, fieldParams);
             if (firstControl == null) firstControl = field;
             return field;
+        }
+
+        private void showSettingsKeyboard(EditText field) {
+            field.post(() -> {
+                if (!field.hasFocus() || !field.isAttachedToWindow()) return;
+                android.view.inputmethod.InputMethodManager keyboard =
+                        (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (keyboard != null) keyboard.showSoftInput(field,
+                        android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            });
         }
 
         private Button addFormButton(LinearLayout form, String text, View.OnClickListener listener) {
