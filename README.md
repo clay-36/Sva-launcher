@@ -129,6 +129,14 @@ The first time you browse local files, allow Sva storage access in Android setti
 
 If the TV continues to open its built-in launcher, go to **Settings → Home button**, open Android's Accessibility settings, and enable Sva's service. This helper is optional and can be disabled at any time.
 
+## Activities recommendations
+
+The **Activities** tab shows recommendation channels shared by installed Android TV apps. Allow TV-listings access when prompted, then use **Refresh** to discover channels. Selecting a recommendation opens its publishing app.
+
+Use **Customize channels** to show or hide rows. Choose **Reorder**, select a channel, and pick its new position. These choices are saved in Sva and included in configuration backups. Activities can also be hidden or moved under **Settings → Navigation**.
+
+Available channels depend on the TV and installed apps. Sva can read searchable channels exposed by Android's TV provider; private or restricted recommendations may not be available. Open the publishing apps and enable their Home-screen channels if no rows appear.
+
 ## Sva Memories screensaver
 
 Open **Settings → Appearance → Screensaver · Sva Memories**. The screensaver follows

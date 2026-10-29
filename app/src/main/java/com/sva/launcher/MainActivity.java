@@ -13,6 +13,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
 import android.content.res.ColorStateList;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -101,11 +103,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public final class MainActivity extends LocalizedActivity {
-    private static final int TAB_HOME = 0, TAB_TV = 1, TAB_GAMES = 2, TAB_EVENTS = 3, TAB_SAVED = 4;
-    private final String[] TAB_TITLES = {AppLanguage.get(R.string.ui_home), AppLanguage.get(R.string.ui_live_tv), AppLanguage.get(R.string.ui_games), AppLanguage.get(R.string.ui_events), AppLanguage.get(R.string.ui_saved)};
-    private static final String PREF_HIDE_LIVE_TV = "hideLiveTvNavigation";
-    private static final String PREF_HIDE_GAMES = "hideGamesNavigation";
-    private static final String PREF_HIDE_EVENTS = "hideEventsNavigation";
+    private static final int TAB_HOME = 0, TAB_TV = 1, TAB_GAMES = 2, TAB_EVENTS = 3, TAB_SAVED = 4, TAB_NEWS = 5, TAB_ACTIVITIES = 6;
+    private final String[] TAB_TITLES = {AppLanguage.get(R.string.ui_home), AppLanguage.get(R.string.ui_live_tv), AppLanguage.get(R.string.ui_games), AppLanguage.get(R.string.ui_events), AppLanguage.get(R.string.ui_saved), AppLanguage.get(R.string.ui_news), AppLanguage.get(R.string.ui_activities)};
     private static final String PREF_LIVE_TV_POSITION = "liveTvNavigationPosition";
     static final String ACTION_WATCH_REMINDER = "com.sva.launcher.WATCH_REMINDER";
     static final String EXTRA_REMINDER_CHANNEL_KEY = "reminderChannelKey";
@@ -154,7 +153,8 @@ public final class MainActivity extends LocalizedActivity {
     private IptvRepository iptv;
     private ChannelLogoLoader logoLoader;
     private SharedPreferences preferences;
-    private LinearLayout root, homeContent, liveContent, gamesContent, eventsContent, savedContent;
+    private LinearLayout root, homeContent, liveContent, gamesContent, eventsContent, savedContent, newsContent, activitiesContent;
+    private ActivitiesPanel activitiesPanel;
     private LinearLayout appRow, youtubeSection;
     private RecyclerView youtubeRow;
     private SavedCardAdapter savedCardAdapter;
@@ -249,6 +249,21 @@ public final class MainActivity extends LocalizedActivity {
     private boolean screenActive;
     private boolean appsLoaded;
     private boolean appsLoading;
+    private boolean appsRefreshPending;
+    private boolean packageReceiverRegistered;
+    private final Runnable refreshInstalledApps = () -> {
+        appsLoaded = false;
+        if (screenActive && this.settingsScreen == null) renderApps();
+    };
+    private final BroadcastReceiver packageReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            // Replacement installs send remove/add/replaced in quick succession.
+            if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
+                    && intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return;
+            handler.removeCallbacks(refreshInstalledApps);
+            handler.postDelayed(refreshInstalledApps, 200);
+        }
+    };
     private TaskProgress liveProgress, weatherProgress, homeCalendarProgress, eventsProgress;
     private boolean exportingBackup;
     private boolean albumLoading;
@@ -270,11 +285,20 @@ public final class MainActivity extends LocalizedActivity {
         BackNavigation.install(this, this::handleBack);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         preferences = getSharedPreferences("launcher", MODE_PRIVATE);
+        IntentFilter packages = new IntentFilter();
+        packages.addAction(Intent.ACTION_PACKAGE_ADDED);
+        packages.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        packages.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        packages.addAction(Intent.ACTION_PACKAGE_CHANGED);
+        packages.addDataScheme("package");
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(packageReceiver, packages, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(packageReceiver, packages);
+        packageReceiverRegistered = true;
         if (state != null) {
             focusedPackage = state.getString("focusedPackage");
             savedListState = state.getParcelable("savedListState");
             gamesListState = state.getParcelable("gamesListState");
-            activeTab = Math.max(TAB_HOME, Math.min(TAB_SAVED, state.getInt("activeTab", TAB_HOME)));
+            activeTab = Math.max(TAB_HOME, Math.min(TAB_ACTIVITIES, state.getInt("activeTab", TAB_HOME)));
             for (int i = 0; i < tabScroll.length; i++) tabScroll[i] = state.getInt("tabScroll" + i, 0);
             tabScroll[TAB_HOME] = 0;
             try { selectedCalendarDay = LocalDate.parse(state.getString("selectedCalendarDay", LocalDate.now().toString())); }
@@ -580,7 +604,7 @@ public final class MainActivity extends LocalizedActivity {
         };
         handler.removeCallbacks(mediaTick);
         handler.postDelayed(mediaTick, activeMediaController != null ? 1000 : 10000);
-        if (root != null && !appsLoaded) renderApps();
+        if (root != null) renderApps();
         if (gameGrid != null) renderGames();
         if (settingsScreen == null && !backgroundPhotos.isEmpty()) {
             if (slideA.getVisibility() != View.VISIBLE && slideB.getVisibility() != View.VISIBLE) {
@@ -607,7 +631,12 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     @Override protected void onDestroy() {
+        if (packageReceiverRegistered) {
+            unregisterReceiver(packageReceiver);
+            packageReceiverRegistered = false;
+        }
         lifecycleWork.close();
+        if (activitiesPanel != null) activitiesPanel.close();
         if (clockTick != null) handler.removeCallbacks(clockTick);
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
         if (calendarRefreshTick != null) handler.removeCallbacks(calendarRefreshTick);
@@ -732,8 +761,9 @@ public final class MainActivity extends LocalizedActivity {
         tabScroller.setOverScrollMode(View.OVER_SCROLL_NEVER);
         tabScroller.setFillViewport(false);
         tabScroller.setClipChildren(true);
-        tabScroller.setClipToPadding(false);
-        LinearLayout.LayoutParams tabGroupParams = new LinearLayout.LayoutParams(-2, dp(52));
+        tabScroller.setClipToPadding(true);
+        int maxTabWidth = dp(Math.max(280, screenWidthDp - outerPadding * 2 - 220));
+        LinearLayout.LayoutParams tabGroupParams = new LinearLayout.LayoutParams(maxTabWidth, dp(52));
         navbar.addView(tabScroller, tabGroupParams);
         tabRow = new LinearLayout(this);
         tabRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -782,6 +812,18 @@ public final class MainActivity extends LocalizedActivity {
             tabButtons[i] = button;
         }
         rebuildNavigationButtons();
+        int tabContentWidth = tabRow.getPaddingLeft() + tabRow.getPaddingRight();
+        for (int i = 0; i < tabRow.getChildCount(); i++) {
+            Button tab = (Button) tabRow.getChildAt(i);
+            android.graphics.drawable.Drawable icon = tab.getCompoundDrawablesRelative()[0];
+            int iconWidth = icon == null ? 0 : Math.max(icon.getIntrinsicWidth(), icon.getBounds().width());
+            int textWidth = Math.round(tab.getPaint().measureText(tab.getText().toString()));
+            tabContentWidth += tab.getPaddingLeft() + textWidth + tab.getPaddingRight();
+            if (iconWidth > 0) tabContentWidth += iconWidth + tab.getCompoundDrawablePadding();
+        }
+        tabRow.setLayoutParams(new HorizontalScrollView.LayoutParams(tabContentWidth, -1));
+        tabGroupParams.width = Math.min(maxTabWidth, tabContentWidth);
+        tabScroller.setLayoutParams(tabGroupParams);
         LinearLayout timeStack = new LinearLayout(this);
         timeStack.setOrientation(LinearLayout.VERTICAL);
         timeStack.setGravity(Gravity.CENTER_VERTICAL);
@@ -888,6 +930,8 @@ public final class MainActivity extends LocalizedActivity {
         gamesContent = addTabContentPage(viewport, TAB_GAMES);
         eventsContent = addTabContentPage(viewport, TAB_EVENTS);
         savedContent = addTabContentPage(viewport, TAB_SAVED);
+        newsContent = addTabContentPage(viewport, TAB_NEWS);
+        activitiesContent = addTabContentPage(viewport, TAB_ACTIVITIES);
         tabShell.removeView(navigation);
         tabShell.addView(navigation, new LinearLayout.LayoutParams(-1, dp(dockHeight)));
         FrameLayout heroContent = new FrameLayout(this);
@@ -1223,6 +1267,104 @@ public final class MainActivity extends LocalizedActivity {
 
     }
 
+    private void refreshNews() {
+        String feeds = preferences.getString(NewsRepository.FEEDS, NewsRepository.DEFAULTS);
+        ioWorker.execute(() -> {
+            try {
+                List<NewsRepository.Story> stories = NewsRepository.fetch(feeds);
+                runOnUiThread(() -> {
+                    if (isFinishing() || newsContent == null) return;
+                    while (newsContent.getChildCount() > 2) newsContent.removeViewAt(2);
+                    if (!stories.isEmpty()) preferences.edit().putString(NewsRepository.CACHE, NewsRepository.encode(stories)).apply();
+                    for (NewsRepository.Story story : stories) {
+                        LinearLayout card = new LinearLayout(this);
+                        card.setGravity(Gravity.CENTER_VERTICAL);
+                        card.setPadding(dp(16), dp(12), dp(20), dp(12));
+                        ImageView image = new ImageView(this);
+                        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        image.setBackgroundColor(0xFF20303C);
+                        image.setTag(story.image);
+                        card.addView(image, new LinearLayout.LayoutParams(dp(168), dp(94)));
+                        LinearLayout copy = new LinearLayout(this);
+                        copy.setOrientation(LinearLayout.VERTICAL);
+                        copy.setGravity(Gravity.CENTER_VERTICAL);
+                        TextView source = label(story.source, 12, LiquidTheme.secondaryText(this), false);
+                        source.setPadding(0, 0, 0, dp(6));
+                        copy.addView(source);
+                        TextView title = label(story.title, 19, LiquidTheme.text(this), true);
+                        title.setMaxLines(3);
+                        title.setEllipsize(TextUtils.TruncateAt.END);
+                        copy.addView(title);
+                        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1f);
+                        titleParams.setMargins(dp(18), 0, 0, 0);
+                        card.addView(copy, titleParams);
+                        card.setFocusable(true); card.setClickable(true);
+                        card.setBackground(SettingsUi.navigationStates(this, true));
+                        card.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
+                        card.setOnClickListener(v -> {
+                            try { startActivity(new Intent(this, NewsFeedActivity.class).putExtra("url", story.link).putExtra("title", story.title)); }
+                            catch (Exception ignored) { Toast.makeText(this, AppLanguage.get(R.string.news_open_error), Toast.LENGTH_SHORT).show(); }
+                        });
+                        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, dp(122));
+                        cardParams.bottomMargin = dp(12);
+                        newsContent.addView(card, cardParams);
+                        if (story.image != null) ioWorker.execute(() -> {
+                            try {
+                                java.net.HttpURLConnection c = (java.net.HttpURLConnection)new java.net.URL(story.image).openConnection();
+                                c.setConnectTimeout(7000); c.setReadTimeout(9000);
+                                android.graphics.Bitmap bitmap;
+                                try {
+                                    if (c.getContentLengthLong() > 2L * 1024 * 1024) return;
+                                    try (java.io.InputStream in = c.getInputStream();
+                                         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+                                        byte[] buffer = new byte[8192]; int count, total = 0;
+                                        while ((count = in.read(buffer)) != -1) {
+                                            if ((total += count) > 2 * 1024 * 1024) return;
+                                            out.write(buffer, 0, count);
+                                        }
+                                        byte[] bytes = out.toByteArray();
+                                        BitmapFactory.Options options = new BitmapFactory.Options();
+                                        options.inJustDecodeBounds = true;
+                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
+                                        if (options.outWidth <= 0 || options.outHeight <= 0) return;
+                                        int targetWidth = dp(168), targetHeight = dp(94);
+                                        options.inSampleSize = 1;
+                                        while (options.outWidth / options.inSampleSize > targetWidth
+                                                || options.outHeight / options.inSampleSize > targetHeight) {
+                                            options.inSampleSize *= 2;
+                                        }
+                                        options.inJustDecodeBounds = false;
+                                        bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
+                                    }
+                                } finally { c.disconnect(); }
+                                if (bitmap != null) runOnUiThread(() -> {
+                                    if (image.isAttachedToWindow() && story.image.equals(image.getTag())) image.setImageBitmap(bitmap);
+                                });
+                            } catch (Exception ignored) { }
+                        });
+                    }
+                    if (stories.isEmpty()) {
+                        List<NewsRepository.Story> cached = NewsRepository.decode(preferences.getString(NewsRepository.CACHE, ""));
+                        for (NewsRepository.Story story : cached) {
+                            Button item = actionButton(story.source + " · " + story.title);
+                            item.setOnClickListener(v -> { try { startActivity(new Intent(this,NewsFeedActivity.class).putExtra("url",story.link)); } catch (Exception ignored) { } });
+                            newsContent.addView(item, new LinearLayout.LayoutParams(-1, dp(68)));
+                        }
+                        newsContent.addView(label(cached.isEmpty() ? AppLanguage.get(R.string.news_empty) : AppLanguage.get(R.string.news_offline), 16, MUTED, false));
+                    }
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    if (newsContent == null || isFinishing()) return;
+                    List<NewsRepository.Story> cached=NewsRepository.decode(preferences.getString(NewsRepository.CACHE, ""));
+                    while(newsContent.getChildCount()>2)newsContent.removeViewAt(2);
+                    for(NewsRepository.Story story:cached){Button item=actionButton(story.source+" · "+story.title);item.setOnClickListener(v->{try{startActivity(new Intent(this,NewsFeedActivity.class).putExtra("url",story.link).putExtra("title",story.title));}catch(Exception ignored){}});newsContent.addView(item,new LinearLayout.LayoutParams(-1,dp(68)));}
+                    newsContent.addView(label(cached.isEmpty()?AppLanguage.get(R.string.news_refresh_error):AppLanguage.get(R.string.news_offline),16,MUTED,false));
+                });
+            }
+        });
+    }
+
     private void ensureTabBuilt(int tab) {
         if (tab == TAB_TV) {
             if (channelRows == null) buildLiveTab();
@@ -1236,7 +1378,48 @@ public final class MainActivity extends LocalizedActivity {
         } else if (tab == TAB_SAVED) {
             if (youtubeRow == null) buildSavedTab();
             renderYouTubeCards();
+        } else if (tab == TAB_ACTIVITIES) {
+            if (activitiesPanel == null) {
+                activitiesPanel = new ActivitiesPanel(this);
+                activitiesContent.addView(activitiesPanel);
+                linkTabEntry(TAB_ACTIVITIES, activitiesPanel.refreshButton);
+            }
+            activitiesPanel.refresh();
+        } else if (tab == TAB_NEWS && newsContent.getChildCount() == 1) {
+            LinearLayout toolbar = new LinearLayout(this);
+            toolbar.setGravity(Gravity.CENTER_VERTICAL);
+            View heading = newsContent.getChildAt(0);
+            newsContent.removeView(heading);
+            toolbar.addView(heading, new LinearLayout.LayoutParams(0, -2, 1));
+            Button refresh = actionButton(AppLanguage.get(R.string.news_refresh));
+            refresh.setOnClickListener(v -> refreshNews());
+            toolbar.addView(refresh, new LinearLayout.LayoutParams(dp(190), dp(44)));
+            Button feeds = actionButton(AppLanguage.get(R.string.news_manage_feeds));
+            feeds.setOnClickListener(v -> editNewsFeeds());
+            LinearLayout.LayoutParams feedsParams = new LinearLayout.LayoutParams(dp(190), dp(44));
+            feedsParams.leftMargin = dp(12);
+            toolbar.addView(feeds, feedsParams);
+            LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(-1, dp(72));
+            headerParams.topMargin = dp(4);
+            newsContent.addView(toolbar, headerParams);
+            linkTabEntry(TAB_NEWS, refresh);
+            TextView info = label(AppLanguage.get(R.string.news_latest), 12, MUTED, true);
+            info.setPadding(dp(4), dp(18), 0, dp(12));
+            newsContent.addView(info);
+            refreshNews();
         }
+    }
+
+    private void editNewsFeeds() {
+        EditText input = new EditText(this);
+        input.setSingleLine(false); input.setMinLines(3);
+        input.setText(preferences.getString(NewsRepository.FEEDS, NewsRepository.DEFAULTS));
+        new AlertDialog.Builder(this).setTitle(AppLanguage.get(R.string.news_feed_urls)).setView(input)
+                .setNegativeButton(AppLanguage.get(R.string.ui_cancel), null)
+                .setPositiveButton(AppLanguage.get(R.string.ui_save), (dialog, which) -> {
+                    preferences.edit().putString(NewsRepository.FEEDS, input.getText().toString().trim()).apply();
+                    refreshNews();
+                }).show();
     }
 
     @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
@@ -1252,6 +1435,10 @@ public final class MainActivity extends LocalizedActivity {
         page.setClipChildren(true);
         page.setClipToPadding(false);
         page.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        if (tab == TAB_NEWS || tab == TAB_ACTIVITIES) {
+            page.setPadding(0, 0, 0, dp(12));
+            page.setClipToPadding(true);
+        }
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         int topPad = tab == TAB_TV ? dp(24) : dp(54);
@@ -1263,7 +1450,7 @@ public final class MainActivity extends LocalizedActivity {
         title.setTypeface(LiquidTheme.font(this));
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, dp(72));
         titleParams.topMargin = dp(4);
-        content.addView(title, titleParams);
+        if (tab != TAB_ACTIVITIES) content.addView(title, titleParams);
         page.addView(content);
         page.setOnScrollChangeListener((v, x, y, oldX, oldY) -> {
             if (activeTab == tab) browsingShade.setAlpha(Math.min(.94f,
@@ -1276,14 +1463,14 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     private void linkTabEntry(int tab, View entry) {
-        if (entry == null || tab < TAB_HOME || tab > TAB_SAVED || tabButtons[tab] == null) return;
+        if (entry == null || tab < TAB_HOME || tab > TAB_ACTIVITIES || tabButtons[tab] == null) return;
         if (entry.getId() == View.NO_ID) entry.setId(View.generateViewId());
         tabButtons[tab].setNextFocusUpId(entry.getId());
         tabEntryFocus[tab] = entry;
     }
 
     private void linkTopControl(int tab, View control) {
-        if (control == null || tab < TAB_HOME || tab > TAB_SAVED) return;
+        if (control == null || tab < TAB_HOME || tab > TAB_ACTIVITIES) return;
         if (control.getId() == View.NO_ID) control.setId(View.generateViewId());
     }
 
@@ -1556,7 +1743,7 @@ public final class MainActivity extends LocalizedActivity {
         // Hiding a focused page can synchronously focus a navigation button.
         // Its listener must not start another switch partway through this one.
         if (switchingTabs) return;
-        if (tab < TAB_HOME || tab > TAB_SAVED || tabPages[TAB_HOME] == null) return;
+        if (tab < TAB_HOME || tab > TAB_ACTIVITIES || tabPages[TAB_HOME] == null) return;
         final int selectedTab = (tab == TAB_TV && isNavigationHidden(tab))
                 || (!tabsInitialized && isNavigationHidden(tab))
                 ? TAB_HOME : tab;
@@ -1620,8 +1807,7 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     private boolean isNavigationHidden(int tab) {
-        String key = tab == TAB_TV ? PREF_HIDE_LIVE_TV : tab == TAB_GAMES ? PREF_HIDE_GAMES
-                : tab == TAB_EVENTS ? PREF_HIDE_EVENTS : null;
+        String key = NavigationPreferences.hiddenKey(tab);
         return key != null && preferences.getBoolean(key, false);
     }
 
@@ -3069,6 +3255,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == ActivitiesRepository.REQUEST_PERMISSION) {
+            if (activitiesPanel != null && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) activitiesPanel.refresh();
+            return;
+        }
         if (requestCode != REQUEST_WEATHER_LOCATION) return;
         boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
         if (pendingDeviceWeatherLocation && granted) requestDeviceWeatherLocation();
@@ -3263,12 +3453,17 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void renderApps() {
-        if (appRow == null || appsLoading) return;
+        if (appRow == null) return;
+        if (appsLoading) { appsRefreshPending = true; return; }
         appsLoading = true;
-        appRow.removeAllViews();
-        TextView loading = label(AppLanguage.get(R.string.ui_loading_apps), 15, MUTED, false);
-        loading.setGravity(Gravity.CENTER_VERTICAL);
-        appRow.addView(loading, new LinearLayout.LayoutParams(dp(180), dp(72)));
+        if (!appsLoaded) {
+            // Preserve the existing row and its focus during background refreshes.
+            if (appRow.getChildCount() == 0) {
+                TextView loading = label(AppLanguage.get(R.string.ui_loading_apps), 15, MUTED, false);
+                loading.setGravity(Gravity.CENTER_VERTICAL);
+                appRow.addView(loading, new LinearLayout.LayoutParams(dp(180), dp(72)));
+            }
+        }
         lifecycleWork.execute(ioWorker, () -> {
             List<AppEntry> loaded = installedApps();
             List<String> selected = selectedPackages(loaded);
@@ -3292,6 +3487,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private void showApps(List<AppEntry> all) {
         if (appRow == null || isFinishing()) return;
         appsLoading = false;
+        if (appsRefreshPending) {
+            appsRefreshPending = false;
+            renderApps();
+            return;
+        }
         appsLoaded = true;
         View previous = appRow.findFocus();
         if (previous != null && previous.getTag() instanceof String) focusedPackage = (String) previous.getTag();
@@ -3370,11 +3570,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 if (musicToggle != null) musicToggle.setNextFocusDownId(tile.getId());
             }
             displayed++;
-            if (initialAppFocus && activeTab == TAB_HOME && settingsScreen == null
+            if (previous != null && initialAppFocus && activeTab == TAB_HOME && settingsScreen == null
                     && packageName.equals(focusedPackage)) tile.requestFocus();
         }
         if (displayed > 0) {
             tabButtons[TAB_HOME].setNextFocusUpId(appRow.getChildAt(0).getId());
+            if (previous != null && activeTab == TAB_HOME && settingsScreen == null && appRow.findFocus() == null)
+                appRow.getChildAt(0).requestFocus();
         }
         if (!initialAppFocus && activeTab == TAB_HOME && displayed > 0) {
             initialAppFocus = true;
@@ -4985,7 +5187,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             dialog.setOnDismissListener(ignored -> {
                 if (channelAdapter != null) channelAdapter.cancelSearch();
                 if (settingsScreen == this) settingsScreen = null;
-                if (appsChanged) renderApps();
+                if (appsChanged || !appsLoaded) renderApps();
                 Set<String> freshHidden = HiddenChannels.load(preferences);
                 Set<String> freshFavorites = FavoriteChannels.load(preferences);
                 if (channelsChanged || !freshHidden.equals(hiddenChannelKeys) || !freshFavorites.equals(favoriteChannelKeys)) {
@@ -5310,25 +5512,19 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             orderRows.setClipToPadding(false);
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_visible_categories));
             addFormHint(form, AppLanguage.get(R.string.ui_choose_which_categories_appear_in_the_navigation_bar_your_games));
-            boolean hidden = preferences.getBoolean(PREF_HIDE_LIVE_TV, false);
-            addToggle(form, AppLanguage.get(R.string.ui_show_live_tv_in_navigation), !hidden, enabled -> {
-                preferences.edit().putBoolean(PREF_HIDE_LIVE_TV, !enabled).apply();
-                rebuildNavigationButtons();
-                renderNavigationOrder(orderRows, -1);
-                if (!enabled && activeTab == TAB_TV) selectTab(TAB_HOME, true);
-            });
-            addToggle(form, AppLanguage.get(R.string.ui_show_games_in_navigation), !preferences.getBoolean(PREF_HIDE_GAMES, false), enabled -> {
-                preferences.edit().putBoolean(PREF_HIDE_GAMES, !enabled).apply();
-                rebuildNavigationButtons();
-                renderNavigationOrder(orderRows, -1);
-                if (!enabled && activeTab == TAB_GAMES) selectTab(TAB_HOME, true);
-            });
-            addToggle(form, AppLanguage.get(R.string.ui_show_events_in_navigation), !preferences.getBoolean(PREF_HIDE_EVENTS, false), enabled -> {
-                preferences.edit().putBoolean(PREF_HIDE_EVENTS, !enabled).apply();
-                rebuildNavigationButtons();
-                renderNavigationOrder(orderRows, -1);
-                if (!enabled && activeTab == TAB_EVENTS) selectTab(TAB_HOME, true);
-            });
+            int[] visibilityLabels = {R.string.ui_show_live_tv_in_navigation, R.string.ui_show_games_in_navigation,
+                    R.string.ui_show_events_in_navigation, R.string.ui_show_saved_in_navigation,
+                    R.string.ui_show_news_in_navigation, R.string.ui_show_activities};
+            for (int tab : navigationOrder()) {
+                String key = NavigationPreferences.hiddenKey(tab);
+                View toggle = addToggle(form, AppLanguage.get(visibilityLabels[tab - 1]), !isNavigationHidden(tab), enabled -> {
+                    preferences.edit().putBoolean(key, !enabled).apply();
+                    rebuildNavigationButtons();
+                    renderNavigationOrder(orderRows, -1);
+                    if (!enabled && activeTab == tab) selectTab(TAB_HOME, true);
+                });
+                toggle.setTag("navigation-visible-" + tab);
+            }
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_item_order));
             addFormHint(form, AppLanguage.get(R.string.ui_home_stays_first_select_a_category_to_change_its_position_hidden));
             form.addView(orderRows);
@@ -5343,7 +5539,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void renderNavigationOrder(LinearLayout container, int focusTab) {
             container.removeAllViews();
             List<Integer> ordered = navigationOrder();
-            String[] positions = {AppLanguage.get(R.string.ui_first_after_home), AppLanguage.get(R.string.ui_second_after_home), AppLanguage.get(R.string.ui_third_after_home), AppLanguage.get(R.string.ui_last)};
+            String[] positions = new String[ordered.size()];
+            for (int i = 0; i < positions.length; i++) positions[i] = getString(R.string.ui_navigation_position, i + 1);
             for (int position = 0; position < ordered.size(); position++) {
                 final int tab = ordered.get(position);
                 View row = SettingsUi.choice(MainActivity.this, TAB_TITLES[tab]
@@ -5992,10 +6189,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             SettingsUi.hint(form, value);
         }
 
-        private void addToggle(LinearLayout form, String title, boolean checked, java.util.function.Consumer<Boolean> save) {
+        private View addToggle(LinearLayout form, String title, boolean checked, java.util.function.Consumer<Boolean> save) {
             View row = SettingsUi.toggle(MainActivity.this, title, checked, save);
             SettingsUi.add(form, row);
             if (firstControl == null) firstControl = row;
+            return row;
         }
 
         private void addChoice(LinearLayout form, String title, String[] options, int selected, java.util.function.IntConsumer save) {
@@ -6795,6 +6993,16 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     strokePath.moveTo(6, 11); strokePath.lineTo(6, 15); strokePath.moveTo(4, 13); strokePath.lineTo(8, 13);
                     fillPath.addCircle(17, 12, 1, Path.Direction.CW);
                     fillPath.addCircle(19, 14, 1, Path.Direction.CW);
+                    break;
+                case TAB_ACTIVITIES:
+                    for (int x = 3; x <= 13; x += 10) for (int y = 3; y <= 13; y += 10)
+                        strokePath.addRoundRect(new RectF(x, y, x + 8, y + 8), 1, 1, Path.Direction.CW);
+                    break;
+                case TAB_NEWS:
+                    strokePath.moveTo(4, 3); strokePath.lineTo(20, 3); strokePath.lineTo(20, 21); strokePath.lineTo(12, 17);
+                    strokePath.lineTo(4, 21); strokePath.close();
+                    strokePath.moveTo(8, 8); strokePath.lineTo(16, 8);
+                    strokePath.moveTo(8, 12); strokePath.lineTo(16, 12);
                     break;
                 case TAB_EVENTS:
                     strokePath.addRoundRect(new RectF(3, 5, 21, 21), 2, 2, Path.Direction.CW);

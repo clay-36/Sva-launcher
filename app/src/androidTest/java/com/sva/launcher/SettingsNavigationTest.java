@@ -375,37 +375,37 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
     public void testCustomNavigationOrderPersistsWithHiddenItems() throws Exception {
         android.content.SharedPreferences prefs = getInstrumentation().getTargetContext().getSharedPreferences("launcher", 0);
         java.util.Map<String, ?> previous = prefs.getAll();
-        String[] keys = {NavigationPreferences.ORDER, "liveTvNavigationPosition", "hideGamesNavigation", "hideEventsNavigation", "hideLiveTvNavigation"};
+        String[] keys = {NavigationPreferences.ORDER, "liveTvNavigationPosition", "hideGamesNavigation", "hideEventsNavigation", "hideLiveTvNavigation", "hideActivitiesNavigation"};
         try {
             android.content.SharedPreferences.Editor clean = prefs.edit();
             for (String key : keys) clean.remove(key);
             clean.commit();
             open(); select(13);
             chooseFirstPosition(4);
-            assertEquals("saved,live_tv,games,events", prefs.getString(NavigationPreferences.ORDER, ""));
-            assertEquals(java.util.Arrays.asList(0, 4, 1, 2, 3), barOrder());
+            assertEquals("saved,live_tv,games,events,news,activities", prefs.getString(NavigationPreferences.ORDER, ""));
+            assertEquals(java.util.Arrays.asList(0, 4, 1, 2, 3, 5, 6), barOrder());
             View moved = ((View)field(screen, "detail")).findViewWithTag("navigation-order-4");
             assertTrue("Focus must follow the moved category", moved.hasFocus());
             getInstrumentation().runOnMainSync(() -> {
                 try { findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_events_in_navigation), AppLanguage.get(R.string.ui_on))).performClick(); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
-            assertEquals(java.util.Arrays.asList(0, 4, 1, 2), barOrder());
+            assertEquals(java.util.Arrays.asList(0, 4, 1, 2, 5, 6), barOrder());
             close(); open(); select(13);
-            assertEquals("Order and visibility must survive reopening", java.util.Arrays.asList(0, 4, 1, 2), barOrder());
+            assertEquals("Order and visibility must survive reopening", java.util.Arrays.asList(0, 4, 1, 2, 5, 6), barOrder());
             chooseFirstPosition(3);
-            assertEquals("events,saved,live_tv,games", prefs.getString(NavigationPreferences.ORDER, ""));
-            assertEquals("Moving a hidden item must not reveal it", java.util.Arrays.asList(0, 4, 1, 2), barOrder());
+            assertEquals("events,saved,live_tv,games,news,activities", prefs.getString(NavigationPreferences.ORDER, ""));
+            assertEquals("Moving a hidden item must not reveal it", java.util.Arrays.asList(0, 4, 1, 2, 5, 6), barOrder());
             getInstrumentation().runOnMainSync(() -> {
                 try { findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_events_in_navigation), AppLanguage.get(R.string.ui_off))).performClick(); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
-            assertEquals(java.util.Arrays.asList(0, 3, 4, 1, 2), barOrder());
+            assertEquals(java.util.Arrays.asList(0, 3, 4, 1, 2, 5, 6), barOrder());
             getInstrumentation().runOnMainSync(() -> {
                 try { findText((View)field(screen, "detail"), AppLanguage.get(R.string.ui_reset_item_order)).performClick(); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
-            assertEquals(java.util.Arrays.asList(0, 1, 2, 3, 4), barOrder());
+            assertEquals(java.util.Arrays.asList(0, 1, 2, 3, 4, 5, 6), barOrder());
             assertFalse(prefs.contains(NavigationPreferences.ORDER));
         } finally {
             close();
@@ -709,11 +709,69 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
         }
     }
 
+    public void testEveryNavigationCategoryHasVisibilityAndOrder() throws Exception {
+        android.content.SharedPreferences prefs = getInstrumentation().getTargetContext().getSharedPreferences("launcher", 0);
+        java.util.Map<String, ?> previous = prefs.getAll();
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        keys.add(NavigationPreferences.ORDER); keys.add("liveTvNavigationPosition");
+        for (int tab = 1; tab <= 6; tab++) keys.add(NavigationPreferences.hiddenKey(tab));
+        try {
+            android.content.SharedPreferences.Editor clean = prefs.edit();
+            for (String key : keys) clean.remove(key);
+            clean.commit();
+            open(); select(13);
+            for (int tab = 1; tab <= 6; tab++) {
+                final int selected = tab;
+                View toggle = ((View) field(screen, "detail")).findViewWithTag("navigation-visible-" + tab);
+                assertNotNull("Every category needs a visibility control", toggle);
+                getInstrumentation().runOnMainSync(() -> {
+                    try {
+                        Method change = MainActivity.class.getDeclaredMethod("selectTab", int.class, boolean.class);
+                        change.setAccessible(true); change.invoke(activity, selected, false);
+                        toggle.performClick();
+                    } catch (Exception e) { throw new AssertionError(e); }
+                });
+                assertTrue(prefs.getBoolean(NavigationPreferences.hiddenKey(tab), false));
+                assertFalse(barOrder().contains(tab));
+                assertEquals(0, ((Integer) field(activity, "activeTab")).intValue());
+                assertEquals("Hidden categories must keep their position", 6,
+                        NavigationPreferences.order(prefs.getString(NavigationPreferences.ORDER, null), 0).size());
+                getInstrumentation().runOnMainSync(toggle::performClick);
+                assertTrue(barOrder().contains(tab));
+            }
+            chooseFirstPosition(6); chooseFirstPosition(5);
+            assertEquals("news,activities,live_tv,games,events,saved", prefs.getString(NavigationPreferences.ORDER, ""));
+            for (int tab = 4; tab <= 6; tab++) {
+                View toggle = ((View) field(screen, "detail")).findViewWithTag("navigation-visible-" + tab);
+                getInstrumentation().runOnMainSync(toggle::performClick);
+            }
+            close(); open(); select(13);
+            assertEquals(java.util.Arrays.asList(0, 1, 2, 3), barOrder());
+            for (int tab = 4; tab <= 6; tab++) assertTrue(prefs.getBoolean(NavigationPreferences.hiddenKey(tab), false));
+            assertEquals("news,activities,live_tv,games,events,saved", prefs.getString(NavigationPreferences.ORDER, ""));
+        } finally {
+            close();
+            android.content.SharedPreferences.Editor restore = prefs.edit();
+            for (String key : keys) {
+                Object value = previous.get(key);
+                if (value instanceof String) restore.putString(key, (String) value);
+                else if (value instanceof Boolean) restore.putBoolean(key, (Boolean) value);
+                else if (value instanceof Integer) restore.putInt(key, (Integer) value);
+                else restore.remove(key);
+            }
+            restore.commit();
+        }
+    }
+
     private void chooseFirstPosition(int tab) throws Exception {
         View row = ((View)field(screen, "detail")).findViewWithTag("navigation-order-" + tab);
         getInstrumentation().runOnMainSync(() -> { row.requestFocus(); row.performClick(); });
         getInstrumentation().waitForIdleSync();
-        for (int i = 0; i < 3; i++) getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_UP);
+        for (int attempt = 0; attempt < 100 && dialog.getWindow().getDecorView().hasWindowFocus(); attempt++) {
+            android.os.SystemClock.sleep(20);
+            getInstrumentation().waitForIdleSync();
+        }
+        for (int i = 0; i < 6; i++) getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_UP);
         getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER);
         getInstrumentation().waitForIdleSync();
     }
