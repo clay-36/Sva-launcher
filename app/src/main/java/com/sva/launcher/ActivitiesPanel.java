@@ -119,8 +119,11 @@ final class ActivitiesPanel extends LinearLayout {
             RecyclerView list = new RecyclerView(activity);
             list.setLayoutManager(new LinearLayoutManager(activity, RecyclerView.HORIZONTAL, false));
             list.setNestedScrollingEnabled(false); list.setItemAnimator(null);
+            list.setClipChildren(false); list.setClipToPadding(false);
+            list.setPadding(dp(10), dp(10), dp(10), dp(10));
+            list.setOverScrollMode(View.OVER_SCROLL_NEVER);
             list.setAdapter(new Cards(channel));
-            rows.addView(list, new LinearLayout.LayoutParams(-1, dp(180)));
+            rows.addView(list, new LinearLayout.LayoutParams(-1, dp(192)));
         }
         status.setText(channels.isEmpty() ? activity.getString(R.string.activities_empty)
                 : shown == 0 ? activity.getString(hasVisibleChannels ? R.string.activities_no_items : R.string.activities_hidden)
@@ -168,11 +171,19 @@ final class ActivitiesPanel extends LinearLayout {
         @Override public void onBindViewHolder(Card holder, int position) {
             ActivitiesRepository.Program program=channel.programs.get(position);
             holder.title.setText(program.title == null ? channel.title : program.title);
+            holder.image.animate().cancel();
+            holder.image.setAlpha(program.artwork == null ? 1f : 0f);
             holder.image.setImageDrawable(null); holder.image.setTag(program.artwork);
             holder.itemView.setOnClickListener(v -> open(program, channel.publisher));
             if (program.artwork != null) images.execute(() -> {
                 Bitmap bitmap=artwork(program.artwork);
-                if(bitmap!=null)main.post(() -> {if(!closed && program.artwork.equals(holder.image.getTag()))holder.image.setImageBitmap(bitmap);});
+                main.post(() -> {
+                    if(closed || !program.artwork.equals(holder.image.getTag())) return;
+                    if(bitmap==null) { holder.image.setAlpha(1f); return; }
+                    holder.image.setImageBitmap(bitmap);
+                    holder.image.animate().alpha(1f).setDuration(Motion.enabled() ? Motion.FADE : 0)
+                            .setInterpolator(Motion.EASING).start();
+                });
             });
         }
     }
@@ -181,7 +192,11 @@ final class ActivitiesPanel extends LinearLayout {
         Card() {
             super(new LinearLayout(activity)); LinearLayout box=(LinearLayout)itemView;
             box.setOrientation(VERTICAL);box.setPadding(dp(8),dp(8),dp(8),dp(8));box.setFocusable(true);box.setClickable(true);
+            box.setFocusableInTouchMode(false);
             box.setBackground(SettingsUi.states(activity,false));
+            box.setElevation(dp(2));
+            box.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
+            Motion.interaction(box,true);
             RecyclerView.LayoutParams lp=new RecyclerView.LayoutParams(dp(240),dp(170));lp.rightMargin=dp(12);box.setLayoutParams(lp);
             image=new ImageView(activity);image.setScaleType(ImageView.ScaleType.CENTER_CROP);box.addView(image,new LinearLayout.LayoutParams(-1,dp(110)));
             title=SettingsUi.text(activity,"",15,false);title.setMaxLines(2);title.setEllipsize(android.text.TextUtils.TruncateAt.END);box.addView(title);

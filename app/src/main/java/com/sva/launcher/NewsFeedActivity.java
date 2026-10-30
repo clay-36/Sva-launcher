@@ -33,6 +33,7 @@ public final class NewsFeedActivity extends LocalizedActivity {
             public void onBindViewHolder(Page page,int index){
                 NewsRepository.Story story=stories.get(index);
                 page.title.setText(story.title);page.meta.setText(story.source+(story.publishedAt>0?" · "+android.text.format.DateFormat.format("dd MMM HH:mm",story.publishedAt):"")+"   ·   "+(index+1)+" / "+stories.size()+"    ‹ / ›");
+                NewsArtwork.apply(page.fallback,index,0);
                 page.photo.setImageDrawable(null);artwork.load(story.image,page.photo,page.fallback);
                 page.read.setOnClickListener(v->startActivity(new Intent(NewsFeedActivity.this,NewsReaderActivity.class).putExtra("url",story.link).putExtra("title",story.title)));
             }

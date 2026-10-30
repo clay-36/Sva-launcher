@@ -3,6 +3,7 @@ package com.sva.launcher;
 import android.util.Xml;
 import org.xmlpull.v1.XmlPullParser;
 import java.io.InputStream;
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.Instant;
@@ -11,8 +12,10 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -28,21 +31,39 @@ final class NewsRepository {
     private NewsRepository() { }
     static List<Story> fetch(String feeds) throws Exception {
         ArrayList<Story> result = new ArrayList<>();
+        Set<String> seenLinks = new HashSet<>();
         Exception lastFailure = null;
         for (String raw : feeds.split("\\R")) {
-            String url = raw.trim();
-            if (!url.startsWith("https://")) continue;
-            HttpURLConnection c = null;
+            String feedUrl = raw.trim();
+            if (!feedUrl.startsWith("https://") && !feedUrl.startsWith("http://")) continue;
             try {
-                c = (HttpURLConnection)new URL(url).openConnection();
-                c.setConnectTimeout(8000); c.setReadTimeout(10000); c.setInstanceFollowRedirects(true);
-                try (InputStream in = c.getInputStream()) {
-                    result.addAll(parse(in, new URL(url).getHost()));
+                String currentUrl = feedUrl;
+                for (int redirects = 0; redirects <= 5; redirects++) {
+                    HttpURLConnection c = (HttpURLConnection)new URL(currentUrl).openConnection();
+                    c.setConnectTimeout(8000); c.setReadTimeout(10000); c.setInstanceFollowRedirects(false);
+                    c.setRequestProperty("User-Agent", "SvaLauncher/1.0");
+                    try {
+                        int status = c.getResponseCode();
+                        if (status >= 300 && status < 400) {
+                            String location = c.getHeaderField("Location");
+                            if (location == null || redirects == 5) throw new IOException("Too many or invalid feed redirects");
+                            currentUrl = new URL(new URL(currentUrl), location).toString();
+                            continue;
+                        }
+                        if (status < 200 || status >= 300) throw new IOException("News feed returned HTTP " + status);
+                        try (InputStream in = c.getInputStream()) {
+                            for (Story story : parse(in, new URL(feedUrl).getHost())) {
+                                String link = story.link.trim();
+                                if (seenLinks.add(link)) result.add(story);
+                            }
+                        }
+                        break;
+                    } finally {
+                        c.disconnect();
+                    }
                 }
             } catch (Exception failure) {
                 lastFailure = failure;
-            } finally {
-                if (c != null) c.disconnect();
             }
         }
         if (result.isEmpty() && lastFailure != null) throw lastFailure;

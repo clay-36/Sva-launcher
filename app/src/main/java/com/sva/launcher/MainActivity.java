@@ -152,8 +152,17 @@ public final class MainActivity extends LocalizedActivity {
     };
     private IptvRepository iptv;
     private ChannelLogoLoader logoLoader;
+    private ChannelLogoLoader newsArtworkLoader;
     private SharedPreferences preferences;
     private LinearLayout root, homeContent, liveContent, gamesContent, eventsContent, savedContent, newsContent, activitiesContent;
+    private FrameLayout newsCarousel;
+    private ImageView newsCarouselPhoto;
+    private View newsCarouselPhotoFallback;
+    private TextView newsCarouselMeta, newsCarouselTitle, newsCarouselPosition;
+    private List<NewsRepository.Story> newsCarouselStories = Collections.emptyList();
+    private int newsCarouselIndex;
+    private boolean newsCarouselTransitioning;
+    private final Runnable newsCarouselTick = this::advanceNewsCarousel;
     private ActivitiesPanel activitiesPanel;
     private LinearLayout appRow, youtubeSection;
     private RecyclerView youtubeRow;
@@ -196,6 +205,10 @@ public final class MainActivity extends LocalizedActivity {
     private LinearLayout systemShortcuts;
     private View browsingShade;
     private FrameLayout heroFrame;
+    private LinearLayout homeSpotlight;
+    private ImageView homeSpotlightIcon;
+    private TextView homeSpotlightTitle;
+    private String homeSpotlightPackage;
     private final GlassBackdrop glassBackdrop = new GlassBackdrop();
     private FrameLayout homePage;
     private boolean initialAppFocus;
@@ -308,6 +321,7 @@ public final class MainActivity extends LocalizedActivity {
         iptv = new IptvRepository(this);
         acceptReminderIntent(getIntent());
         logoLoader = new ChannelLogoLoader(this);
+        newsArtworkLoader = new ChannelLogoLoader(this, 1440);
         weatherForecast = cachedWeather();
         hiddenChannelKeys.addAll(HiddenChannels.load(preferences));
         favoriteChannelKeys.addAll(FavoriteChannels.load(preferences));
@@ -572,6 +586,8 @@ public final class MainActivity extends LocalizedActivity {
     @Override protected void onResume() {
         super.onResume();
         screenActive = true;
+        restoreNewsCarouselSelection();
+        updateNewsCarouselPlayback();
         updateClock();
         updateCalendarEventDisplay();
         handler.removeCallbacks(clockTick);
@@ -617,6 +633,13 @@ public final class MainActivity extends LocalizedActivity {
 
     @Override protected void onPause() {
         screenActive = false;
+        handler.removeCallbacks(newsCarouselTick);
+        if (newsCarousel != null) {
+            newsCarousel.animate().cancel();
+            newsCarousel.setAlpha(1f);
+            newsCarousel.setTranslationX(0f);
+            newsCarouselTransitioning = false;
+        }
         if (clockTick != null) handler.removeCallbacks(clockTick);
         handler.removeCallbacks(screensaverIdle);
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
@@ -654,6 +677,7 @@ public final class MainActivity extends LocalizedActivity {
         calendarWorker.shutdownNow();
         ioWorker.shutdownNow();
         if (logoLoader != null) logoLoader.close();
+        if (newsArtworkLoader != null) newsArtworkLoader.close();
         youtubeThumbnailCache.evictAll();
         backgroundBitmapCache.evictAll();
         glassBackdrop.close();
@@ -937,6 +961,7 @@ public final class MainActivity extends LocalizedActivity {
         FrameLayout heroContent = new FrameLayout(this);
         root.addView(heroContent, new LinearLayout.LayoutParams(-1,
                 dp(Math.max(180, heroHeightDp() - dockHeight - 128))));
+        buildHomeSpotlight(heroContent);
         renderWeather();
 
         int topCardHeight = dp(compactNavigation ? 78 : 82);
@@ -1274,95 +1299,150 @@ public final class MainActivity extends LocalizedActivity {
                 List<NewsRepository.Story> stories = NewsRepository.fetch(feeds);
                 runOnUiThread(() -> {
                     if (isFinishing() || newsContent == null) return;
-                    while (newsContent.getChildCount() > 2) newsContent.removeViewAt(2);
                     if (!stories.isEmpty()) preferences.edit().putString(NewsRepository.CACHE, NewsRepository.encode(stories)).apply();
-                    for (NewsRepository.Story story : stories) {
-                        LinearLayout card = new LinearLayout(this);
-                        card.setGravity(Gravity.CENTER_VERTICAL);
-                        card.setPadding(dp(16), dp(12), dp(20), dp(12));
-                        ImageView image = new ImageView(this);
-                        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                        image.setBackgroundColor(0xFF20303C);
-                        image.setTag(story.image);
-                        card.addView(image, new LinearLayout.LayoutParams(dp(168), dp(94)));
-                        LinearLayout copy = new LinearLayout(this);
-                        copy.setOrientation(LinearLayout.VERTICAL);
-                        copy.setGravity(Gravity.CENTER_VERTICAL);
-                        TextView source = label(story.source, 12, LiquidTheme.secondaryText(this), false);
-                        source.setPadding(0, 0, 0, dp(6));
-                        copy.addView(source);
-                        TextView title = label(story.title, 19, LiquidTheme.text(this), true);
-                        title.setMaxLines(3);
-                        title.setEllipsize(TextUtils.TruncateAt.END);
-                        copy.addView(title);
-                        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1f);
-                        titleParams.setMargins(dp(18), 0, 0, 0);
-                        card.addView(copy, titleParams);
-                        card.setFocusable(true); card.setClickable(true);
-                        card.setBackground(SettingsUi.navigationStates(this, true));
-                        card.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
-                        card.setOnClickListener(v -> {
-                            try { startActivity(new Intent(this, NewsFeedActivity.class).putExtra("url", story.link).putExtra("title", story.title)); }
-                            catch (Exception ignored) { Toast.makeText(this, AppLanguage.get(R.string.news_open_error), Toast.LENGTH_SHORT).show(); }
-                        });
-                        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, dp(122));
-                        cardParams.bottomMargin = dp(12);
-                        newsContent.addView(card, cardParams);
-                        if (story.image != null) ioWorker.execute(() -> {
-                            try {
-                                java.net.HttpURLConnection c = (java.net.HttpURLConnection)new java.net.URL(story.image).openConnection();
-                                c.setConnectTimeout(7000); c.setReadTimeout(9000);
-                                android.graphics.Bitmap bitmap;
-                                try {
-                                    if (c.getContentLengthLong() > 2L * 1024 * 1024) return;
-                                    try (java.io.InputStream in = c.getInputStream();
-                                         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
-                                        byte[] buffer = new byte[8192]; int count, total = 0;
-                                        while ((count = in.read(buffer)) != -1) {
-                                            if ((total += count) > 2 * 1024 * 1024) return;
-                                            out.write(buffer, 0, count);
-                                        }
-                                        byte[] bytes = out.toByteArray();
-                                        BitmapFactory.Options options = new BitmapFactory.Options();
-                                        options.inJustDecodeBounds = true;
-                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
-                                        if (options.outWidth <= 0 || options.outHeight <= 0) return;
-                                        int targetWidth = dp(168), targetHeight = dp(94);
-                                        options.inSampleSize = 1;
-                                        while (options.outWidth / options.inSampleSize > targetWidth
-                                                || options.outHeight / options.inSampleSize > targetHeight) {
-                                            options.inSampleSize *= 2;
-                                        }
-                                        options.inJustDecodeBounds = false;
-                                        bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
-                                    }
-                                } finally { c.disconnect(); }
-                                if (bitmap != null) runOnUiThread(() -> {
-                                    if (image.isAttachedToWindow() && story.image.equals(image.getTag())) image.setImageBitmap(bitmap);
-                                });
-                            } catch (Exception ignored) { }
-                        });
-                    }
-                    if (stories.isEmpty()) {
-                        List<NewsRepository.Story> cached = NewsRepository.decode(preferences.getString(NewsRepository.CACHE, ""));
-                        for (NewsRepository.Story story : cached) {
-                            Button item = actionButton(story.source + " · " + story.title);
-                            item.setOnClickListener(v -> { try { startActivity(new Intent(this,NewsFeedActivity.class).putExtra("url",story.link)); } catch (Exception ignored) { } });
-                            newsContent.addView(item, new LinearLayout.LayoutParams(-1, dp(68)));
-                        }
-                        newsContent.addView(label(cached.isEmpty() ? AppLanguage.get(R.string.news_empty) : AppLanguage.get(R.string.news_offline), 16, MUTED, false));
-                    }
+                    List<NewsRepository.Story> display = stories.isEmpty()
+                            ? NewsRepository.decode(preferences.getString(NewsRepository.CACHE, "[]")) : stories;
+                    showNewsCarouselStories(display);
+                    while (newsContent.getChildCount() > 3) newsContent.removeViewAt(3);
+                    if (display.isEmpty()) newsContent.addView(label(AppLanguage.get(R.string.news_empty), 16, MUTED, false));
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     if (newsContent == null || isFinishing()) return;
-                    List<NewsRepository.Story> cached=NewsRepository.decode(preferences.getString(NewsRepository.CACHE, ""));
-                    while(newsContent.getChildCount()>2)newsContent.removeViewAt(2);
-                    for(NewsRepository.Story story:cached){Button item=actionButton(story.source+" · "+story.title);item.setOnClickListener(v->{try{startActivity(new Intent(this,NewsFeedActivity.class).putExtra("url",story.link).putExtra("title",story.title));}catch(Exception ignored){}});newsContent.addView(item,new LinearLayout.LayoutParams(-1,dp(68)));}
-                    newsContent.addView(label(cached.isEmpty()?AppLanguage.get(R.string.news_refresh_error):AppLanguage.get(R.string.news_offline),16,MUTED,false));
+                    List<NewsRepository.Story> cached = NewsRepository.decode(preferences.getString(NewsRepository.CACHE, "[]"));
+                    showNewsCarouselStories(cached);
+                    while (newsContent.getChildCount() > 3) newsContent.removeViewAt(3);
+                    if (cached.isEmpty()) newsContent.addView(label(AppLanguage.get(R.string.news_refresh_error), 16, MUTED, false));
                 });
             }
         });
+    }
+
+    private FrameLayout buildNewsCarousel() {
+        FrameLayout frame = new FrameLayout(this);
+        frame.setFocusable(true);
+        frame.setClickable(true);
+        frame.setClipToOutline(true);
+        newsCarouselPhotoFallback = new View(this);
+        NewsArtwork.apply(newsCarouselPhotoFallback, 0, dp(18));
+        frame.addView(newsCarouselPhotoFallback, new FrameLayout.LayoutParams(-1, -1));
+        newsCarouselPhoto = new ImageView(this);
+        newsCarouselPhoto.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        frame.addView(newsCarouselPhoto, new FrameLayout.LayoutParams(-1, -1));
+        View shade = new View(this);
+        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x11000000, 0x18000000, 0xE8101820}));
+        frame.addView(shade, new FrameLayout.LayoutParams(-1, -1));
+
+        newsCarouselMeta = label("", 14, 0xFFE2E8EE, true);
+        newsCarouselMeta.setPadding(dp(24), dp(20), dp(24), 0);
+        frame.addView(newsCarouselMeta, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP | Gravity.START));
+        newsCarouselPosition = label("", 13, 0xFFE2E8EE, true);
+        newsCarouselPosition.setGravity(Gravity.CENTER);
+        newsCarouselPosition.setBackground(roundedShape(0x99081018, 0x66FFFFFF, 1, 20));
+        FrameLayout.LayoutParams positionParams = new FrameLayout.LayoutParams(dp(74), dp(34), Gravity.TOP | Gravity.END);
+        positionParams.setMargins(0, dp(14), dp(16), 0);
+        frame.addView(newsCarouselPosition, positionParams);
+        newsCarouselTitle = label("", 30, Color.WHITE, true);
+        newsCarouselTitle.setMaxLines(3);
+        newsCarouselTitle.setEllipsize(TextUtils.TruncateAt.END);
+        newsCarouselTitle.setShadowLayer(dp(8), 0, dp(2), 0xAA000000);
+        FrameLayout.LayoutParams titleParams = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM | Gravity.START);
+        titleParams.setMargins(dp(24), 0, dp(24), dp(24));
+        frame.addView(newsCarouselTitle, titleParams);
+
+        StateListDrawable states = new Motion.States();
+        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0x00000000, LiquidTheme.accent(this), 3, 18));
+        states.addState(new int[]{}, roundedShape(0x00000000, 0x66FFFFFF, 1, 18));
+        frame.setBackground(states);
+        frame.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
+        Motion.interaction(frame, true);
+        frame.setOnClickListener(v -> openNewsCarouselStory());
+        return frame;
+    }
+
+    private void showNewsCarouselStories(List<NewsRepository.Story> stories) {
+        String selectedLink = newsCarouselStories.isEmpty() ? preferences.getString("newsSelectedStory", "")
+                : newsCarouselStories.get(Math.min(newsCarouselIndex, newsCarouselStories.size() - 1)).link;
+        newsCarouselStories = new ArrayList<>(stories);
+        newsCarouselIndex = 0;
+        for (int i = 0; i < newsCarouselStories.size(); i++) {
+            if (newsCarouselStories.get(i).link.equals(selectedLink)) { newsCarouselIndex = i; break; }
+        }
+        if (!newsCarouselStories.isEmpty()) bindNewsCarouselStory();
+        updateNewsCarouselPlayback();
+    }
+
+    private void bindNewsCarouselStory() {
+        if (newsCarousel == null || newsCarouselStories.isEmpty()) return;
+        NewsRepository.Story story = newsCarouselStories.get(newsCarouselIndex);
+        newsCarouselMeta.setText(story.source + (story.publishedAt > 0
+                ? " · " + android.text.format.DateFormat.format("dd MMM HH:mm", story.publishedAt) : ""));
+        newsCarouselPosition.setText((newsCarouselIndex + 1) + " / " + newsCarouselStories.size());
+        newsCarouselTitle.setText(story.title);
+        newsCarousel.setContentDescription(story.source + ". " + story.title + ". "
+                + (newsCarouselIndex + 1) + " / " + newsCarouselStories.size());
+        NewsArtwork.apply(newsCarouselPhotoFallback, newsCarouselIndex, dp(18));
+        newsArtworkLoader.load(story.image, newsCarouselPhoto, newsCarouselPhotoFallback);
+    }
+
+    private void openNewsCarouselStory() {
+        if (newsCarouselStories.isEmpty()) return;
+        NewsRepository.Story story = newsCarouselStories.get(newsCarouselIndex);
+        try {
+            startActivity(new Intent(this, NewsFeedActivity.class)
+                    .putExtra("url", story.link).putExtra("title", story.title));
+        } catch (Exception ignored) {
+            Toast.makeText(this, AppLanguage.get(R.string.news_open_error), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void advanceNewsCarousel() {
+        if (!canAutoSlideNews()) return;
+        animateNewsCarouselTo((newsCarouselIndex + 1) % newsCarouselStories.size(), true);
+    }
+
+    private void animateNewsCarouselTo(int index, boolean moveRight) {
+        if (newsCarousel == null || newsCarouselStories.size() < 2 || newsCarouselTransitioning) return;
+        newsCarouselTransitioning = true;
+        handler.removeCallbacks(newsCarouselTick);
+        float offset = dp(moveRight ? 54 : -54);
+        int duration = Motion.enabled() ? 260 : 0;
+        newsCarousel.animate().cancel();
+        newsCarousel.animate().translationX(offset).alpha(0f).setDuration(duration)
+                .setInterpolator(Motion.EASING).withEndAction(() -> {
+                    newsCarouselIndex = index;
+                    bindNewsCarouselStory();
+                    newsCarousel.setTranslationX(-offset);
+                    newsCarousel.animate().alpha(1f).translationX(0f)
+                            .setDuration(Motion.enabled() ? 320 : 0)
+                            .setInterpolator(Motion.EASING).withEndAction(() -> {
+                                newsCarouselTransitioning = false;
+                                updateNewsCarouselPlayback();
+                            }).start();
+                }).start();
+    }
+
+    private boolean canAutoSlideNews() {
+        return screenActive && activeTab == TAB_NEWS && settingsScreen == null && newsCarousel != null
+                && newsCarousel.isShown() && newsCarouselStories.size() > 1 && !isFinishing();
+    }
+
+    private void updateNewsCarouselPlayback() {
+        handler.removeCallbacks(newsCarouselTick);
+        if (canAutoSlideNews() && !newsCarouselTransitioning) handler.postDelayed(newsCarouselTick, 5500);
+    }
+
+    private void restoreNewsCarouselSelection() {
+        if (newsCarousel == null || newsCarouselStories.isEmpty()) return;
+        String selected = preferences.getString("newsSelectedStory", "");
+        for (int i = 0; i < newsCarouselStories.size(); i++) {
+            if (newsCarouselStories.get(i).link.equals(selected)) {
+                newsCarouselIndex = i;
+                bindNewsCarouselStory();
+                break;
+            }
+        }
     }
 
     private void ensureTabBuilt(int tab) {
@@ -1406,6 +1486,8 @@ public final class MainActivity extends LocalizedActivity {
             TextView info = label(AppLanguage.get(R.string.news_latest), 12, MUTED, true);
             info.setPadding(dp(4), dp(18), 0, dp(12));
             newsContent.addView(info);
+            newsCarousel = buildNewsCarousel();
+            newsContent.addView(newsCarousel, new LinearLayout.LayoutParams(-1, dp(260)));
             refreshNews();
         }
     }
@@ -1493,6 +1575,15 @@ public final class MainActivity extends LocalizedActivity {
             int direction = focusDirection(event.getKeyCode());
             if (activeTab == TAB_EVENTS && focused != null
                     && handleCalendarDirection(focused, direction)) return true;
+            if (activeTab == TAB_NEWS && newsCarousel != null && focused != null
+                    && isWithinPage(focused, newsCarousel)
+                    && (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT)
+                    && newsCarouselStories.size() > 1) {
+                int step = direction == View.FOCUS_RIGHT ? 1 : -1;
+                int next = (newsCarouselIndex + step + newsCarouselStories.size()) % newsCarouselStories.size();
+                animateNewsCarouselTo(next, step > 0);
+                return true;
+            }
             if (focused != null && tabRow != null && isWithinPage(focused, tabRow)) {
                 if (direction == View.FOCUS_UP) {
                     if (activeTab == TAB_TV) {
@@ -1804,6 +1895,7 @@ public final class MainActivity extends LocalizedActivity {
                 else if (!keepNavigationFocus && previous != null && previous.isAttachedToWindow() && previous.isShown()) previous.requestFocus();
             });
         }
+        updateNewsCarouselPlayback();
     }
 
     private boolean isNavigationHidden(int tab) {
@@ -3536,7 +3628,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             tile.setBackground(appTileStates);
             tile.setFocusableInTouchMode(false);
             tile.setElevation(dp(2));
-            tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+            tile.setOnFocusChangeListener((view, focused) -> {
+                LiquidTheme.animateFocus(view, focused);
+                if (focused) updateHomeSpotlight(entry);
+            });
             Motion.interaction(tile, false);
             tile.setPadding(dp(10), dp(4), dp(8), dp(4));
             tile.setTag(packageName);
@@ -4207,6 +4302,85 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         final String packageName, label;
         final Drawable icon;
         AppEntry(ApplicationInfo info, String packageName, String label, Drawable icon) { this.info = info; this.packageName = packageName; this.label = label; this.icon = icon; }
+    }
+
+    private void buildHomeSpotlight(FrameLayout host) {
+        homeSpotlight = new LinearLayout(this);
+        homeSpotlight.setGravity(Gravity.CENTER_VERTICAL);
+        homeSpotlight.setOrientation(LinearLayout.HORIZONTAL);
+        homeSpotlight.setClipChildren(false);
+        homeSpotlight.setClipToPadding(false);
+        homeSpotlight.setVisibility(View.GONE);
+
+        FrameLayout iconSurface = new FrameLayout(this);
+        iconSurface.setBackground(roundedShape(
+                LiquidTheme.isLight(this) ? 0xE9F9FCF8 : 0xB9102024,
+                LiquidTheme.isLight(this) ? LiquidTheme.border(this) : 0x667BE7F4, 1, 22));
+        iconSurface.setElevation(dp(8));
+        homeSpotlightIcon = new ImageView(this);
+        homeSpotlightIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(dp(66), dp(66), Gravity.CENTER);
+        iconSurface.addView(homeSpotlightIcon, iconParams);
+        homeSpotlight.addView(iconSurface, new LinearLayout.LayoutParams(dp(92), dp(92)));
+
+        homeSpotlightTitle = label("", 34, LiquidTheme.isLight(this) ? LiquidTheme.text(this) : Color.WHITE, true);
+        homeSpotlightTitle.setSingleLine(true);
+        homeSpotlightTitle.setEllipsize(TextUtils.TruncateAt.END);
+        homeSpotlightTitle.setShadowLayer(dp(12), 0, dp(2), 0x99000000);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1f);
+        titleParams.setMarginStart(dp(22));
+        homeSpotlight.addView(homeSpotlightTitle, titleParams);
+
+        FrameLayout.LayoutParams spotlightParams = new FrameLayout.LayoutParams(-1, dp(110),
+                Gravity.BOTTOM | Gravity.START);
+        spotlightParams.setMargins(dp(56), 0, dp(40), dp(14));
+        host.addView(homeSpotlight, spotlightParams);
+    }
+
+    private void updateHomeSpotlight(AppEntry entry) {
+        if (homeSpotlight == null || entry == null || entry.packageName.equals(homeSpotlightPackage)) return;
+        homeSpotlightPackage = entry.packageName;
+        homeSpotlightTitle.setText(entry.label);
+        Drawable icon = entry.icon;
+        if (icon != null && icon.getConstantState() != null) {
+            icon = icon.getConstantState().newDrawable(getResources()).mutate();
+        }
+        homeSpotlightIcon.setImageDrawable(icon);
+
+        boolean firstReveal = homeSpotlight.getVisibility() != View.VISIBLE;
+        homeSpotlight.setVisibility(View.VISIBLE);
+        homeSpotlight.animate().cancel();
+        homeSpotlightTitle.animate().cancel();
+        homeSpotlightIcon.animate().cancel();
+        if (firstReveal) {
+            homeSpotlight.setAlpha(0f);
+            homeSpotlight.setTranslationY(dp(12));
+            homeSpotlight.animate().alpha(1f).translationY(0f)
+                    .setDuration(Motion.enabled() ? 260 : 0)
+                    .setInterpolator(Motion.EASING).start();
+        } else {
+            homeSpotlightTitle.setAlpha(0.45f);
+            homeSpotlightTitle.setTranslationY(dp(6));
+            homeSpotlightTitle.animate().alpha(1f).translationY(0f)
+                    .setDuration(Motion.enabled() ? 180 : 0)
+                    .setInterpolator(Motion.EASING).start();
+            homeSpotlightIcon.setAlpha(0.55f);
+            homeSpotlightIcon.setScaleX(.92f);
+            homeSpotlightIcon.setScaleY(.92f);
+            homeSpotlightIcon.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                    .setDuration(Motion.enabled() ? 220 : 0)
+                    .setInterpolator(Motion.EASING).start();
+        }
+        ImageView backdrop = wallpaperImage;
+        if (slideA != null && slideA.getVisibility() == View.VISIBLE) backdrop = slideA;
+        else if (slideB != null && slideB.getVisibility() == View.VISIBLE) backdrop = slideB;
+        if (backdrop != null && backdrop.getVisibility() == View.VISIBLE) {
+            float direction = (entry.packageName.hashCode() & 1) == 0 ? -1f : 1f;
+            backdrop.animate().cancel();
+            backdrop.animate().translationX(direction * dp(8)).scaleX(1.025f).scaleY(1.025f)
+                    .setDuration(Motion.enabled() ? 420 : 0)
+                    .setInterpolator(Motion.EASING).start();
+        }
     }
 
     private List<AppEntry> installedApps() {
