@@ -25,7 +25,7 @@ final class NavigationPreferences {
             }
         }
         ArrayList<Integer> defaults = new ArrayList<>();
-        defaults.add(2); defaults.add(3); defaults.add(4); defaults.add(5); defaults.add(6);
+        defaults.add(6); defaults.add(2); defaults.add(3); defaults.add(4); defaults.add(5);
         defaults.add(Math.max(0, Math.min(3, legacyLivePosition)), 1);
         for (int tab : defaults) if (!result.contains(tab)) result.add(tab);
         return result;

@@ -35,7 +35,7 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/home.png" alt="Sva home screen with apps, weather, clock, and a city wallpaper" /><br /><sub><strong>Home</strong> — apps and useful information at a glance</sub></td>
+    <td width="50%" align="center"><img src="screenshots/home.png" alt="Sva home screen with a focused app spotlight, weather, clock, and a photo wallpaper" /><br /><sub><strong>Home</strong> — apps and useful information at a glance</sub></td>
     <td width="50%" align="center"><img src="screenshots/live.png" alt="Live TV channels grouped by category" /><br /><sub><strong>Live TV</strong> — categories, channel logos, and now/next data</sub></td>
   </tr>
   <tr>
@@ -49,11 +49,20 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
   <td width="50%" align="center"><img src="screenshots/games_play_2.png" alt="Bring your own NES games" /><br /><sub><strong>Games</strong> — import your own NES ROMs</sub></td>
 <td width="50%" align="center"><img src="screenshots/saved.png" alt="Saved YouTube videos and playlists" /><br /><sub><strong>Saved</strong> — shortcuts to videos and playlists</sub></td>
   </tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/activities.png" alt="Activities recommendations from installed Android TV apps" /><br /><sub><strong>Activities</strong> — browse recommendations from installed apps</sub></td>
+    <td width="50%" align="center"><img src="screenshots/news.png" alt="News headlines in the automatically advancing carousel" /><br /><sub><strong>News</strong> — headlines combined from configured feeds</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/news_fullscreen.png" alt="Fullscreen news story with remote navigation" /><br /><sub><strong>News</strong> — open any headline in the fullscreen reader</sub></td>
+    <td width="50%" align="center"><img src="screenshots/news_reader.png" alt="Readable article view with extracted headline and body" /><br /><sub><strong>Read mode</strong> — focus on the article with Mozilla Readability</sub></td>
+  </tr>
 </table>
 
 ## Features
 
 - **Remote-first navigation** — focusing a top-level tab selects it immediately, with clear focus states throughout the UI. Settings dialog supports seamless two-way D-pad navigation between categories and controls without remote focus traps.
+- **Smooth app and activity browsing** — focused apps animate into a home spotlight, while Activities cards reveal artwork and respond to focus.
 - **23 interface languages** (🇺🇸 🇬🇧 🇮🇳 🇪🇸 🇫🇷 🇸🇦 🇧🇷 🇨🇳 🇹🇼 🇩🇪 🇯🇵 🇰🇷 🇷🇺 🇮🇩 🇹🇷 🇧🇩 🇵🇰...) — follow the TV language or choose a language under **Settings → System → Language**, with refined offline translations and right-to-left layouts for Arabic and Urdu.
 - **Personal home screen** — select and reorder app shortcuts; keep the clock, date, weather, Wi-Fi, tools, and settings close by.
 - **Photo backdrops & dynamic contrast** — use a single image, rotate a local folder, or connect a public Google Photos album. Per-region luminance analysis dynamically adapts header widget text, accents, and drop shadows for optimal contrast over any wallpaper.
@@ -64,6 +73,7 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 - **Events calendar** — combine iCalendar feeds from Google Calendar, other providers, or local servers, see today's events, browse 12 months in either direction, and view selected-day details and lunar illumination.
 - **Saved videos** — create artwork-rich shortcuts for YouTube videos and playlists, with remote actions to edit title, artwork, or remove cards directly from settings.
 - **Weather** — current conditions and a three-day forecast from Open-Meteo, using a chosen city or optional approximate device location.
+- **News and read mode** — combine RSS/Atom feeds by publication time, browse an auto-advancing headline carousel, and open articles in a cleaner Mozilla Readability view.
 - **Configurable refresh schedules** — independently control updates for photos, playlists, programme data, calendars, and Google Photos.
 - **Backup and restore** — export launcher preferences, app and channel choices, and IPTV/DRM configuration to JSON.
 - **TV file browser** — browse internal storage and USB drives with the remote when adding games, choosing images or photo folders, and saving or restoring backups.
