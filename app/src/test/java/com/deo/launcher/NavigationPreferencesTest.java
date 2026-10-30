@@ -7,26 +7,26 @@ import static org.junit.Assert.*;
 
 public final class NavigationPreferencesTest {
     @Test public void defaultOrderKeepsHomeOutsideTheMovableList() {
-        assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6), NavigationPreferences.order(null, 0));
+        assertEquals(Arrays.asList(1, 6, 2, 3, 4, 5), NavigationPreferences.order(null, 0));
     }
 
     @Test public void retainsEveryLegacyLiveTvPosition() {
-        assertEquals(Arrays.asList(2, 1, 3, 4, 5, 6), NavigationPreferences.order(null, 1));
-        assertEquals(Arrays.asList(2, 3, 1, 4, 5, 6), NavigationPreferences.order(null, 2));
-        assertEquals(Arrays.asList(2, 3, 4, 1, 5, 6), NavigationPreferences.order(null, 3));
-        assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6), NavigationPreferences.order(null, -1));
-        assertEquals(Arrays.asList(2, 3, 4, 1, 5, 6), NavigationPreferences.order(null, 99));
+        assertEquals(Arrays.asList(6, 1, 2, 3, 4, 5), NavigationPreferences.order(null, 1));
+        assertEquals(Arrays.asList(6, 2, 1, 3, 4, 5), NavigationPreferences.order(null, 2));
+        assertEquals(Arrays.asList(6, 2, 3, 1, 4, 5), NavigationPreferences.order(null, 3));
+        assertEquals(Arrays.asList(1, 6, 2, 3, 4, 5), NavigationPreferences.order(null, -1));
+        assertEquals(Arrays.asList(6, 2, 3, 1, 4, 5), NavigationPreferences.order(null, 99));
     }
 
     @Test public void incompleteOrInvalidOrdersStillContainEachCategoryOnce() {
-        assertEquals(Arrays.asList(4, 3, 1, 2, 5, 6), NavigationPreferences.order("saved,home,events,saved,unknown", 0));
-        assertEquals(Arrays.asList(2, 1, 3, 4, 5, 6), NavigationPreferences.order(" , , ", 1));
+        assertEquals(Arrays.asList(4, 3, 1, 6, 2, 5), NavigationPreferences.order("saved,home,events,saved,unknown", 0));
+        assertEquals(Arrays.asList(6, 1, 2, 3, 4, 5), NavigationPreferences.order(" , , ", 1));
     }
 
     @Test public void activitiesAndNewsOrdersPersist() {
         List<Integer> order = Arrays.asList(6, 5, 4, 1, 3, 2);
         assertEquals(order, NavigationPreferences.order(NavigationPreferences.encode(order), 0));
-        assertEquals(Arrays.asList(4, 1, 2, 3, 5, 6), NavigationPreferences.order("saved,live_tv,games,events", 0));
+        assertEquals(Arrays.asList(4, 1, 2, 3, 6, 5), NavigationPreferences.order("saved,live_tv,games,events", 0));
     }
 
     @Test public void everyPermutationRoundTripsAndOverridesLegacyPosition() {
