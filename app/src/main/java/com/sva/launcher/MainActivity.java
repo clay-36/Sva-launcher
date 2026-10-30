@@ -1488,6 +1488,8 @@ public final class MainActivity extends LocalizedActivity {
             newsContent.addView(info);
             newsCarousel = buildNewsCarousel();
             newsContent.addView(newsCarousel, new LinearLayout.LayoutParams(-1, dp(260)));
+            List<NewsRepository.Story> cached = NewsRepository.decode(preferences.getString(NewsRepository.CACHE, "[]"));
+            if (!cached.isEmpty()) showNewsCarouselStories(cached);
             refreshNews();
         }
     }

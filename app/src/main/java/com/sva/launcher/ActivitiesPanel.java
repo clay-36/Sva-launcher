@@ -207,17 +207,39 @@ final class ActivitiesPanel extends LinearLayout {
         try {
             Bitmap memory=artworkMemory.get(address);if(memory!=null)return memory;
             File cache=diskFile(address);Bitmap stored=decodeArtwork(cache);if(stored!=null){cache.setLastModified(System.currentTimeMillis());trimArtworkCache();artworkMemory.put(address,stored);return stored;}
-            Uri uri=Uri.parse(address);InputStream stream;
-            if("content".equals(uri.getScheme())||"android.resource".equals(uri.getScheme()))stream=activity.getContentResolver().openInputStream(uri);
-            else if("https".equals(uri.getScheme())){connection=(HttpURLConnection)new URL(address).openConnection();connection.setConnectTimeout(5000);connection.setReadTimeout(5000);stream=connection.getInputStream();}
-            else return null;
-            if(stream==null)return null;
-            File temporary=File.createTempFile("art-", ".tmp", artworkCache);
-            try(InputStream in=stream;FileOutputStream out=new FileOutputStream(temporary)){byte[] buffer=new byte[8192];int count,total=0;while((count=in.read(buffer))!=-1){if(Thread.currentThread().isInterrupted()||(total+=count)>2*1024*1024){temporary.delete();return null;}out.write(buffer,0,count);}}
+            Uri uri=Uri.parse(address);
+            if("content".equals(uri.getScheme())||"android.resource".equals(uri.getScheme())){
+                try(InputStream input=activity.getContentResolver().openInputStream(uri)){
+                    return input==null?null:cacheArtwork(address,cache,input,false);
+                }
+            }
+            if(!"https".equals(uri.getScheme()))return null;
+            connection=(HttpURLConnection)new URL(address).openConnection();connection.setConnectTimeout(5000);connection.setReadTimeout(5000);
+            try(InputStream input=connection.getInputStream()){
+                return cacheArtwork(address,cache,input,true);
+            }
+        }catch(Exception ignored){return null;}finally{
+            if(connection!=null)connection.disconnect();
+        }
+    }
+    private Bitmap cacheArtwork(String address,File cache,InputStream input,boolean keepOnDisk)throws IOException{
+        File temporary=null;
+        try{
+            temporary=File.createTempFile("art-", ".tmp", artworkCache);
+            try(FileOutputStream out=new FileOutputStream(temporary)){
+                byte[] buffer=new byte[8192];int count,total=0;
+                while((count=input.read(buffer))!=-1){
+                    if(Thread.currentThread().isInterrupted()||(total+=count)>2*1024*1024)return null;
+                    out.write(buffer,0,count);
+                }
+            }
             Bitmap bitmap=decodeArtwork(temporary);
-            if(bitmap!=null){if("https".equals(uri.getScheme())){if(!temporary.renameTo(cache))temporary.delete();else trimArtworkCache();}else temporary.delete();artworkMemory.put(address,bitmap);}
+            if(bitmap!=null){
+                if(keepOnDisk&&temporary.renameTo(cache)){temporary=null;trimArtworkCache();}
+                artworkMemory.put(address,bitmap);
+            }
             return bitmap;
-        }catch(Exception ignored){return null;}finally{if(connection!=null)connection.disconnect();}
+        }finally{if(temporary!=null)temporary.delete();}
     }
     private Bitmap decodeArtwork(File file){
         if(!file.isFile())return null;BitmapFactory.Options options=new BitmapFactory.Options();options.inJustDecodeBounds=true;BitmapFactory.decodeFile(file.getAbsolutePath(),options);

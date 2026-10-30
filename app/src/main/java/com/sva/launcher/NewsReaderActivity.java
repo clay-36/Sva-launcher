@@ -92,9 +92,9 @@ public final class NewsReaderActivity extends LocalizedActivity {
             worker.execute(() -> {
                 try {
                     String page = fetchPage(url);
-                    runOnUiThread(() -> { if (!isFinishing()) loadParserDocument(page); });
+                    runOnUiThread(() -> { if (!isFinishing() && !isDestroyed() && web != null) loadParserDocument(page); });
                 } catch (Exception failure) {
-                    runOnUiThread(() -> { if (!isFinishing()) showOriginalFallback(); });
+                    runOnUiThread(() -> { if (!isFinishing() && !isDestroyed() && web != null) showOriginalFallback(); });
                 }
             });
         } else {
