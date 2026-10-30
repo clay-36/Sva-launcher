@@ -3,10 +3,14 @@
     <uses-feature android:name="android.software.leanback" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- A home launcher must enumerate launchable apps so users can choose shortcuts. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
@@ -29,6 +33,8 @@
             android:name=".TvFilePickerActivity"
             android:exported="false"
             android:screenOrientation="landscape" />
+        <activity android:name=".NewsFeedActivity" android:exported="false" android:screenOrientation="landscape" />
+        <activity android:name=".NewsReaderActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity
             android:name=".ControllerSettingsActivity"
             android:exported="false"
@@ -49,6 +55,18 @@
             android:screenOrientation="landscape" />
         <activity android:name=".GuideActivity" android:exported="false"
             android:screenOrientation="landscape" />
+        <receiver android:name=".GuideReminderReceiver" android:enabled="true" android:exported="false">
+            <intent-filter>
+                <action android:name="com.sva.launcher.PROGRAMME_REMINDER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <activity
             android:name=".PlaybackActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"

@@ -13,6 +13,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
 import android.content.res.ColorStateList;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -101,11 +103,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public final class MainActivity extends LocalizedActivity {
-    private static final int TAB_HOME = 0, TAB_TV = 1, TAB_GAMES = 2, TAB_EVENTS = 3, TAB_SAVED = 4;
-    private final String[] TAB_TITLES = {AppLanguage.get(R.string.ui_home), AppLanguage.get(R.string.ui_live_tv), AppLanguage.get(R.string.ui_games), AppLanguage.get(R.string.ui_events), AppLanguage.get(R.string.ui_saved)};
-    private static final String PREF_HIDE_LIVE_TV = "hideLiveTvNavigation";
-    private static final String PREF_HIDE_GAMES = "hideGamesNavigation";
-    private static final String PREF_HIDE_EVENTS = "hideEventsNavigation";
+    private static final int TAB_HOME = 0, TAB_TV = 1, TAB_GAMES = 2, TAB_EVENTS = 3, TAB_SAVED = 4, TAB_NEWS = 5, TAB_ACTIVITIES = 6;
+    private final String[] TAB_TITLES = {AppLanguage.get(R.string.ui_home), AppLanguage.get(R.string.ui_live_tv), AppLanguage.get(R.string.ui_games), AppLanguage.get(R.string.ui_events), AppLanguage.get(R.string.ui_saved), AppLanguage.get(R.string.ui_news), AppLanguage.get(R.string.ui_activities)};
     private static final String PREF_LIVE_TV_POSITION = "liveTvNavigationPosition";
     static final String ACTION_WATCH_REMINDER = "com.sva.launcher.WATCH_REMINDER";
     static final String EXTRA_REMINDER_CHANNEL_KEY = "reminderChannelKey";
@@ -153,8 +152,18 @@ public final class MainActivity extends LocalizedActivity {
     };
     private IptvRepository iptv;
     private ChannelLogoLoader logoLoader;
+    private ChannelLogoLoader newsArtworkLoader;
     private SharedPreferences preferences;
-    private LinearLayout root, homeContent, liveContent, gamesContent, eventsContent, savedContent;
+    private LinearLayout root, homeContent, liveContent, gamesContent, eventsContent, savedContent, newsContent, activitiesContent;
+    private FrameLayout newsCarousel;
+    private ImageView newsCarouselPhoto;
+    private View newsCarouselPhotoFallback;
+    private TextView newsCarouselMeta, newsCarouselTitle, newsCarouselPosition;
+    private List<NewsRepository.Story> newsCarouselStories = Collections.emptyList();
+    private int newsCarouselIndex;
+    private boolean newsCarouselTransitioning;
+    private final Runnable newsCarouselTick = this::advanceNewsCarousel;
+    private ActivitiesPanel activitiesPanel;
     private LinearLayout appRow, youtubeSection;
     private RecyclerView youtubeRow;
     private SavedCardAdapter savedCardAdapter;
@@ -196,6 +205,10 @@ public final class MainActivity extends LocalizedActivity {
     private LinearLayout systemShortcuts;
     private View browsingShade;
     private FrameLayout heroFrame;
+    private LinearLayout homeSpotlight;
+    private ImageView homeSpotlightIcon;
+    private TextView homeSpotlightTitle;
+    private String homeSpotlightPackage;
     private final GlassBackdrop glassBackdrop = new GlassBackdrop();
     private FrameLayout homePage;
     private boolean initialAppFocus;
@@ -249,6 +262,21 @@ public final class MainActivity extends LocalizedActivity {
     private boolean screenActive;
     private boolean appsLoaded;
     private boolean appsLoading;
+    private boolean appsRefreshPending;
+    private boolean packageReceiverRegistered;
+    private final Runnable refreshInstalledApps = () -> {
+        appsLoaded = false;
+        if (screenActive && this.settingsScreen == null) renderApps();
+    };
+    private final BroadcastReceiver packageReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            // Replacement installs send remove/add/replaced in quick succession.
+            if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
+                    && intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return;
+            handler.removeCallbacks(refreshInstalledApps);
+            handler.postDelayed(refreshInstalledApps, 200);
+        }
+    };
     private TaskProgress liveProgress, weatherProgress, homeCalendarProgress, eventsProgress;
     private boolean exportingBackup;
     private boolean albumLoading;
@@ -270,11 +298,20 @@ public final class MainActivity extends LocalizedActivity {
         BackNavigation.install(this, this::handleBack);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         preferences = getSharedPreferences("launcher", MODE_PRIVATE);
+        IntentFilter packages = new IntentFilter();
+        packages.addAction(Intent.ACTION_PACKAGE_ADDED);
+        packages.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        packages.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        packages.addAction(Intent.ACTION_PACKAGE_CHANGED);
+        packages.addDataScheme("package");
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(packageReceiver, packages, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(packageReceiver, packages);
+        packageReceiverRegistered = true;
         if (state != null) {
             focusedPackage = state.getString("focusedPackage");
             savedListState = state.getParcelable("savedListState");
             gamesListState = state.getParcelable("gamesListState");
-            activeTab = Math.max(TAB_HOME, Math.min(TAB_SAVED, state.getInt("activeTab", TAB_HOME)));
+            activeTab = Math.max(TAB_HOME, Math.min(TAB_ACTIVITIES, state.getInt("activeTab", TAB_HOME)));
             for (int i = 0; i < tabScroll.length; i++) tabScroll[i] = state.getInt("tabScroll" + i, 0);
             tabScroll[TAB_HOME] = 0;
             try { selectedCalendarDay = LocalDate.parse(state.getString("selectedCalendarDay", LocalDate.now().toString())); }
@@ -284,6 +321,7 @@ public final class MainActivity extends LocalizedActivity {
         iptv = new IptvRepository(this);
         acceptReminderIntent(getIntent());
         logoLoader = new ChannelLogoLoader(this);
+        newsArtworkLoader = new ChannelLogoLoader(this, 1440);
         weatherForecast = cachedWeather();
         hiddenChannelKeys.addAll(HiddenChannels.load(preferences));
         favoriteChannelKeys.addAll(FavoriteChannels.load(preferences));
@@ -548,6 +586,8 @@ public final class MainActivity extends LocalizedActivity {
     @Override protected void onResume() {
         super.onResume();
         screenActive = true;
+        restoreNewsCarouselSelection();
+        updateNewsCarouselPlayback();
         updateClock();
         updateCalendarEventDisplay();
         handler.removeCallbacks(clockTick);
@@ -580,7 +620,7 @@ public final class MainActivity extends LocalizedActivity {
         };
         handler.removeCallbacks(mediaTick);
         handler.postDelayed(mediaTick, activeMediaController != null ? 1000 : 10000);
-        if (root != null && !appsLoaded) renderApps();
+        if (root != null) renderApps();
         if (gameGrid != null) renderGames();
         if (settingsScreen == null && !backgroundPhotos.isEmpty()) {
             if (slideA.getVisibility() != View.VISIBLE && slideB.getVisibility() != View.VISIBLE) {
@@ -593,6 +633,13 @@ public final class MainActivity extends LocalizedActivity {
 
     @Override protected void onPause() {
         screenActive = false;
+        handler.removeCallbacks(newsCarouselTick);
+        if (newsCarousel != null) {
+            newsCarousel.animate().cancel();
+            newsCarousel.setAlpha(1f);
+            newsCarousel.setTranslationX(0f);
+            newsCarouselTransitioning = false;
+        }
         if (clockTick != null) handler.removeCallbacks(clockTick);
         handler.removeCallbacks(screensaverIdle);
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
@@ -607,7 +654,12 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     @Override protected void onDestroy() {
+        if (packageReceiverRegistered) {
+            unregisterReceiver(packageReceiver);
+            packageReceiverRegistered = false;
+        }
         lifecycleWork.close();
+        if (activitiesPanel != null) activitiesPanel.close();
         if (clockTick != null) handler.removeCallbacks(clockTick);
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
         if (calendarRefreshTick != null) handler.removeCallbacks(calendarRefreshTick);
@@ -625,6 +677,7 @@ public final class MainActivity extends LocalizedActivity {
         calendarWorker.shutdownNow();
         ioWorker.shutdownNow();
         if (logoLoader != null) logoLoader.close();
+        if (newsArtworkLoader != null) newsArtworkLoader.close();
         youtubeThumbnailCache.evictAll();
         backgroundBitmapCache.evictAll();
         glassBackdrop.close();
@@ -732,8 +785,9 @@ public final class MainActivity extends LocalizedActivity {
         tabScroller.setOverScrollMode(View.OVER_SCROLL_NEVER);
         tabScroller.setFillViewport(false);
         tabScroller.setClipChildren(true);
-        tabScroller.setClipToPadding(false);
-        LinearLayout.LayoutParams tabGroupParams = new LinearLayout.LayoutParams(-2, dp(52));
+        tabScroller.setClipToPadding(true);
+        int maxTabWidth = dp(Math.max(280, screenWidthDp - outerPadding * 2 - 220));
+        LinearLayout.LayoutParams tabGroupParams = new LinearLayout.LayoutParams(maxTabWidth, dp(52));
         navbar.addView(tabScroller, tabGroupParams);
         tabRow = new LinearLayout(this);
         tabRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -782,6 +836,18 @@ public final class MainActivity extends LocalizedActivity {
             tabButtons[i] = button;
         }
         rebuildNavigationButtons();
+        int tabContentWidth = tabRow.getPaddingLeft() + tabRow.getPaddingRight();
+        for (int i = 0; i < tabRow.getChildCount(); i++) {
+            Button tab = (Button) tabRow.getChildAt(i);
+            android.graphics.drawable.Drawable icon = tab.getCompoundDrawablesRelative()[0];
+            int iconWidth = icon == null ? 0 : Math.max(icon.getIntrinsicWidth(), icon.getBounds().width());
+            int textWidth = Math.round(tab.getPaint().measureText(tab.getText().toString()));
+            tabContentWidth += tab.getPaddingLeft() + textWidth + tab.getPaddingRight();
+            if (iconWidth > 0) tabContentWidth += iconWidth + tab.getCompoundDrawablePadding();
+        }
+        tabRow.setLayoutParams(new HorizontalScrollView.LayoutParams(tabContentWidth, -1));
+        tabGroupParams.width = Math.min(maxTabWidth, tabContentWidth);
+        tabScroller.setLayoutParams(tabGroupParams);
         LinearLayout timeStack = new LinearLayout(this);
         timeStack.setOrientation(LinearLayout.VERTICAL);
         timeStack.setGravity(Gravity.CENTER_VERTICAL);
@@ -888,11 +954,14 @@ public final class MainActivity extends LocalizedActivity {
         gamesContent = addTabContentPage(viewport, TAB_GAMES);
         eventsContent = addTabContentPage(viewport, TAB_EVENTS);
         savedContent = addTabContentPage(viewport, TAB_SAVED);
+        newsContent = addTabContentPage(viewport, TAB_NEWS);
+        activitiesContent = addTabContentPage(viewport, TAB_ACTIVITIES);
         tabShell.removeView(navigation);
         tabShell.addView(navigation, new LinearLayout.LayoutParams(-1, dp(dockHeight)));
         FrameLayout heroContent = new FrameLayout(this);
         root.addView(heroContent, new LinearLayout.LayoutParams(-1,
                 dp(Math.max(180, heroHeightDp() - dockHeight - 128))));
+        buildHomeSpotlight(heroContent);
         renderWeather();
 
         int topCardHeight = dp(compactNavigation ? 78 : 82);
@@ -1223,6 +1292,159 @@ public final class MainActivity extends LocalizedActivity {
 
     }
 
+    private void refreshNews() {
+        String feeds = preferences.getString(NewsRepository.FEEDS, NewsRepository.DEFAULTS);
+        ioWorker.execute(() -> {
+            try {
+                List<NewsRepository.Story> stories = NewsRepository.fetch(feeds);
+                runOnUiThread(() -> {
+                    if (isFinishing() || newsContent == null) return;
+                    if (!stories.isEmpty()) preferences.edit().putString(NewsRepository.CACHE, NewsRepository.encode(stories)).apply();
+                    List<NewsRepository.Story> display = stories.isEmpty()
+                            ? NewsRepository.decode(preferences.getString(NewsRepository.CACHE, "[]")) : stories;
+                    showNewsCarouselStories(display);
+                    while (newsContent.getChildCount() > 3) newsContent.removeViewAt(3);
+                    if (display.isEmpty()) newsContent.addView(label(AppLanguage.get(R.string.news_empty), 16, MUTED, false));
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    if (newsContent == null || isFinishing()) return;
+                    List<NewsRepository.Story> cached = NewsRepository.decode(preferences.getString(NewsRepository.CACHE, "[]"));
+                    showNewsCarouselStories(cached);
+                    while (newsContent.getChildCount() > 3) newsContent.removeViewAt(3);
+                    if (cached.isEmpty()) newsContent.addView(label(AppLanguage.get(R.string.news_refresh_error), 16, MUTED, false));
+                });
+            }
+        });
+    }
+
+    private FrameLayout buildNewsCarousel() {
+        FrameLayout frame = new FrameLayout(this);
+        frame.setFocusable(true);
+        frame.setClickable(true);
+        frame.setClipToOutline(true);
+        newsCarouselPhotoFallback = new View(this);
+        NewsArtwork.apply(newsCarouselPhotoFallback, 0, dp(18));
+        frame.addView(newsCarouselPhotoFallback, new FrameLayout.LayoutParams(-1, -1));
+        newsCarouselPhoto = new ImageView(this);
+        newsCarouselPhoto.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        frame.addView(newsCarouselPhoto, new FrameLayout.LayoutParams(-1, -1));
+        View shade = new View(this);
+        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x11000000, 0x18000000, 0xE8101820}));
+        frame.addView(shade, new FrameLayout.LayoutParams(-1, -1));
+
+        newsCarouselMeta = label("", 14, 0xFFE2E8EE, true);
+        newsCarouselMeta.setPadding(dp(24), dp(20), dp(24), 0);
+        frame.addView(newsCarouselMeta, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP | Gravity.START));
+        newsCarouselPosition = label("", 13, 0xFFE2E8EE, true);
+        newsCarouselPosition.setGravity(Gravity.CENTER);
+        newsCarouselPosition.setBackground(roundedShape(0x99081018, 0x66FFFFFF, 1, 20));
+        FrameLayout.LayoutParams positionParams = new FrameLayout.LayoutParams(dp(74), dp(34), Gravity.TOP | Gravity.END);
+        positionParams.setMargins(0, dp(14), dp(16), 0);
+        frame.addView(newsCarouselPosition, positionParams);
+        newsCarouselTitle = label("", 30, Color.WHITE, true);
+        newsCarouselTitle.setMaxLines(3);
+        newsCarouselTitle.setEllipsize(TextUtils.TruncateAt.END);
+        newsCarouselTitle.setShadowLayer(dp(8), 0, dp(2), 0xAA000000);
+        FrameLayout.LayoutParams titleParams = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM | Gravity.START);
+        titleParams.setMargins(dp(24), 0, dp(24), dp(24));
+        frame.addView(newsCarouselTitle, titleParams);
+
+        StateListDrawable states = new Motion.States();
+        states.addState(new int[]{android.R.attr.state_focused}, roundedShape(0x00000000, LiquidTheme.accent(this), 3, 18));
+        states.addState(new int[]{}, roundedShape(0x00000000, 0x66FFFFFF, 1, 18));
+        frame.setBackground(states);
+        frame.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
+        Motion.interaction(frame, true);
+        frame.setOnClickListener(v -> openNewsCarouselStory());
+        return frame;
+    }
+
+    private void showNewsCarouselStories(List<NewsRepository.Story> stories) {
+        String selectedLink = newsCarouselStories.isEmpty() ? preferences.getString("newsSelectedStory", "")
+                : newsCarouselStories.get(Math.min(newsCarouselIndex, newsCarouselStories.size() - 1)).link;
+        newsCarouselStories = new ArrayList<>(stories);
+        newsCarouselIndex = 0;
+        for (int i = 0; i < newsCarouselStories.size(); i++) {
+            if (newsCarouselStories.get(i).link.equals(selectedLink)) { newsCarouselIndex = i; break; }
+        }
+        if (!newsCarouselStories.isEmpty()) bindNewsCarouselStory();
+        updateNewsCarouselPlayback();
+    }
+
+    private void bindNewsCarouselStory() {
+        if (newsCarousel == null || newsCarouselStories.isEmpty()) return;
+        NewsRepository.Story story = newsCarouselStories.get(newsCarouselIndex);
+        newsCarouselMeta.setText(story.source + (story.publishedAt > 0
+                ? " · " + android.text.format.DateFormat.format("dd MMM HH:mm", story.publishedAt) : ""));
+        newsCarouselPosition.setText((newsCarouselIndex + 1) + " / " + newsCarouselStories.size());
+        newsCarouselTitle.setText(story.title);
+        newsCarousel.setContentDescription(story.source + ". " + story.title + ". "
+                + (newsCarouselIndex + 1) + " / " + newsCarouselStories.size());
+        NewsArtwork.apply(newsCarouselPhotoFallback, newsCarouselIndex, dp(18));
+        newsArtworkLoader.load(story.image, newsCarouselPhoto, newsCarouselPhotoFallback);
+    }
+
+    private void openNewsCarouselStory() {
+        if (newsCarouselStories.isEmpty()) return;
+        NewsRepository.Story story = newsCarouselStories.get(newsCarouselIndex);
+        try {
+            startActivity(new Intent(this, NewsFeedActivity.class)
+                    .putExtra("url", story.link).putExtra("title", story.title));
+        } catch (Exception ignored) {
+            Toast.makeText(this, AppLanguage.get(R.string.news_open_error), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void advanceNewsCarousel() {
+        if (!canAutoSlideNews()) return;
+        animateNewsCarouselTo((newsCarouselIndex + 1) % newsCarouselStories.size(), true);
+    }
+
+    private void animateNewsCarouselTo(int index, boolean moveRight) {
+        if (newsCarousel == null || newsCarouselStories.size() < 2 || newsCarouselTransitioning) return;
+        newsCarouselTransitioning = true;
+        handler.removeCallbacks(newsCarouselTick);
+        float offset = dp(moveRight ? 54 : -54);
+        int duration = Motion.enabled() ? 260 : 0;
+        newsCarousel.animate().cancel();
+        newsCarousel.animate().translationX(offset).alpha(0f).setDuration(duration)
+                .setInterpolator(Motion.EASING).withEndAction(() -> {
+                    newsCarouselIndex = index;
+                    bindNewsCarouselStory();
+                    newsCarousel.setTranslationX(-offset);
+                    newsCarousel.animate().alpha(1f).translationX(0f)
+                            .setDuration(Motion.enabled() ? 320 : 0)
+                            .setInterpolator(Motion.EASING).withEndAction(() -> {
+                                newsCarouselTransitioning = false;
+                                updateNewsCarouselPlayback();
+                            }).start();
+                }).start();
+    }
+
+    private boolean canAutoSlideNews() {
+        return screenActive && activeTab == TAB_NEWS && settingsScreen == null && newsCarousel != null
+                && newsCarousel.isShown() && newsCarouselStories.size() > 1 && !isFinishing();
+    }
+
+    private void updateNewsCarouselPlayback() {
+        handler.removeCallbacks(newsCarouselTick);
+        if (canAutoSlideNews() && !newsCarouselTransitioning) handler.postDelayed(newsCarouselTick, 5500);
+    }
+
+    private void restoreNewsCarouselSelection() {
+        if (newsCarousel == null || newsCarouselStories.isEmpty()) return;
+        String selected = preferences.getString("newsSelectedStory", "");
+        for (int i = 0; i < newsCarouselStories.size(); i++) {
+            if (newsCarouselStories.get(i).link.equals(selected)) {
+                newsCarouselIndex = i;
+                bindNewsCarouselStory();
+                break;
+            }
+        }
+    }
+
     private void ensureTabBuilt(int tab) {
         if (tab == TAB_TV) {
             if (channelRows == null) buildLiveTab();
@@ -1236,7 +1458,52 @@ public final class MainActivity extends LocalizedActivity {
         } else if (tab == TAB_SAVED) {
             if (youtubeRow == null) buildSavedTab();
             renderYouTubeCards();
+        } else if (tab == TAB_ACTIVITIES) {
+            if (activitiesPanel == null) {
+                activitiesPanel = new ActivitiesPanel(this);
+                activitiesContent.addView(activitiesPanel);
+                linkTabEntry(TAB_ACTIVITIES, activitiesPanel.refreshButton);
+            }
+            activitiesPanel.refresh();
+        } else if (tab == TAB_NEWS && newsContent.getChildCount() == 1) {
+            LinearLayout toolbar = new LinearLayout(this);
+            toolbar.setGravity(Gravity.CENTER_VERTICAL);
+            View heading = newsContent.getChildAt(0);
+            newsContent.removeView(heading);
+            toolbar.addView(heading, new LinearLayout.LayoutParams(0, -2, 1));
+            Button refresh = actionButton(AppLanguage.get(R.string.news_refresh));
+            refresh.setOnClickListener(v -> refreshNews());
+            toolbar.addView(refresh, new LinearLayout.LayoutParams(dp(190), dp(44)));
+            Button feeds = actionButton(AppLanguage.get(R.string.news_manage_feeds));
+            feeds.setOnClickListener(v -> editNewsFeeds());
+            LinearLayout.LayoutParams feedsParams = new LinearLayout.LayoutParams(dp(190), dp(44));
+            feedsParams.leftMargin = dp(12);
+            toolbar.addView(feeds, feedsParams);
+            LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(-1, dp(72));
+            headerParams.topMargin = dp(4);
+            newsContent.addView(toolbar, headerParams);
+            linkTabEntry(TAB_NEWS, refresh);
+            TextView info = label(AppLanguage.get(R.string.news_latest), 12, MUTED, true);
+            info.setPadding(dp(4), dp(18), 0, dp(12));
+            newsContent.addView(info);
+            newsCarousel = buildNewsCarousel();
+            newsContent.addView(newsCarousel, new LinearLayout.LayoutParams(-1, dp(260)));
+            List<NewsRepository.Story> cached = NewsRepository.decode(preferences.getString(NewsRepository.CACHE, "[]"));
+            if (!cached.isEmpty()) showNewsCarouselStories(cached);
+            refreshNews();
         }
+    }
+
+    private void editNewsFeeds() {
+        EditText input = new EditText(this);
+        input.setSingleLine(false); input.setMinLines(3);
+        input.setText(preferences.getString(NewsRepository.FEEDS, NewsRepository.DEFAULTS));
+        new AlertDialog.Builder(this).setTitle(AppLanguage.get(R.string.news_feed_urls)).setView(input)
+                .setNegativeButton(AppLanguage.get(R.string.ui_cancel), null)
+                .setPositiveButton(AppLanguage.get(R.string.ui_save), (dialog, which) -> {
+                    preferences.edit().putString(NewsRepository.FEEDS, input.getText().toString().trim()).apply();
+                    refreshNews();
+                }).show();
     }
 
     @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
@@ -1252,6 +1519,10 @@ public final class MainActivity extends LocalizedActivity {
         page.setClipChildren(true);
         page.setClipToPadding(false);
         page.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        if (tab == TAB_NEWS || tab == TAB_ACTIVITIES) {
+            page.setPadding(0, 0, 0, dp(12));
+            page.setClipToPadding(true);
+        }
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         int topPad = tab == TAB_TV ? dp(24) : dp(54);
@@ -1263,7 +1534,7 @@ public final class MainActivity extends LocalizedActivity {
         title.setTypeface(LiquidTheme.font(this));
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, dp(72));
         titleParams.topMargin = dp(4);
-        content.addView(title, titleParams);
+        if (tab != TAB_ACTIVITIES) content.addView(title, titleParams);
         page.addView(content);
         page.setOnScrollChangeListener((v, x, y, oldX, oldY) -> {
             if (activeTab == tab) browsingShade.setAlpha(Math.min(.94f,
@@ -1276,14 +1547,14 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     private void linkTabEntry(int tab, View entry) {
-        if (entry == null || tab < TAB_HOME || tab > TAB_SAVED || tabButtons[tab] == null) return;
+        if (entry == null || tab < TAB_HOME || tab > TAB_ACTIVITIES || tabButtons[tab] == null) return;
         if (entry.getId() == View.NO_ID) entry.setId(View.generateViewId());
         tabButtons[tab].setNextFocusUpId(entry.getId());
         tabEntryFocus[tab] = entry;
     }
 
     private void linkTopControl(int tab, View control) {
-        if (control == null || tab < TAB_HOME || tab > TAB_SAVED) return;
+        if (control == null || tab < TAB_HOME || tab > TAB_ACTIVITIES) return;
         if (control.getId() == View.NO_ID) control.setId(View.generateViewId());
     }
 
@@ -1306,6 +1577,15 @@ public final class MainActivity extends LocalizedActivity {
             int direction = focusDirection(event.getKeyCode());
             if (activeTab == TAB_EVENTS && focused != null
                     && handleCalendarDirection(focused, direction)) return true;
+            if (activeTab == TAB_NEWS && newsCarousel != null && focused != null
+                    && isWithinPage(focused, newsCarousel)
+                    && (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT)
+                    && newsCarouselStories.size() > 1) {
+                int step = direction == View.FOCUS_RIGHT ? 1 : -1;
+                int next = (newsCarouselIndex + step + newsCarouselStories.size()) % newsCarouselStories.size();
+                animateNewsCarouselTo(next, step > 0);
+                return true;
+            }
             if (focused != null && tabRow != null && isWithinPage(focused, tabRow)) {
                 if (direction == View.FOCUS_UP) {
                     if (activeTab == TAB_TV) {
@@ -1556,7 +1836,7 @@ public final class MainActivity extends LocalizedActivity {
         // Hiding a focused page can synchronously focus a navigation button.
         // Its listener must not start another switch partway through this one.
         if (switchingTabs) return;
-        if (tab < TAB_HOME || tab > TAB_SAVED || tabPages[TAB_HOME] == null) return;
+        if (tab < TAB_HOME || tab > TAB_ACTIVITIES || tabPages[TAB_HOME] == null) return;
         final int selectedTab = (tab == TAB_TV && isNavigationHidden(tab))
                 || (!tabsInitialized && isNavigationHidden(tab))
                 ? TAB_HOME : tab;
@@ -1617,11 +1897,11 @@ public final class MainActivity extends LocalizedActivity {
                 else if (!keepNavigationFocus && previous != null && previous.isAttachedToWindow() && previous.isShown()) previous.requestFocus();
             });
         }
+        updateNewsCarouselPlayback();
     }
 
     private boolean isNavigationHidden(int tab) {
-        String key = tab == TAB_TV ? PREF_HIDE_LIVE_TV : tab == TAB_GAMES ? PREF_HIDE_GAMES
-                : tab == TAB_EVENTS ? PREF_HIDE_EVENTS : null;
+        String key = NavigationPreferences.hiddenKey(tab);
         return key != null && preferences.getBoolean(key, false);
     }
 
@@ -3069,6 +3349,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == ActivitiesRepository.REQUEST_PERMISSION) {
+            if (activitiesPanel != null && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) activitiesPanel.refresh();
+            return;
+        }
         if (requestCode != REQUEST_WEATHER_LOCATION) return;
         boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
         if (pendingDeviceWeatherLocation && granted) requestDeviceWeatherLocation();
@@ -3263,12 +3547,17 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void renderApps() {
-        if (appRow == null || appsLoading) return;
+        if (appRow == null) return;
+        if (appsLoading) { appsRefreshPending = true; return; }
         appsLoading = true;
-        appRow.removeAllViews();
-        TextView loading = label(AppLanguage.get(R.string.ui_loading_apps), 15, MUTED, false);
-        loading.setGravity(Gravity.CENTER_VERTICAL);
-        appRow.addView(loading, new LinearLayout.LayoutParams(dp(180), dp(72)));
+        if (!appsLoaded) {
+            // Preserve the existing row and its focus during background refreshes.
+            if (appRow.getChildCount() == 0) {
+                TextView loading = label(AppLanguage.get(R.string.ui_loading_apps), 15, MUTED, false);
+                loading.setGravity(Gravity.CENTER_VERTICAL);
+                appRow.addView(loading, new LinearLayout.LayoutParams(dp(180), dp(72)));
+            }
+        }
         lifecycleWork.execute(ioWorker, () -> {
             List<AppEntry> loaded = installedApps();
             List<String> selected = selectedPackages(loaded);
@@ -3292,6 +3581,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private void showApps(List<AppEntry> all) {
         if (appRow == null || isFinishing()) return;
         appsLoading = false;
+        if (appsRefreshPending) {
+            appsRefreshPending = false;
+            renderApps();
+            return;
+        }
         appsLoaded = true;
         View previous = appRow.findFocus();
         if (previous != null && previous.getTag() instanceof String) focusedPackage = (String) previous.getTag();
@@ -3336,7 +3630,10 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             tile.setBackground(appTileStates);
             tile.setFocusableInTouchMode(false);
             tile.setElevation(dp(2));
-            tile.setOnFocusChangeListener(LiquidTheme::animateFocus);
+            tile.setOnFocusChangeListener((view, focused) -> {
+                LiquidTheme.animateFocus(view, focused);
+                if (focused) updateHomeSpotlight(entry);
+            });
             Motion.interaction(tile, false);
             tile.setPadding(dp(10), dp(4), dp(8), dp(4));
             tile.setTag(packageName);
@@ -3370,11 +3667,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 if (musicToggle != null) musicToggle.setNextFocusDownId(tile.getId());
             }
             displayed++;
-            if (initialAppFocus && activeTab == TAB_HOME && settingsScreen == null
+            if (previous != null && initialAppFocus && activeTab == TAB_HOME && settingsScreen == null
                     && packageName.equals(focusedPackage)) tile.requestFocus();
         }
         if (displayed > 0) {
             tabButtons[TAB_HOME].setNextFocusUpId(appRow.getChildAt(0).getId());
+            if (previous != null && activeTab == TAB_HOME && settingsScreen == null && appRow.findFocus() == null)
+                appRow.getChildAt(0).requestFocus();
         }
         if (!initialAppFocus && activeTab == TAB_HOME && displayed > 0) {
             initialAppFocus = true;
@@ -4005,6 +4304,85 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         final String packageName, label;
         final Drawable icon;
         AppEntry(ApplicationInfo info, String packageName, String label, Drawable icon) { this.info = info; this.packageName = packageName; this.label = label; this.icon = icon; }
+    }
+
+    private void buildHomeSpotlight(FrameLayout host) {
+        homeSpotlight = new LinearLayout(this);
+        homeSpotlight.setGravity(Gravity.CENTER_VERTICAL);
+        homeSpotlight.setOrientation(LinearLayout.HORIZONTAL);
+        homeSpotlight.setClipChildren(false);
+        homeSpotlight.setClipToPadding(false);
+        homeSpotlight.setVisibility(View.GONE);
+
+        FrameLayout iconSurface = new FrameLayout(this);
+        iconSurface.setBackground(roundedShape(
+                LiquidTheme.isLight(this) ? 0xE9F9FCF8 : 0xB9102024,
+                LiquidTheme.isLight(this) ? LiquidTheme.border(this) : 0x667BE7F4, 1, 22));
+        iconSurface.setElevation(dp(8));
+        homeSpotlightIcon = new ImageView(this);
+        homeSpotlightIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(dp(66), dp(66), Gravity.CENTER);
+        iconSurface.addView(homeSpotlightIcon, iconParams);
+        homeSpotlight.addView(iconSurface, new LinearLayout.LayoutParams(dp(92), dp(92)));
+
+        homeSpotlightTitle = label("", 34, LiquidTheme.isLight(this) ? LiquidTheme.text(this) : Color.WHITE, true);
+        homeSpotlightTitle.setSingleLine(true);
+        homeSpotlightTitle.setEllipsize(TextUtils.TruncateAt.END);
+        homeSpotlightTitle.setShadowLayer(dp(12), 0, dp(2), 0x99000000);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1f);
+        titleParams.setMarginStart(dp(22));
+        homeSpotlight.addView(homeSpotlightTitle, titleParams);
+
+        FrameLayout.LayoutParams spotlightParams = new FrameLayout.LayoutParams(-1, dp(110),
+                Gravity.BOTTOM | Gravity.START);
+        spotlightParams.setMargins(dp(56), 0, dp(40), dp(14));
+        host.addView(homeSpotlight, spotlightParams);
+    }
+
+    private void updateHomeSpotlight(AppEntry entry) {
+        if (homeSpotlight == null || entry == null || entry.packageName.equals(homeSpotlightPackage)) return;
+        homeSpotlightPackage = entry.packageName;
+        homeSpotlightTitle.setText(entry.label);
+        Drawable icon = entry.icon;
+        if (icon != null && icon.getConstantState() != null) {
+            icon = icon.getConstantState().newDrawable(getResources()).mutate();
+        }
+        homeSpotlightIcon.setImageDrawable(icon);
+
+        boolean firstReveal = homeSpotlight.getVisibility() != View.VISIBLE;
+        homeSpotlight.setVisibility(View.VISIBLE);
+        homeSpotlight.animate().cancel();
+        homeSpotlightTitle.animate().cancel();
+        homeSpotlightIcon.animate().cancel();
+        if (firstReveal) {
+            homeSpotlight.setAlpha(0f);
+            homeSpotlight.setTranslationY(dp(12));
+            homeSpotlight.animate().alpha(1f).translationY(0f)
+                    .setDuration(Motion.enabled() ? 260 : 0)
+                    .setInterpolator(Motion.EASING).start();
+        } else {
+            homeSpotlightTitle.setAlpha(0.45f);
+            homeSpotlightTitle.setTranslationY(dp(6));
+            homeSpotlightTitle.animate().alpha(1f).translationY(0f)
+                    .setDuration(Motion.enabled() ? 180 : 0)
+                    .setInterpolator(Motion.EASING).start();
+            homeSpotlightIcon.setAlpha(0.55f);
+            homeSpotlightIcon.setScaleX(.92f);
+            homeSpotlightIcon.setScaleY(.92f);
+            homeSpotlightIcon.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                    .setDuration(Motion.enabled() ? 220 : 0)
+                    .setInterpolator(Motion.EASING).start();
+        }
+        ImageView backdrop = wallpaperImage;
+        if (slideA != null && slideA.getVisibility() == View.VISIBLE) backdrop = slideA;
+        else if (slideB != null && slideB.getVisibility() == View.VISIBLE) backdrop = slideB;
+        if (backdrop != null && backdrop.getVisibility() == View.VISIBLE) {
+            float direction = (entry.packageName.hashCode() & 1) == 0 ? -1f : 1f;
+            backdrop.animate().cancel();
+            backdrop.animate().translationX(direction * dp(8)).scaleX(1.025f).scaleY(1.025f)
+                    .setDuration(Motion.enabled() ? 420 : 0)
+                    .setInterpolator(Motion.EASING).start();
+        }
     }
 
     private List<AppEntry> installedApps() {
@@ -4985,7 +5363,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             dialog.setOnDismissListener(ignored -> {
                 if (channelAdapter != null) channelAdapter.cancelSearch();
                 if (settingsScreen == this) settingsScreen = null;
-                if (appsChanged) renderApps();
+                if (appsChanged || !appsLoaded) renderApps();
                 Set<String> freshHidden = HiddenChannels.load(preferences);
                 Set<String> freshFavorites = FavoriteChannels.load(preferences);
                 if (channelsChanged || !freshHidden.equals(hiddenChannelKeys) || !freshFavorites.equals(favoriteChannelKeys)) {
@@ -5310,25 +5688,19 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             orderRows.setClipToPadding(false);
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_visible_categories));
             addFormHint(form, AppLanguage.get(R.string.ui_choose_which_categories_appear_in_the_navigation_bar_your_games));
-            boolean hidden = preferences.getBoolean(PREF_HIDE_LIVE_TV, false);
-            addToggle(form, AppLanguage.get(R.string.ui_show_live_tv_in_navigation), !hidden, enabled -> {
-                preferences.edit().putBoolean(PREF_HIDE_LIVE_TV, !enabled).apply();
-                rebuildNavigationButtons();
-                renderNavigationOrder(orderRows, -1);
-                if (!enabled && activeTab == TAB_TV) selectTab(TAB_HOME, true);
-            });
-            addToggle(form, AppLanguage.get(R.string.ui_show_games_in_navigation), !preferences.getBoolean(PREF_HIDE_GAMES, false), enabled -> {
-                preferences.edit().putBoolean(PREF_HIDE_GAMES, !enabled).apply();
-                rebuildNavigationButtons();
-                renderNavigationOrder(orderRows, -1);
-                if (!enabled && activeTab == TAB_GAMES) selectTab(TAB_HOME, true);
-            });
-            addToggle(form, AppLanguage.get(R.string.ui_show_events_in_navigation), !preferences.getBoolean(PREF_HIDE_EVENTS, false), enabled -> {
-                preferences.edit().putBoolean(PREF_HIDE_EVENTS, !enabled).apply();
-                rebuildNavigationButtons();
-                renderNavigationOrder(orderRows, -1);
-                if (!enabled && activeTab == TAB_EVENTS) selectTab(TAB_HOME, true);
-            });
+            int[] visibilityLabels = {R.string.ui_show_live_tv_in_navigation, R.string.ui_show_games_in_navigation,
+                    R.string.ui_show_events_in_navigation, R.string.ui_show_saved_in_navigation,
+                    R.string.ui_show_news_in_navigation, R.string.ui_show_activities};
+            for (int tab : navigationOrder()) {
+                String key = NavigationPreferences.hiddenKey(tab);
+                View toggle = addToggle(form, AppLanguage.get(visibilityLabels[tab - 1]), !isNavigationHidden(tab), enabled -> {
+                    preferences.edit().putBoolean(key, !enabled).apply();
+                    rebuildNavigationButtons();
+                    renderNavigationOrder(orderRows, -1);
+                    if (!enabled && activeTab == tab) selectTab(TAB_HOME, true);
+                });
+                toggle.setTag("navigation-visible-" + tab);
+            }
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_item_order));
             addFormHint(form, AppLanguage.get(R.string.ui_home_stays_first_select_a_category_to_change_its_position_hidden));
             form.addView(orderRows);
@@ -5343,7 +5715,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         private void renderNavigationOrder(LinearLayout container, int focusTab) {
             container.removeAllViews();
             List<Integer> ordered = navigationOrder();
-            String[] positions = {AppLanguage.get(R.string.ui_first_after_home), AppLanguage.get(R.string.ui_second_after_home), AppLanguage.get(R.string.ui_third_after_home), AppLanguage.get(R.string.ui_last)};
+            String[] positions = new String[ordered.size()];
+            for (int i = 0; i < positions.length; i++) positions[i] = getString(R.string.ui_navigation_position, i + 1);
             for (int position = 0; position < ordered.size(); position++) {
                 final int tab = ordered.get(position);
                 View row = SettingsUi.choice(MainActivity.this, TAB_TITLES[tab]
@@ -5938,15 +6311,24 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             field.setPadding(dp(16), dp(10), dp(16), dp(10));
             SettingsUi.styleInput(field, multiline);
             field.setOnClickListener(v -> {
-                android.view.inputmethod.InputMethodManager imm =
-                        (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-                if (imm != null) imm.showSoftInput(field, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                field.requestFocus();
+                showSettingsKeyboard(field);
             });
             LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(-1, -2);
             fieldParams.setMargins(dp(8), dp(4), dp(8), dp(12));
             form.addView(field, fieldParams);
             if (firstControl == null) firstControl = field;
             return field;
+        }
+
+        private void showSettingsKeyboard(EditText field) {
+            field.post(() -> {
+                if (!field.hasFocus() || !field.isAttachedToWindow()) return;
+                android.view.inputmethod.InputMethodManager keyboard =
+                        (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (keyboard != null) keyboard.showSoftInput(field,
+                        android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            });
         }
 
         private Button addFormButton(LinearLayout form, String text, View.OnClickListener listener) {
@@ -5983,10 +6365,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             SettingsUi.hint(form, value);
         }
 
-        private void addToggle(LinearLayout form, String title, boolean checked, java.util.function.Consumer<Boolean> save) {
+        private View addToggle(LinearLayout form, String title, boolean checked, java.util.function.Consumer<Boolean> save) {
             View row = SettingsUi.toggle(MainActivity.this, title, checked, save);
             SettingsUi.add(form, row);
             if (firstControl == null) firstControl = row;
+            return row;
         }
 
         private void addChoice(LinearLayout form, String title, String[] options, int selected, java.util.function.IntConsumer save) {
@@ -6786,6 +7169,16 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                     strokePath.moveTo(6, 11); strokePath.lineTo(6, 15); strokePath.moveTo(4, 13); strokePath.lineTo(8, 13);
                     fillPath.addCircle(17, 12, 1, Path.Direction.CW);
                     fillPath.addCircle(19, 14, 1, Path.Direction.CW);
+                    break;
+                case TAB_ACTIVITIES:
+                    for (int x = 3; x <= 13; x += 10) for (int y = 3; y <= 13; y += 10)
+                        strokePath.addRoundRect(new RectF(x, y, x + 8, y + 8), 1, 1, Path.Direction.CW);
+                    break;
+                case TAB_NEWS:
+                    strokePath.moveTo(4, 3); strokePath.lineTo(20, 3); strokePath.lineTo(20, 21); strokePath.lineTo(12, 17);
+                    strokePath.lineTo(4, 21); strokePath.close();
+                    strokePath.moveTo(8, 8); strokePath.lineTo(16, 8);
+                    strokePath.moveTo(8, 12); strokePath.lineTo(16, 12);
                     break;
                 case TAB_EVENTS:
                     strokePath.addRoundRect(new RectF(3, 5, 21, 21), 2, 2, Path.Direction.CW);

@@ -2,12 +2,14 @@ package com.sva.launcher;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.view.ContextThemeWrapper;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.os.Bundle;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
@@ -54,6 +56,7 @@ public final class GuideActivity extends MotionActivity {
     private ProgressBar progress;
     private TaskProgress loadProgress;
     private AlertDialog actionDialog;
+    private GuideReminders.Reminder pendingReminderPermission;
     private Ruler ruler;
     private int loadGeneration, focusGeneration;
     private final Runnable tick = new Runnable() {
@@ -504,14 +507,52 @@ public final class GuideActivity extends MotionActivity {
         if (p == null || p.startMs <= System.currentTimeMillis()) { PlaybackLauncher.watch(this, channel, all); return; }
         boolean saved = reminded(channel, p);
         AlertDialog dialog = new AlertDialog.Builder(new ContextThemeWrapper(this, LiquidTheme.alertDialogTheme(this)))
-                .setTitle(p.title).setMessage(AppLanguage.get(R.string.ui_1_s_2_s_reminders_appear_five_minutes_before_the_show_while_sva, channel.name, range(p)))
+                .setTitle(p.title).setMessage(AppLanguage.get(R.string.ui_1_s_starts_at_2_s, channel.name, range(p)))
                 .setPositiveButton(saved ? AppLanguage.get(R.string.ui_remove_reminder) : AppLanguage.get(R.string.ui_remind_me), (d, which) -> {
                     if (saved) reminders.remove(reminder(channel, p));
-                    else if (!reminders.add(reminder(channel, p))) Toast.makeText(this, AppLanguage.get(R.string.ui_this_programme_has_already_started), Toast.LENGTH_SHORT).show();
+                    else requestReminder(reminder(channel, p));
                     updateDetails(); refreshBadges();
                 }).setNeutralButton(AppLanguage.get(R.string.ui_watch_channel), (d, which) -> PlaybackLauncher.watch(this, channel, all))
                 .setNegativeButton(AppLanguage.get(R.string.ui_cancel), null).create();
         showDialog(dialog);
+    }
+
+    private void requestReminder(GuideReminders.Reminder reminder) {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            pendingReminderPermission = reminder;
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 7421);
+            return;
+        }
+        saveReminderAndRequestExactAlarmAccess(reminder);
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != 7421) return;
+        GuideReminders.Reminder reminder = pendingReminderPermission;
+        pendingReminderPermission = null;
+        if (reminder == null) return;
+        // A denied notification permission keeps the existing in-app reminder behavior.
+        saveReminderAndRequestExactAlarmAccess(reminder);
+    }
+
+    private void saveReminderAndRequestExactAlarmAccess(GuideReminders.Reminder reminder) {
+        if (!reminders.add(reminder)) {
+            Toast.makeText(this, AppLanguage.get(R.string.ui_this_programme_has_already_started), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        updateDetails();
+        refreshBadges();
+        if (Build.VERSION.SDK_INT < 31 || !reminders.notificationsEnabled() || reminders.canScheduleExactAlarms()) return;
+        android.content.SharedPreferences preferences = getSharedPreferences("launcher", MODE_PRIVATE);
+        if (preferences.getBoolean("programmeReminderExactAlarmPrompted", false)) return;
+        preferences.edit().putBoolean("programmeReminderExactAlarmPrompted", true).apply();
+        try {
+            Intent intent = new Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    android.net.Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        } catch (Exception ignored) { }
     }
     private void showDialog(AlertDialog dialog) {
         actionDialog = dialog;

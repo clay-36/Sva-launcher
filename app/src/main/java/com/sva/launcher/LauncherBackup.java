@@ -26,9 +26,9 @@ final class LauncherBackup {
                 + "selectedApps wallpaper wallpaperAlbum wallpaperFolder photoFolderCacheUri photoFolderCacheImages "
                 + "googlePhotosCacheImages googlePhotosCacheUrl publicCalendarEvents publicCalendarUrl programmeReminders "
                 + "screensaverCacheImages screensaverCacheUrl screensaverAlbum screensaverCaption screensaverTheme "
-                + "appLanguage weatherCache weatherLocationLabel weatherLocationMode youtubeCards liquidGlassMode navigationOrder");
+                + "appLanguage weatherCache weatherLocationLabel weatherLocationMode youtubeCards liquidGlassMode navigationOrder activitiesChannelOrder");
         register(types, "boolean", "24h customApps guideCollapsed showDate weatherFahrenheit weatherMph "
-                + "youtubeArtworkFeedFallbackTried hideLiveTvNavigation hideGamesNavigation hideEventsNavigation "
+                + "youtubeArtworkFeedFallbackTried hideLiveTvNavigation hideGamesNavigation hideEventsNavigation hideActivitiesNavigation hideSavedNavigation hideNewsNavigation "
                 + "screensaverClock screensaverWeather screensaverEvents");
         register(types, "integer", "publicCalendarAttemptedVersion publicCalendarCacheVersion liveTvNavigationPosition "
                 + "screensaverIdleMinutes screensaverIntervalSeconds");
@@ -36,7 +36,7 @@ final class LauncherBackup {
                 + "googlePhotosAttemptedAt googlePhotosUpdatedAt publicCalendarAttemptedAt publicCalendarUpdatedAt "
                 + "screensaverCacheUpdatedAt weatherAttemptedAt weatherUpdatedAt weatherLatitude weatherLongitude "
                 + "scheduleSlideshowMs schedulePlaylistMs scheduleGuideMs scheduleCalendarMs scheduleGooglePhotosMs scheduleWeatherMs");
-        register(types, "string-set", "hiddenChannels favoriteChannels");
+        register(types, "string-set", "hiddenChannels favoriteChannels activitiesHiddenChannels");
         return types;
     }
 

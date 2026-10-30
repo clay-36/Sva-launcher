@@ -19,7 +19,10 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.StringReader;
+import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -46,6 +49,7 @@ final class IptvRepository {
     private static final int MAX_PLAYLIST_BYTES = 24 * 1024 * 1024;
     private static final int MAX_XML_GUIDE_BYTES = 128 * 1024 * 1024;
     private static final int MAX_JSON_GUIDE_BYTES = 16 * 1024 * 1024;
+    private static final long MAX_CHANNEL_CACHE_BYTES = 64L * 1024L * 1024L;
     private static final String GUIDE_TIME_ZONE = "Asia/Kolkata";
     private static final Object CACHE_REFRESH_LOCK = new Object();
 
@@ -1035,24 +1039,153 @@ final class IptvRepository {
     }
 
     private void saveCache(List<Channel> channels) throws Exception {
-        String serialized = serializeChannels(channels).toString();
         // Keep two independent atomic copies. If an interrupted write or filesystem
         // corruption makes the primary unreadable, startup can recover the last cache.
-        writeCache(CACHE_BACKUP_FILE, serialized);
-        writeCache(CACHE_FILE, serialized);
+        writeCache(CACHE_BACKUP_FILE, channels);
+        writeCache(CACHE_FILE, channels);
     }
 
-    private void writeCache(String fileName, String serialized) throws Exception {
+    private void writeCache(String fileName, List<Channel> channels) throws Exception {
         AtomicFile file = new AtomicFile(new java.io.File(context.getFilesDir(), fileName));
         FileOutputStream output = null;
         try {
             output = file.startWrite();
-            output.write(serialized.getBytes(StandardCharsets.UTF_8));
+            Writer writer = new OutputStreamWriter(new BoundedOutputStream(output, MAX_CHANNEL_CACHE_BYTES), StandardCharsets.UTF_8);
+            writeChannels(writer, channels);
+            writer.flush();
             file.finishWrite(output);
         } catch (Exception e) {
             if (output != null) file.failWrite(output);
             throw e;
         }
+    }
+
+    private static final class BoundedOutputStream extends OutputStream {
+        private final OutputStream output;
+        private final long limit;
+        private long written;
+
+        BoundedOutputStream(OutputStream output, long limit) {
+            this.output = output;
+            this.limit = limit;
+        }
+
+        @Override public void write(int value) throws IOException {
+            ensureCapacity(1);
+            output.write(value);
+            written++;
+        }
+
+        @Override public void write(byte[] bytes, int offset, int length) throws IOException {
+            ensureCapacity(length);
+            output.write(bytes, offset, length);
+            written += length;
+        }
+
+        private void ensureCapacity(int length) throws IOException {
+            if (length > limit - written) throw new IOException("Channel cache exceeds 64 MB limit");
+        }
+    }
+
+    private static void writeChannels(Writer writer, List<Channel> channels) throws IOException {
+        writer.write('[');
+        boolean first = true;
+        for (Channel channel : channels) {
+            if (!first) writer.write(',');
+            first = false;
+            writer.write('{');
+            boolean[] fieldFirst = {true};
+            writeJsonField(writer, fieldFirst, "name", channel.name);
+            writeJsonField(writer, fieldFirst, "url", channel.streamUrl);
+            writeJsonField(writer, fieldFirst, "id", channel.epgId);
+            writeJsonField(writer, fieldFirst, "group", channel.group);
+            writeJsonField(writer, fieldFirst, "logo", channel.logoUrl);
+            writeJsonField(writer, fieldFirst, "drmType", channel.drmType);
+            writeJsonField(writer, fieldFirst, "drmLicenseUrl", channel.drmLicenseUrl);
+            writeJsonName(writer, fieldFirst, "drmHeaders");
+            writeJsonStringMap(writer, channel.drmHeaders);
+            writeJsonField(writer, fieldFirst, "mimeType", channel.mimeType);
+            writeJsonName(writer, fieldFirst, "streamHeaders");
+            writeJsonStringMap(writer, channel.streamHeaders);
+            writeJsonField(writer, fieldFirst, "clearKeyData", channel.clearKeyData);
+            writeJsonField(writer, fieldFirst, "now", channel.now);
+            writeJsonField(writer, fieldFirst, "next", channel.next);
+            writeJsonNumberField(writer, fieldFirst, "nowStartMs", channel.nowStartMs);
+            writeJsonNumberField(writer, fieldFirst, "nowEndMs", channel.nowEndMs);
+            writeJsonName(writer, fieldFirst, "programmes");
+            writer.write('[');
+            boolean firstProgramme = true;
+            for (Programme programme : channel.programmes) {
+                if (!firstProgramme) writer.write(',');
+                firstProgramme = false;
+                writer.write("{\"title\":");
+                writeJsonString(writer, programme.title);
+                writer.write(",\"startMs\":");
+                writer.write(Long.toString(programme.startMs));
+                writer.write(",\"endMs\":");
+                writer.write(Long.toString(programme.endMs));
+                writer.write('}');
+            }
+            writer.write("]}");
+        }
+        writer.write(']');
+    }
+
+    private static void writeJsonField(Writer writer, boolean[] first, String name, String value) throws IOException {
+        writeJsonName(writer, first, name);
+        writeJsonString(writer, value);
+    }
+
+    private static void writeJsonNumberField(Writer writer, boolean[] first, String name, long value) throws IOException {
+        writeJsonName(writer, first, name);
+        writer.write(Long.toString(value));
+    }
+
+    private static void writeJsonStringMap(Writer writer, Map<String, String> values) throws IOException {
+        writer.write('{');
+        boolean first = true;
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            if (!first) writer.write(',');
+            first = false;
+            writeJsonString(writer, entry.getKey());
+            writer.write(':');
+            writeJsonString(writer, entry.getValue());
+        }
+        writer.write('}');
+    }
+
+    private static void writeJsonName(Writer writer, boolean[] first, String name) throws IOException {
+        if (!first[0]) writer.write(',');
+        first[0] = false;
+        writeJsonString(writer, name);
+        writer.write(':');
+    }
+
+    private static void writeJsonString(Writer writer, String value) throws IOException {
+        writer.write('"');
+        if (value != null) {
+            for (int i = 0; i < value.length(); i++) {
+                char ch = value.charAt(i);
+                switch (ch) {
+                    case '"': writer.write("\\\""); break;
+                    case '\\': writer.write("\\\\"); break;
+                    case '\b': writer.write("\\b"); break;
+                    case '\f': writer.write("\\f"); break;
+                    case '\n': writer.write("\\n"); break;
+                    case '\r': writer.write("\\r"); break;
+                    case '\t': writer.write("\\t"); break;
+                    default:
+                        if (ch < 0x20) {
+                            writer.write("\\u00");
+                            writer.write("0123456789abcdef".charAt((ch >> 4) & 0xf));
+                            writer.write("0123456789abcdef".charAt(ch & 0xf));
+                        } else {
+                            writer.write(ch);
+                        }
+                }
+            }
+        }
+        writer.write('"');
     }
 
     private JSONArray serializeChannels(List<Channel> channels) throws Exception {

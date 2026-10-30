@@ -35,7 +35,7 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/home.png" alt="Sva home screen with apps, weather, clock, and a city wallpaper" /><br /><sub><strong>Home</strong> — apps and useful information at a glance</sub></td>
+    <td width="50%" align="center"><img src="screenshots/home.png" alt="Sva home screen with a focused app spotlight, weather, clock, and a photo wallpaper" /><br /><sub><strong>Home</strong> — apps and useful information at a glance</sub></td>
     <td width="50%" align="center"><img src="screenshots/live.png" alt="Live TV channels grouped by category" /><br /><sub><strong>Live TV</strong> — categories, channel logos, and now/next data</sub></td>
   </tr>
   <tr>
@@ -49,11 +49,20 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
   <td width="50%" align="center"><img src="screenshots/games_play_2.png" alt="Bring your own NES games" /><br /><sub><strong>Games</strong> — import your own NES ROMs</sub></td>
 <td width="50%" align="center"><img src="screenshots/saved.png" alt="Saved YouTube videos and playlists" /><br /><sub><strong>Saved</strong> — shortcuts to videos and playlists</sub></td>
   </tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/activities.png" alt="Activities recommendations from installed Android TV apps" /><br /><sub><strong>Activities</strong> — browse recommendations from installed apps</sub></td>
+    <td width="50%" align="center"><img src="screenshots/news.png" alt="News headlines in the automatically advancing carousel" /><br /><sub><strong>News</strong> — headlines combined from configured feeds</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/news_fullscreen.png" alt="Fullscreen news story with remote navigation" /><br /><sub><strong>News</strong> — open any headline in the fullscreen reader</sub></td>
+    <td width="50%" align="center"><img src="screenshots/news_reader.png" alt="Readable article view with extracted headline and body" /><br /><sub><strong>Read mode</strong> — focus on the article with Mozilla Readability</sub></td>
+  </tr>
 </table>
 
 ## Features
 
 - **Remote-first navigation** — focusing a top-level tab selects it immediately, with clear focus states throughout the UI. Settings dialog supports seamless two-way D-pad navigation between categories and controls without remote focus traps.
+- **Smooth app and activity browsing** — focused apps animate into a home spotlight, while Activities cards reveal artwork and respond to focus.
 - **23 interface languages** (🇺🇸 🇬🇧 🇮🇳 🇪🇸 🇫🇷 🇸🇦 🇧🇷 🇨🇳 🇹🇼 🇩🇪 🇯🇵 🇰🇷 🇷🇺 🇮🇩 🇹🇷 🇧🇩 🇵🇰...) — follow the TV language or choose a language under **Settings → System → Language**, with refined offline translations and right-to-left layouts for Arabic and Urdu.
 - **Personal home screen** — select and reorder app shortcuts; keep the clock, date, weather, Wi-Fi, tools, and settings close by.
 - **Photo backdrops & dynamic contrast** — use a single image, rotate a local folder, or connect a public Google Photos album. Per-region luminance analysis dynamically adapts header widget text, accents, and drop shadows for optimal contrast over any wallpaper.
@@ -64,6 +73,7 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 - **Events calendar** — combine iCalendar feeds from Google Calendar, other providers, or local servers, see today's events, browse 12 months in either direction, and view selected-day details and lunar illumination.
 - **Saved videos** — create artwork-rich shortcuts for YouTube videos and playlists, with remote actions to edit title, artwork, or remove cards directly from settings.
 - **Weather** — current conditions and a three-day forecast from Open-Meteo, using a chosen city or optional approximate device location.
+- **News and read mode** — combine RSS/Atom feeds by publication time, browse an auto-advancing headline carousel, and open articles in a cleaner Mozilla Readability view.
 - **Configurable refresh schedules** — independently control updates for photos, playlists, programme data, calendars, and Google Photos.
 - **Backup and restore** — export launcher preferences, app and channel choices, and IPTV/DRM configuration to JSON.
 - **TV file browser** — browse internal storage and USB drives with the remote when adding games, choosing images or photo folders, and saving or restoring backups.
@@ -129,6 +139,14 @@ The first time you browse local files, allow Sva storage access in Android setti
 
 If the TV continues to open its built-in launcher, go to **Settings → Home button**, open Android's Accessibility settings, and enable Sva's service. This helper is optional and can be disabled at any time.
 
+## Activities recommendations
+
+The **Activities** tab shows recommendation channels shared by installed Android TV apps. Allow TV-listings access when prompted, then use **Refresh** to discover channels. Selecting a recommendation opens its publishing app.
+
+Use **Customize channels** to show or hide rows. Choose **Reorder**, select a channel, and pick its new position. These choices are saved in Sva and included in configuration backups. Activities can also be hidden or moved under **Settings → Navigation**.
+
+Available channels depend on the TV and installed apps. Sva can read searchable channels exposed by Android's TV provider; private or restricted recommendations may not be available. Open the publishing apps and enable their Home-screen channels if no rows appear.
+
 ## Sva Memories screensaver
 
 Open **Settings → Appearance → Screensaver · Sva Memories**. The screensaver follows
@@ -175,7 +193,7 @@ Android DreamService runs independently of the launcher and exits on user input.
 
 Choose **Open TV guide** in Live TV for the full-screen schedule. The guide opens in the selected channel category, with an **All channels** option, a shared time ruler, live progress, and programme reminders. Use Up/Down for channels, Left/Right for programmes, **Now** to return to the current time, and Back to return to Live TV. Hidden channels stay hidden; channels without guide data remain watchable.
 
-Guide entries are matched to channels by `tvg-id`. Selecting a current programme starts playback; selecting an upcoming programme creates an in-app reminder five minutes before it begins. Reminders are shown only while Sva is open and do not create background notifications.
+Guide entries are matched to channels by `tvg-id`. Selecting a current programme starts playback; selecting an upcoming programme creates a reminder five minutes before it begins. With notifications enabled, reminders can notify you while Sva is closed and open the matching channel when selected. Android may ask for notification and exact-alarm access; if notifications are disabled, reminders can still appear while Sva is open.
 
 Sva supports HLS and DASH streams with Widevine and ClearKey DRM, custom HTTP headers, and per-channel playlist overrides. For advanced playlist properties, Kodi options, and license setup, see the [IPTV & DRM guide](DEVELOPER.md#iptv--drm-stream-configuration).
 

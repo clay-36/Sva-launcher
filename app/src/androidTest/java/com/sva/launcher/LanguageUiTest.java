@@ -187,6 +187,44 @@ public final class LanguageUiTest extends InstrumentationTestCase {
         } finally { select(base, previous); }
     }
 
+    public void testNewsScreensUseSelectedLanguage() throws Exception {
+        Context base = getInstrumentation().getTargetContext();
+        String language = AppLanguage.selected(base);
+        android.content.SharedPreferences prefs = base.getSharedPreferences("launcher", 0);
+        String cache = prefs.getString(NewsRepository.CACHE, null), selected = prefs.getString("newsSelectedStory", null);
+        NewsRepository.Story story = new NewsRepository.Story();
+        story.title = "Fixture headline"; story.source = "Fixture publisher"; story.link = "https://example.invalid/story";
+        prefs.edit().putString(NewsRepository.CACHE, NewsRepository.encode(java.util.Collections.singletonList(story))).commit();
+        try {
+            for (String tag : new String[]{"en", "gu", "ar"}) {
+                select(base, tag);
+                NewsFeedActivity feed = start(NewsFeedActivity.class);
+                try {
+                    long deadline = SystemClock.uptimeMillis() + 3000;
+                    while (!hasText(feed.findViewById(android.R.id.content), feed.getString(R.string.news_read_article)) && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(30);
+                    assertTrue(tag + ": news action must be translated", hasText(feed.findViewById(android.R.id.content), feed.getString(R.string.news_read_article)));
+                    assertEquals("ar".equals(tag) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR, feed.getWindow().getDecorView().getLayoutDirection());
+                } finally { finish(feed); }
+                NewsReaderActivity reader = start(NewsReaderActivity.class);
+                try {
+                    assertTrue(hasText(reader.findViewById(android.R.id.content), reader.getString(R.string.news_open_original)));
+                    assertTrue(hasText(reader.findViewById(android.R.id.content), reader.getString(R.string.news_article)));
+                } finally { finish(reader); }
+            }
+        } finally {
+            android.content.SharedPreferences.Editor restore = prefs.edit();
+            if (cache == null) restore.remove(NewsRepository.CACHE); else restore.putString(NewsRepository.CACHE, cache);
+            if (selected == null) restore.remove("newsSelectedStory"); else restore.putString("newsSelectedStory", selected);
+            restore.commit(); select(base, language);
+        }
+    }
+
+    private boolean hasText(View view, String text) {
+        if (view instanceof android.widget.TextView && text.contentEquals(((android.widget.TextView) view).getText())) return true;
+        if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++) if (hasText(((ViewGroup) view).getChildAt(i), text)) return true;
+        return false;
+    }
+
     private void screenshot(String name) throws Exception {
         if (!"true".equals(((android.test.InstrumentationTestRunner)getInstrumentation()).getArguments().getString("screenshots"))) return;
         SystemClock.sleep(250);

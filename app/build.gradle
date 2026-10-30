@@ -20,8 +20,8 @@ android {
         minSdk 26
         targetSdk 36
 
-        versionCode 12
-        versionName "4.1.7"
+        versionCode 13
+        versionName "4.1.8"
         testInstrumentationRunner "android.test.InstrumentationTestRunner"
 
         ndk {
@@ -88,6 +88,7 @@ dependencies {
     implementation "androidx.media3:media3-exoplayer-dash:$media3Version"
     implementation "androidx.media3:media3-ui:$media3Version"
     implementation "androidx.recyclerview:recyclerview:1.4.0"
+    implementation "org.jsoup:jsoup:1.18.3"
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.json:json:20240303"
 }
