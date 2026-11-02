@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">إظهار المحفوظة في التنقل</string>
     <string name="news_reader_failed">تعذر إعداد عرض المقالة. يتم عرض الصفحة الأصلية.</string>
     <string name="news_reader_loading">إعداد عرض واضح للمقال…</string>
+    <string name="activities_empty_title">"تطبيقاتك، كلها معًا"</string>
+    <string name="activities_browse_hint">"استكشف توصيات تطبيقاتك · اضغط OK للفتح"</string>
+    <string name="ui_document_picker_unavailable">"لا يوجد منتقي ملفات للنظام. ثبّت منتقي مستندات أو فعّله لتحديد الملفات والمجلدات."</string>
 </resources>

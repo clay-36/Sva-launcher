@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">Mostrar guardado en navegación</string>
     <string name="news_reader_failed">No se pudo preparar la vista del artículo. Se muestra la página original.</string>
     <string name="news_reader_loading">Preparando una vista clara del artículo...</string>
+    <string name="activities_empty_title">"Tus aplicaciones, juntas"</string>
+    <string name="activities_browse_hint">"Explora recomendaciones de tus aplicaciones · Pulsa OK para abrir"</string>
+    <string name="ui_document_picker_unavailable">"No hay un selector de archivos del sistema instalado. Instala o activa un selector de documentos para elegir archivos y carpetas."</string>
 </resources>

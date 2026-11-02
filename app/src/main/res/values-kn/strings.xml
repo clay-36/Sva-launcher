@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">ನ್ಯಾವಿಗೇಷನ್‌ನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ ತೋರಿಸಿ</string>
     <string name="news_reader_failed">ಲೇಖನ ವೀಕ್ಷಣೆಯನ್ನು ಸಿದ್ಧಪಡಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮೂಲ ಪುಟವನ್ನು ತೋರಿಸಲಾಗಿದೆ.</string>
     <string name="news_reader_loading">ಸ್ಪಷ್ಟ ಲೇಖನ ವೀಕ್ಷಣೆಯನ್ನು ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ...</string>
+    <string name="activities_empty_title">"ನಿಮ್ಮ ಎಲ್ಲಾ ಆ್ಯಪ್‌ಗಳು ಒಂದೇ ಕಡೆ"</string>
+    <string name="activities_browse_hint">"ನಿಮ್ಮ ಆ್ಯಪ್‌ಗಳ ಶಿಫಾರಸುಗಳನ್ನು ನೋಡಿ · ತೆರೆಯಲು OK ಒತ್ತಿರಿ"</string>
+    <string name="ui_document_picker_unavailable">"ಸಿಸ್ಟಮ್ ಫೈಲ್ ಆಯ್ಕೆ ಸಾಧನ ಸ್ಥಾಪಿಸಲಾಗಿಲ್ಲ. ಫೈಲ್‌ಗಳು ಮತ್ತು ಫೋಲ್ಡರ್‌ಗಳನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಡಾಕ್ಯುಮೆಂಟ್ ಆಯ್ಕೆ ಸಾಧನವನ್ನು ಸ್ಥಾಪಿಸಿ ಅಥವಾ ಸಕ್ರಿಯಗೊಳಿಸಿ."</string>
 </resources>

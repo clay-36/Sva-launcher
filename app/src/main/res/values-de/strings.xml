@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">Gespeichert in der Navigation anzeigen</string>
     <string name="news_reader_failed">Die Artikelansicht konnte nicht vorbereitet werden. Die Originalseite wird angezeigt.</string>
     <string name="news_reader_loading">Eine übersichtliche Artikelansicht vorbereiten…</string>
+    <string name="activities_empty_title">"Alle deine Apps an einem Ort"</string>
+    <string name="activities_browse_hint">"Entdecke Empfehlungen deiner Apps · Zum Öffnen OK drücken"</string>
+    <string name="ui_document_picker_unavailable">"Kein System-Dateiauswahldialog installiert. Installiere oder aktiviere eine Dokumentauswahl, um Dateien und Ordner auszuwählen."</string>
 </resources>

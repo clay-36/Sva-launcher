@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">在導航中顯示已儲存</string>
     <string name="news_reader_failed">無法準備文章視圖。显示原始页面。</string>
     <string name="news_reader_loading">準備清晰的文章視圖...</string>
+    <string name="activities_empty_title">"所有應用程式，匯聚一處"</string>
+    <string name="activities_browse_hint">"瀏覽應用程式推薦 · 按 OK 開啟"</string>
+    <string name="ui_document_picker_unavailable">"未安裝系統檔案選擇器。請安裝或啟用文件選擇器，以選擇檔案和資料夾。"</string>
 </resources>

@@ -712,4 +712,7 @@
     <string name="news_open_original">Open original website</string>
     <string name="news_reader_loading">Preparing a clear article view…</string>
     <string name="news_reader_failed">Could not prepare the article view. The original page is shown.</string>
+    <string name="ui_document_picker_unavailable">No system file picker is installed. Install or enable a document picker to select files and folders.</string>
+    <string name="activities_empty_title">Your apps, all together</string>
+    <string name="activities_browse_hint">Explore recommendations from your apps · Press OK to open</string>
 </resources>

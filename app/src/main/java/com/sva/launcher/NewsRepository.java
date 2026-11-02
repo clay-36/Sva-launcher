@@ -74,11 +74,11 @@ final class NewsRepository {
     static List<Story> parse(InputStream in, String source) throws Exception {
         ArrayList<Story> result = new ArrayList<>();
         XmlPullParser p = Xml.newPullParser(); p.setInput(in, null);
-        Story item = null; String tag = ""; StringBuilder value = new StringBuilder();
+        Story item = null; int imageWidth = -1; String tag = ""; StringBuilder value = new StringBuilder();
         for (int e = p.getEventType(); e != XmlPullParser.END_DOCUMENT; e = p.nextToken()) {
             if (e == XmlPullParser.START_TAG) {
                 tag = localName(p.getName()); value.setLength(0);
-                if (tag.equals("item") || tag.equals("entry")) { item = new Story(); item.source = source; }
+                if (tag.equals("item") || tag.equals("entry")) { item = new Story(); item.source = source; imageWidth = -1; }
                 if (item == null) continue;
                 if (tag.equals("link")) {
                     String href = p.getAttributeValue(null, "href"), rel = p.getAttributeValue(null, "rel");
@@ -86,7 +86,16 @@ final class NewsRepository {
                 }
                 if (tag.equals("enclosure") || tag.equals("content") || tag.equals("thumbnail")) {
                     String image = p.getAttributeValue(null, "url");
-                    if (image != null && item.image == null) item.image = image;
+                    String type = p.getAttributeValue(null, "type");
+                    String medium = p.getAttributeValue(null, "medium");
+                    boolean nonImage = type != null && !type.startsWith("image/")
+                            || medium != null && !medium.equals("image");
+                    int width = 0;
+                    try { width = Integer.parseInt(p.getAttributeValue(null, "width")); }
+                    catch (Exception ignored) { }
+                    if (image != null && !nonImage && width > imageWidth) {
+                        item.image = image; imageWidth = width;
+                    }
                 }
             } else if ((e == XmlPullParser.TEXT || e == XmlPullParser.CDSECT) && item != null) {
                 value.append(p.getText());
@@ -98,7 +107,10 @@ final class NewsRepository {
                     long time = parseTime(text); if (time > 0) item.publishedAt = time;
                 } else if (end.equals("updated") && item.publishedAt == 0) item.publishedAt = parseTime(text);
                 else if (end.equals("item") || end.equals("entry")) {
-                    if (item.title != null && item.link != null && item.link.startsWith("http")) result.add(item);
+                    if (item.title != null && item.link != null && item.link.startsWith("http")) {
+                        item.image = fullSizeImage(item.image);
+                        result.add(item);
+                    }
                     item = null;
                     if (result.size() >= MAX_STORIES) break;
                 }
@@ -107,6 +119,13 @@ final class NewsRepository {
         }
         return result;
     }
+    static String fullSizeImage(String address) {
+        if (address == null) return null;
+        // BBC RSS supplies 240px thumbnails; this CDN exposes larger renditions.
+        // Leave other providers' signed image URLs untouched.
+        return address.replaceFirst("^(https?://ichef\\.bbci\\.co\\.uk/ace/standard/)[0-9]+/", "$11920/");
+    }
+
     private static String localName(String name) {
         return name.substring(name.indexOf(':') + 1).toLowerCase(Locale.ROOT);
     }
@@ -134,7 +153,7 @@ final class NewsRepository {
             JSONArray a = new JSONArray(json);
             for (int i = 0; i < a.length(); i++) {
                 JSONObject o = a.getJSONObject(i); Story s = new Story();
-                s.title = o.optString("t"); s.link = o.optString("l"); s.image = o.optString("i", null); s.source = o.optString("s");
+                s.title = o.optString("t"); s.link = o.optString("l"); s.image = fullSizeImage(o.optString("i", null)); s.source = o.optString("s");
                 s.publishedAt = o.optLong("publishedAt", 0);
                 if (s.link.startsWith("http")) out.add(s);
             }

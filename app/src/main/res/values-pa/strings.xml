@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">ਨੈਵੀਗੇਸ਼ਨ ਵਿੱਚ ਸੇਵ ਕੀਤਾ ਦਿਖਾਓ</string>
     <string name="news_reader_failed">ਲੇਖ ਦ੍ਰਿਸ਼ ਤਿਆਰ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਅਸਲੀ ਪੰਨਾ ਦਿਖਾਇਆ ਗਿਆ ਹੈ।</string>
     <string name="news_reader_loading">ਇੱਕ ਸਪਸ਼ਟ ਲੇਖ ਦ੍ਰਿਸ਼ ਤਿਆਰ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...</string>
+    <string name="activities_empty_title">"ਤੁਹਾਡੀਆਂ ਸਾਰੀਆਂ ਐਪਾਂ ਇਕੱਠੀਆਂ"</string>
+    <string name="activities_browse_hint">"ਆਪਣੀਆਂ ਐਪਾਂ ਦੀਆਂ ਸਿਫ਼ਾਰਸ਼ਾਂ ਦੇਖੋ · ਖੋਲ੍ਹਣ ਲਈ OK ਦਬਾਓ"</string>
+    <string name="ui_document_picker_unavailable">"ਸਿਸਟਮ ਫਾਈਲ ਚੋਣਕਾਰ ਇੰਸਟਾਲ ਨਹੀਂ ਹੈ। ਫਾਈਲਾਂ ਅਤੇ ਫੋਲਡਰ ਚੁਣਨ ਲਈ ਦਸਤਾਵੇਜ਼ ਚੋਣਕਾਰ ਇੰਸਟਾਲ ਜਾਂ ਚਾਲੂ ਕਰੋ।"</string>
 </resources>

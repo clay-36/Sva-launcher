@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">नेविगेशन में सहेजा हुआ दिखाएँ</string>
     <string name="news_reader_failed">आलेख दृश्य तैयार नहीं किया जा सका. मूल पृष्ठ दिखाया गया है.</string>
     <string name="news_reader_loading">एक स्पष्ट लेख दृश्य तैयार किया जा रहा है...</string>
+    <string name="activities_empty_title">"आपके ऐप्स, एक साथ"</string>
+    <string name="activities_browse_hint">"अपने ऐप्स की अनुशंसाएँ देखें · खोलने के लिए OK दबाएँ"</string>
+    <string name="ui_document_picker_unavailable">"सिस्टम फ़ाइल पिकर उपलब्ध नहीं है। फ़ाइलें और फ़ोल्डर चुनने के लिए दस्तावेज़ पिकर इंस्टॉल या सक्षम करें।"</string>
 </resources>

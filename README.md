@@ -76,7 +76,7 @@ https://github.com/user-attachments/assets/e70dc0ec-7901-41d4-bbc6-b21340dde9e8
 - **News and read mode** — combine RSS/Atom feeds by publication time, browse an auto-advancing headline carousel, and open articles in a cleaner Mozilla Readability view.
 - **Configurable refresh schedules** — independently control updates for photos, playlists, programme data, calendars, and Google Photos.
 - **Backup and restore** — export launcher preferences, app and channel choices, and IPTV/DRM configuration to JSON.
-- **TV file browser** — browse internal storage and USB drives with the remote when adding games, choosing images or photo folders, and saving or restoring backups.
+- **File selection** — use the Android system picker to select games, images, photo folders, and backup files from available document providers, including supported USB drives.
 - **Home-button helper** — an optional Accessibility service can reopen Sva on TVs that insist on returning to the manufacturer's launcher.
 
 Cached channels, guide data, calendar entries, weather, and artwork remain available where supported when the network is unavailable.
@@ -135,7 +135,7 @@ Supported interface languages (23):
 
 Unsupported TV languages fall back to English. Supplied content such as channel names, programme titles, and personal captions keeps its original language. Interface language does not change playback audio preferences.
 
-The first time you browse local files, allow Sva storage access in Android settings. This lets its TV file browser find NES files, photos, and backups across local storage and USB drives.
+Select files or grant access to a specific folder through Android’s system picker. Sva does not request All files access. File selection requires an installed system document picker; available locations and USB support depend on your TV. Previously selected local wallpapers or photo folders may need to be selected again after upgrading.
 
 If the TV continues to open its built-in launcher, go to **Settings → Home button**, open Android's Accessibility settings, and enable Sva's service. This helper is optional and can be disabled at any time.
 
@@ -215,7 +215,7 @@ Standard Android gamepads are assigned automatically for up to two players and c
 - Public album, calendar, playlist, guide, weather, and YouTube metadata requests are made directly from the TV.
 - Exported JSON backups are **unencrypted** and can contain playlist URLs, DRM endpoints, credentials, public album links and weather coordinates. Store them privately; never attach them to public issues.
 - HTTP is supported for user-provided IPTV and local-network sources; these connections are unencrypted. Prefer HTTPS when your provider supports it.
-- The built-in TV file browser requests storage access when you open it to browse local files and USB drives. Storage access is not requested at app startup.
+- Local files and folders are accessed through Android’s system document picker with access limited to your selection. No broad storage permission is requested.
 - Installed-app visibility supports launcher shortcuts. Optional notification access supports Now Playing; the Home override accessibility service only watches window changes and cannot retrieve window content.
 - Only connect sources and open links that you trust. Stream, DRM, and codec compatibility depends on the TV.
 

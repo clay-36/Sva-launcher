@@ -31,6 +31,8 @@ final class ActivitiesPanel extends LinearLayout {
     private final SharedPreferences prefs;
     private final LinearLayout rows;
     private final TextView status;
+    private final LinearLayout emptyState;
+    private final TextView emptyMessage;
     final Button refreshButton;
     private final ExecutorService queries = Executors.newSingleThreadExecutor();
     private final ThreadPoolExecutor images = new ThreadPoolExecutor(2, 2, 10, TimeUnit.SECONDS,
@@ -46,6 +48,7 @@ final class ActivitiesPanel extends LinearLayout {
     ActivitiesPanel(Activity activity) {
         super(activity); this.activity = activity; prefs = activity.getSharedPreferences("launcher", 0);
         setOrientation(VERTICAL);
+        setClipChildren(false); setClipToPadding(false);
         artworkCache = new File(activity.getCacheDir(), "activities-artwork"); artworkCache.mkdirs();
         trimArtworkCache();
         ActivityManager am = (ActivityManager)activity.getSystemService(Activity.ACTIVITY_SERVICE);
@@ -66,7 +69,24 @@ final class ActivitiesPanel extends LinearLayout {
         LinearLayout.LayoutParams toolbarParams = new LinearLayout.LayoutParams(-1, -2);
         toolbarParams.topMargin = dp(4);
         addView(toolbar, toolbarParams);
-        status = SettingsUi.text(activity, "", 15, true); status.setPadding(0, dp(12), 0, dp(12)); addView(status);
+        status = SettingsUi.text(activity, "", 15, true);
+        status.setPadding(0, dp(6), 0, dp(18));
+        status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        addView(status);
+        emptyState = new LinearLayout(activity);
+        emptyState.setOrientation(VERTICAL);
+        emptyState.setGravity(Gravity.CENTER_VERTICAL);
+        emptyState.setPadding(dp(28), dp(26), dp(28), dp(26));
+        emptyState.setMinimumHeight(dp(180));
+        emptyState.setBackground(SettingsUi.shape(activity, SettingsUi.surface(activity), SettingsUi.raised(activity), 1, 22));
+        TextView emptyTitle = SettingsUi.text(activity, activity.getString(R.string.activities_empty_title), 25, false);
+        emptyState.addView(emptyTitle);
+        emptyMessage = SettingsUi.text(activity, "", 17, true);
+        emptyMessage.setPadding(0, dp(12), 0, 0);
+        emptyMessage.setMaxWidth(dp(720));
+        emptyState.addView(emptyMessage);
+        emptyState.setVisibility(GONE);
+        addView(emptyState, new LinearLayout.LayoutParams(-1, -2));
         rows = new LinearLayout(activity); rows.setOrientation(VERTICAL); addView(rows);
     }
 
@@ -74,12 +94,14 @@ final class ActivitiesPanel extends LinearLayout {
     void refresh() {
         if (closed) return;
         if (activity.checkSelfPermission(ActivitiesRepository.PERMISSION) != PackageManager.PERMISSION_GRANTED) {
-            status.setText(activity.getString(R.string.activities_allow));
+            showMessage(R.string.activities_allow);
             activity.requestPermissions(new String[]{ActivitiesRepository.PERMISSION}, ActivitiesRepository.REQUEST_PERMISSION);
             return;
         }
         final int request = ++generation;
-        status.setText(activity.getString(R.string.activities_loading)); refreshButton.setEnabled(false);
+        status.setText(activity.getString(R.string.activities_loading));
+        if (rows.getChildCount() == 0) { emptyState.setVisibility(VISIBLE); emptyMessage.setText(R.string.activities_loading); }
+        refreshButton.setEnabled(false);
         queries.execute(() -> {
             try {
                 List<ActivitiesRepository.Channel> loaded = ActivitiesRepository.load(activity.getContentResolver());
@@ -90,7 +112,7 @@ final class ActivitiesPanel extends LinearLayout {
             } catch (RuntimeException e) {
                 android.util.Log.w("SvaActivities", "Cannot load shared recommendation channels", e);
                 main.post(() -> { if (!closed && request == generation) {
-                    refreshButton.setEnabled(true); status.setText(activity.getString(R.string.activities_error));
+                    refreshButton.setEnabled(true); showMessage(R.string.activities_error);
                 }});
             }
         });
@@ -102,7 +124,22 @@ final class ActivitiesPanel extends LinearLayout {
         result.sort(Comparator.comparingInt(c -> { int index = order.indexOf(c.key); return index < 0 ? Integer.MAX_VALUE : index; }));
         return result;
     }
+    private void showMessage(int message) {
+        if (rows.getChildCount() == 0) {
+            emptyMessage.setText(message); emptyState.setVisibility(VISIBLE);
+            status.setText(R.string.activities_description);
+        } else status.setText(message);
+    }
+
+    private String appLabel(String publisher) {
+        try { return activity.getPackageManager().getApplicationLabel(
+                activity.getPackageManager().getApplicationInfo(publisher, 0)).toString(); }
+        catch (Exception ignored) { return publisher; }
+    }
+
     private void render() {
+        View focused = rows.findFocus();
+        Object focusedKey = focused == null ? null : focused.getTag();
         rows.removeAllViews();
         Set<String> hidden = prefs.getStringSet(HIDDEN, Collections.emptySet());
         int shown = 0;
@@ -112,22 +149,41 @@ final class ActivitiesPanel extends LinearLayout {
             hasVisibleChannels = true;
             if (channel.programs.isEmpty()) continue;
             shown++;
-            String app = channel.publisher;
-            try { app = activity.getPackageManager().getApplicationLabel(activity.getPackageManager().getApplicationInfo(channel.publisher, 0)).toString(); } catch (Exception ignored) { }
-            TextView heading = SettingsUi.text(activity, app + " · " + channel.title, 20, false);
-            heading.setPadding(0, dp(18), 0, dp(10)); rows.addView(heading);
+            String app = appLabel(channel.publisher);
+            TextView heading = SettingsUi.text(activity, channel.title + "  ·  " + app, 23, false);
+            heading.setMaxLines(1);
+            heading.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            heading.setPadding(dp(10), dp(16), dp(10), dp(4)); rows.addView(heading);
             RecyclerView list = new RecyclerView(activity);
             list.setLayoutManager(new LinearLayoutManager(activity, RecyclerView.HORIZONTAL, false));
             list.setNestedScrollingEnabled(false); list.setItemAnimator(null);
             list.setClipChildren(false); list.setClipToPadding(false);
             list.setPadding(dp(10), dp(10), dp(10), dp(10));
             list.setOverScrollMode(View.OVER_SCROLL_NEVER);
-            list.setAdapter(new Cards(channel));
-            rows.addView(list, new LinearLayout.LayoutParams(-1, dp(192)));
+            list.setAdapter(new Cards(channel, focusedKey));
+            if (focusedKey != null) for (int i = 0; i < channel.programs.size(); i++) {
+                if ((channel.key + "\n" + channel.programs.get(i).id).equals(focusedKey)) {
+                    list.scrollToPosition(i); break;
+                }
+            }
+            rows.addView(list, new LinearLayout.LayoutParams(-1, dp(264)));
         }
-        status.setText(channels.isEmpty() ? activity.getString(R.string.activities_empty)
-                : shown == 0 ? activity.getString(hasVisibleChannels ? R.string.activities_no_items : R.string.activities_hidden)
-                : activity.getString(R.string.activities_description));
+        if (shown == 0) {
+            showMessage(channels.isEmpty() ? R.string.activities_empty
+                    : hasVisibleChannels ? R.string.activities_no_items : R.string.activities_hidden);
+        } else {
+            emptyState.setVisibility(GONE);
+            status.setText(R.string.activities_browse_hint);
+        }
+        if (focused != null && focusedKey != null) {
+            boolean found = false;
+            for (ActivitiesRepository.Channel channel : channels) {
+                if (hidden.contains(channel.key)) continue;
+                for (ActivitiesRepository.Program program : channel.programs)
+                    if ((channel.key + "\n" + program.id).equals(focusedKey)) found = true;
+            }
+            if (!found) refreshButton.requestFocus();
+        }
     }
     private void customize() {
         if (channels.isEmpty()) { Toast.makeText(activity, activity.getString(R.string.activities_refresh_first), Toast.LENGTH_SHORT).show(); return; }
@@ -135,7 +191,7 @@ final class ActivitiesPanel extends LinearLayout {
         String[] titles = new String[order.size()]; boolean[] checked = new boolean[order.size()];
         Set<String> hidden = new HashSet<>(prefs.getStringSet(HIDDEN, Collections.emptySet()));
         for (int i = 0; i < order.size(); i++) { titles[i] = order.get(i).title + " · " + order.get(i).publisher; checked[i] = !hidden.contains(order.get(i).key); }
-        new AlertDialog.Builder(activity).setTitle(activity.getString(R.string.activities_visible))
+        new AlertDialog.Builder(activity, LiquidTheme.alertDialogTheme(activity)).setTitle(activity.getString(R.string.activities_visible))
                 .setMultiChoiceItems(titles, checked, (dialog, which, value) -> { if (value) hidden.remove(order.get(which).key); else hidden.add(order.get(which).key); })
                 .setPositiveButton(activity.getString(R.string.activities_save), (d, w) -> { prefs.edit().putStringSet(HIDDEN, hidden).apply(); render(); })
                 .setNeutralButton(activity.getString(R.string.activities_reorder), (d, w) -> reorder())
@@ -144,9 +200,9 @@ final class ActivitiesPanel extends LinearLayout {
     private void reorder() {
         List<ActivitiesRepository.Channel> order = ordered();
         String[] titles = new String[order.size()]; for (int i=0;i<order.size();i++) titles[i]=order.get(i).title;
-        new AlertDialog.Builder(activity).setTitle(activity.getString(R.string.activities_move)).setItems(titles, (d, index) -> {
+        new AlertDialog.Builder(activity, LiquidTheme.alertDialogTheme(activity)).setTitle(activity.getString(R.string.activities_move)).setItems(titles, (d, index) -> {
             String[] positions = new String[order.size()]; for(int i=0;i<positions.length;i++)positions[i]=activity.getString(R.string.activities_position, i+1);
-            new AlertDialog.Builder(activity).setTitle(order.get(index).title).setItems(positions, (dialog, position) -> {
+            new AlertDialog.Builder(activity, LiquidTheme.alertDialogTheme(activity)).setTitle(order.get(index).title).setItems(positions, (dialog, position) -> {
                 ActivitiesRepository.Channel selected=order.remove(index); order.add(position,selected);
                 List<String> keys=new ArrayList<>();for(ActivitiesRepository.Channel c:order)keys.add(c.key);
                 prefs.edit().putString(ORDER,String.join("\n",keys)).apply(); render();
@@ -165,12 +221,30 @@ final class ActivitiesPanel extends LinearLayout {
     }
     private final class Cards extends RecyclerView.Adapter<Card> {
         private final ActivitiesRepository.Channel channel;
-        Cards(ActivitiesRepository.Channel channel) { this.channel = channel; }
+        private Object restoreFocus;
+        Cards(ActivitiesRepository.Channel channel, Object restoreFocus) {
+            this.channel = channel; this.restoreFocus = restoreFocus;
+        }
+        @Override public void onViewRecycled(Card holder) {
+            holder.image.animate().cancel(); holder.image.setTag(null);
+            holder.image.setImageDrawable(null);
+        }
         @Override public int getItemCount() { return channel.programs.size(); }
         @Override public Card onCreateViewHolder(android.view.ViewGroup parent, int type) { return new Card(); }
         @Override public void onBindViewHolder(Card holder, int position) {
             ActivitiesRepository.Program program=channel.programs.get(position);
-            holder.title.setText(program.title == null ? channel.title : program.title);
+            String title = program.title == null ? channel.title : program.title;
+            holder.title.setText(title);
+            holder.publisher.setText(appLabel(channel.publisher));
+            holder.itemView.setContentDescription(title + ", " + appLabel(channel.publisher));
+            String key = channel.key + "\n" + program.id;
+            holder.itemView.setTag(key);
+            if (key.equals(restoreFocus)) {
+                restoreFocus = null;
+                holder.itemView.post(() -> {
+                    if (!closed && key.equals(holder.itemView.getTag())) holder.itemView.requestFocus();
+                });
+            }
             holder.image.animate().cancel();
             holder.image.setAlpha(program.artwork == null ? 1f : 0f);
             holder.image.setImageDrawable(null); holder.image.setTag(program.artwork);
@@ -188,7 +262,7 @@ final class ActivitiesPanel extends LinearLayout {
         }
     }
     private final class Card extends RecyclerView.ViewHolder {
-        final ImageView image; final TextView title;
+        final ImageView image; final TextView title, publisher;
         Card() {
             super(new LinearLayout(activity)); LinearLayout box=(LinearLayout)itemView;
             box.setOrientation(VERTICAL);box.setPadding(dp(8),dp(8),dp(8),dp(8));box.setFocusable(true);box.setClickable(true);
@@ -197,9 +271,20 @@ final class ActivitiesPanel extends LinearLayout {
             box.setElevation(dp(2));
             box.setOnFocusChangeListener(LiquidTheme::animateContainedFocus);
             Motion.interaction(box,true);
-            RecyclerView.LayoutParams lp=new RecyclerView.LayoutParams(dp(240),dp(170));lp.rightMargin=dp(12);box.setLayoutParams(lp);
-            image=new ImageView(activity);image.setScaleType(ImageView.ScaleType.CENTER_CROP);box.addView(image,new LinearLayout.LayoutParams(-1,dp(110)));
-            title=SettingsUi.text(activity,"",15,false);title.setMaxLines(2);title.setEllipsize(android.text.TextUtils.TruncateAt.END);box.addView(title);
+            RecyclerView.LayoutParams lp=new RecyclerView.LayoutParams(dp(280),dp(242));lp.rightMargin=dp(12);box.setLayoutParams(lp);
+            image=new ImageView(activity);image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            NewsArtwork.apply(image, 0, dp(12));
+            image.setClipToOutline(true);
+            box.addView(image,new LinearLayout.LayoutParams(-1,dp(148)));
+            title=SettingsUi.text(activity,"",17,false);
+            title.setPadding(dp(4), dp(10), dp(4), 0);
+            title.setMaxLines(2); title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            box.addView(title, new LinearLayout.LayoutParams(-1, 0, 1));
+            publisher=SettingsUi.text(activity,"",12,true);
+            publisher.setPadding(dp(4), 0, dp(4), dp(2));
+            publisher.setSingleLine(true); publisher.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            box.addView(publisher);
         }
     }
     private Bitmap artwork(String address) {
@@ -244,7 +329,7 @@ final class ActivitiesPanel extends LinearLayout {
     private Bitmap decodeArtwork(File file){
         if(!file.isFile())return null;BitmapFactory.Options options=new BitmapFactory.Options();options.inJustDecodeBounds=true;BitmapFactory.decodeFile(file.getAbsolutePath(),options);
         if(options.outWidth<=0||options.outHeight<=0)return null;
-        options.inSampleSize=1;while(options.outWidth/options.inSampleSize>640||options.outHeight/options.inSampleSize>360)options.inSampleSize*=2;
+        options.inSampleSize=1;while(options.outWidth/(options.inSampleSize*2L)>=640||options.outHeight/(options.inSampleSize*2L)>=360)options.inSampleSize*=2;
         options.inJustDecodeBounds=false;return BitmapFactory.decodeFile(file.getAbsolutePath(),options);
     }
     private File diskFile(String address)throws Exception{byte[] digest=MessageDigest.getInstance("SHA-256").digest(address.getBytes(java.nio.charset.StandardCharsets.UTF_8));StringBuilder key=new StringBuilder();for(byte b:digest)key.append(String.format(Locale.ROOT,"%02x",b));return new File(artworkCache,key+".img");}

@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">ナビゲーションに保存済みを表示</string>
     <string name="news_reader_failed">記事ビューを準備できませんでした。元のページが表示されます。</string>
     <string name="news_reader_loading">明確な記事ビューを準備しています…</string>
+    <string name="activities_empty_title">"アプリをひとつの場所に"</string>
+    <string name="activities_browse_hint">"アプリのおすすめを見る · OKで開く"</string>
+    <string name="ui_document_picker_unavailable">"システムのファイル選択アプリがありません。ファイルやフォルダを選択するには、ドキュメント選択アプリをインストールするか有効にしてください。"</string>
 </resources>

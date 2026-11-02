@@ -11,7 +11,6 @@ import android.test.InstrumentationTestCase;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
@@ -21,7 +20,6 @@ public final class GameImportTest extends InstrumentationTestCase {
         Context target = getInstrumentation().getTargetContext();
         File workspace = new File(target.getCacheDir(), "game-import-test-" + System.nanoTime());
         assertTrue(workspace.mkdirs());
-        TvFilePickerActivity picker = null;
         try {
             File first = fixture(workspace, "1.line_phase.nes");
             File second = fixture(workspace, "2.frame_phase.nes");
@@ -37,21 +35,6 @@ public final class GameImportTest extends InstrumentationTestCase {
             List<Uri> uris = GameRepository.urisFromResult(result);
             assertEquals(Arrays.asList(Uri.fromFile(first), Uri.fromFile(second)), uris);
 
-            // Activity.finish() used to throw FileUriExposedException for this selection.
-            picker = (TvFilePickerActivity) getInstrumentation().startActivitySync(
-                    new Intent(target, TvFilePickerActivity.class)
-                            .putExtra(TvFilePickerActivity.EXTRA_MODE, TvFilePickerActivity.MODE_NES_FILES)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            TvFilePickerActivity active = picker;
-            getInstrumentation().runOnMainSync(() -> {
-                try {
-                    Method finish = TvFilePickerActivity.class.getDeclaredMethod("finishWithFiles", List.class);
-                    finish.setAccessible(true);
-                    finish.invoke(active, selected);
-                } catch (Exception e) { throw new AssertionError("Returning multiple files failed", e); }
-            });
-            assertTrue(picker.isFinishing());
-
             // Keep the test catalogue separate from the user's library.
             Context isolated = new ContextWrapper(target) {
                 @Override public Context getApplicationContext() { return this; }
@@ -64,10 +47,6 @@ public final class GameImportTest extends InstrumentationTestCase {
             assertEquals(2, new GameRepository(isolated).games().size());
             assertEquals(2, repository.importUris(uris).duplicates);
         } finally {
-            if (picker != null && !picker.isFinishing()) {
-                TvFilePickerActivity active = picker;
-                getInstrumentation().runOnMainSync(active::finish);
-            }
             delete(workspace);
         }
     }
@@ -83,6 +62,43 @@ public final class GameImportTest extends InstrumentationTestCase {
         Intent provider = new Intent().setData(first);
         provider.setClipData(clips);
         assertEquals(Arrays.asList(first, second), GameRepository.urisFromResult(provider));
+    }
+
+    public void testOnlyWallpaperSelectionsOfferPersistentAccess() {
+        for (String mode : new String[]{TvFilePickerActivity.MODE_NES_FILES,
+                TvFilePickerActivity.MODE_NES_FOLDER, TvFilePickerActivity.MODE_JSON,
+                TvFilePickerActivity.MODE_SAVE_JSON}) {
+            assertEquals("One-time imports must not persist grants: " + mode, 0,
+                    TvFilePickerActivity.documentIntent(mode).getFlags() & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        }
+        for (String mode : new String[]{TvFilePickerActivity.MODE_IMAGE, TvFilePickerActivity.MODE_IMAGE_FOLDER}) {
+            assertTrue((TvFilePickerActivity.documentIntent(mode).getFlags()
+                    & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0);
+        }
+    }
+
+    public void testSystemPickerLaunchAndCancel() throws Exception {
+        Context target = getInstrumentation().getTargetContext();
+        for (String mode : new String[]{TvFilePickerActivity.MODE_NES_FILES,
+                TvFilePickerActivity.MODE_IMAGE, TvFilePickerActivity.MODE_JSON,
+                TvFilePickerActivity.MODE_SAVE_JSON, TvFilePickerActivity.MODE_NES_FOLDER,
+                TvFilePickerActivity.MODE_IMAGE_FOLDER}) {
+            TvFilePickerActivity picker = (TvFilePickerActivity) getInstrumentation().startActivitySync(
+                    new Intent(target, TvFilePickerActivity.class)
+                            .putExtra(TvFilePickerActivity.EXTRA_MODE, mode)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            try {
+                getInstrumentation().waitForIdleSync();
+                for (int attempt = 0; attempt < 4 && !picker.isFinishing(); attempt++) {
+                    android.os.SystemClock.sleep(500);
+                    getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
+                    getInstrumentation().waitForIdleSync();
+                }
+                assertTrue("Picker must return after cancellation: " + mode, picker.isFinishing());
+            } finally {
+                getInstrumentation().runOnMainSync(picker::finish);
+            }
+        }
     }
 
     private File fixture(File directory, String name) throws Exception {

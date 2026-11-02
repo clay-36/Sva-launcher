@@ -1,36 +1,16 @@
 package com.sva.launcher;
 
-import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.os.storage.StorageManager;
-import android.os.storage.StorageVolume;
-import android.provider.Settings;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
 import android.widget.Toast;
-
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 
-/** A remote-friendly browser for internal storage and connected drives. */
+/** Delegates file access to Android's user-granted Storage Access Framework. */
 public final class TvFilePickerActivity extends MotionActivity {
     static final String EXTRA_MODE = "mode";
     static final String EXTRA_LOCAL_FILES = "com.sva.launcher.extra.LOCAL_FILES";
@@ -40,443 +20,65 @@ public final class TvFilePickerActivity extends MotionActivity {
     static final String MODE_IMAGE_FOLDER = "image_folder";
     static final String MODE_JSON = "json";
     static final String MODE_SAVE_JSON = "save_json";
-    private static final int STORAGE_SETTINGS = 2;
-    private static final int STORAGE_PERMISSION = 3;
-
-    private String mode;
-    private File directory;
-    private final LinkedHashSet<File> selected = new LinkedHashSet<>();
-    private androidx.recyclerview.widget.RecyclerView rows;
-    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
-    private final LifecycleWork work = new LifecycleWork(this, main);
-    private final java.util.concurrent.ExecutorService browserWorker = java.util.concurrent.Executors.newFixedThreadPool(2);
-    private java.util.concurrent.Future<?> pendingDirectory;
-    private int directoryGeneration;
-    private boolean directoryReady;
-    private List<File> availableRoots = new ArrayList<>();
-    private final List<PickerRow> entries = new ArrayList<>();
-    private PickerAdapter adapter;
-    private TextView path;
-    private TextView instruction;
-    private Button action;
-    private Button back;
-    private EditText filename;
+    private static final int PICK_DOCUMENT = 1;
 
     static Intent intent(Activity activity, String mode) {
         return new Intent(activity, TvFilePickerActivity.class).putExtra(EXTRA_MODE, mode);
     }
 
+    static Intent documentIntent(String mode) {
+        boolean folder = MODE_NES_FOLDER.equals(mode) || MODE_IMAGE_FOLDER.equals(mode);
+        boolean save = MODE_SAVE_JSON.equals(mode);
+        Intent intent = new Intent(folder ? Intent.ACTION_OPEN_DOCUMENT_TREE
+                : save ? Intent.ACTION_CREATE_DOCUMENT : Intent.ACTION_OPEN_DOCUMENT);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        if (MODE_IMAGE.equals(mode) || MODE_IMAGE_FOLDER.equals(mode)) {
+            // The wallpaper owner decides whether ongoing access is needed.
+            intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        }
+        if (save) intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        if (!folder) {
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            // ROMs and JSON are often reported as application/octet-stream by USB providers.
+            intent.setType(MODE_IMAGE.equals(mode) ? "image/*" : "*/*");
+            if (save) {
+                intent.setType("application/json");
+                intent.putExtra(Intent.EXTRA_TITLE, "sva-launcher-backup.json");
+            }
+            if (MODE_NES_FILES.equals(mode)) intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        }
+        return intent;
+    }
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        BackNavigation.install(this, this::up);
-        mode = getIntent().getStringExtra(EXTRA_MODE);
-        if (!isSupportedMode()) { finish(); return; }
-        getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        if (state != null) {
-            String saved = state.getString("directory");
-            if (saved != null) directory = new File(saved);
-            ArrayList<String> paths = state.getStringArrayList("selected");
-            if (paths != null) for (String value : paths) selected.add(new File(value));
+        String mode = getIntent().getStringExtra(EXTRA_MODE);
+        if (!MODE_NES_FILES.equals(mode) && !MODE_NES_FOLDER.equals(mode)
+                && !MODE_IMAGE.equals(mode) && !MODE_IMAGE_FOLDER.equals(mode)
+                && !MODE_JSON.equals(mode) && !MODE_SAVE_JSON.equals(mode)) {
+            finish(); return;
         }
-        build();
-    }
-
-    @Override protected void onSaveInstanceState(Bundle state) {
-        state.putString("directory", directory == null ? null : directory.getAbsolutePath());
-        ArrayList<String> paths = new ArrayList<>();
-        for (File file : selected) paths.add(file.getAbsolutePath());
-        state.putStringArrayList("selected", paths);
-        super.onSaveInstanceState(state);
-    }
-
-    @Override protected void onResume() {
-        super.onResume();
-        if (rows != null) showDirectory();
-    }
-
-    private boolean isSupportedMode() {
-        return MODE_NES_FILES.equals(mode) || MODE_NES_FOLDER.equals(mode)
-                || MODE_IMAGE.equals(mode) || MODE_IMAGE_FOLDER.equals(mode)
-                || MODE_JSON.equals(mode) || MODE_SAVE_JSON.equals(mode);
-    }
-
-    private boolean isFolderMode() { return MODE_NES_FOLDER.equals(mode) || MODE_IMAGE_FOLDER.equals(mode); }
-    private boolean isMultiMode() { return MODE_NES_FILES.equals(mode); }
-    private boolean isSaveMode() { return MODE_SAVE_JSON.equals(mode); }
-
-    private void build() {
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setClipChildren(false);
-        page.setClipToPadding(false);
-        page.setPadding(dp(40), dp(24), dp(40), dp(24));
-        page.setBackgroundColor(SettingsUi.background(this));
-        TextView title = SettingsUi.text(this, title(), 28, false);
-        page.addView(title);
-        instruction = SettingsUi.text(this, "", 14, true);
-        instruction.setMinHeight(dp(38));
-        instruction.setGravity(Gravity.CENTER_VERTICAL);
-        page.addView(instruction, new LinearLayout.LayoutParams(-1, -2));
-
-        LinearLayout browser = new LinearLayout(this);
-        browser.setOrientation(LinearLayout.VERTICAL);
-        browser.setPadding(dp(12), dp(8), dp(12), dp(8));
-        browser.setBackground(SettingsUi.shape(this, SettingsUi.surface(this), SettingsUi.raised(this), 1, 18));
-        path = SettingsUi.text(this, AppLanguage.get(R.string.ui_storage_locations), 15, true);
-        path.setSingleLine(true);
-        path.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
-        path.setGravity(Gravity.CENTER_VERTICAL);
-        path.setPadding(dp(12), 0, dp(12), 0);
-        browser.addView(path, new LinearLayout.LayoutParams(-1, dp(44)));
-        View divider = new View(this); divider.setBackgroundColor(SettingsUi.raised(this));
-        browser.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
-        rows = new androidx.recyclerview.widget.RecyclerView(this);
-        rows.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this));
-        rows.setItemAnimator(null); rows.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        rows.setPadding(dp(12), dp(10), dp(12), dp(10)); rows.setClipToPadding(false);
-        adapter = new PickerAdapter(); rows.setAdapter(adapter);
-        browser.addView(rows, new LinearLayout.LayoutParams(-1, 0, 1));
-        page.addView(browser, new LinearLayout.LayoutParams(-1, 0, 1));
-        if (isSaveMode()) {
-            filename = new EditText(this);
-            filename.setSingleLine(true);
-            filename.setText("sva-launcher-backup.json");
-            filename.setSelectAllOnFocus(true);
-            filename.setHint(AppLanguage.get(R.string.ui_backup_filename));
-            filename.setContentDescription(AppLanguage.get(R.string.ui_backup_filename));
-            SettingsUi.styleInput(filename, false);
-            filename.setOnClickListener(v -> {
-                android.view.inputmethod.InputMethodManager imm =
-                        (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-                if (imm != null) imm.showSoftInput(v, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
-            });
-            LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(-1, dp(56));
-            inputParams.topMargin = dp(12);
-            page.addView(filename, inputParams);
-        }
-        LinearLayout footer = new LinearLayout(this);
-        footer.setGravity(Gravity.CENTER_VERTICAL);
-        footer.setClipChildren(false);
-        footer.setClipToPadding(false);
-        footer.setPadding(dp(4), dp(4), dp(4), dp(4));
-        back = pickerButton(AppLanguage.get(R.string.ui_back));
-        back.setOnClickListener(v -> up());
-        footer.addView(back, new LinearLayout.LayoutParams(dp(112), dp(52)));
-        action = pickerButton(AppLanguage.get(R.string.ui_select));
-        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(0, dp(52), 1);
-        actionParams.setMarginStart(dp(12));
-        footer.addView(action, actionParams);
-        action.setOnClickListener(v -> confirm());
-        LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(-1, dp(64));
-        footerParams.topMargin = dp(12);
-        page.addView(footer, footerParams);
-        setContentView(page);
-    }
-
-    private int dp(int value) { return SettingsUi.dp(this, value); }
-
-    private Button pickerButton(String label) {
-        Button button = SettingsUi.action(this, label, null);
-        button.setMinHeight(0); button.setMinimumHeight(0);
-        button.setSingleLine(true);
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(16), 0, dp(16), 0);
-        button.setTextColor(new android.content.res.ColorStateList(
-                new int[][]{new int[]{-android.R.attr.state_enabled}, new int[]{}},
-                new int[]{SettingsUi.muted(this), SettingsUi.text(this)}));
-        return button;
-    }
-
-    private void updateAction() {
-        action.setText(isMultiMode() ? AppLanguage.get(R.string.ui_add_selected_1_s, selected.size())
-                : isFolderMode() ? AppLanguage.get(R.string.ui_use_this_folder) : isSaveMode() ? AppLanguage.get(R.string.ui_save_here) : AppLanguage.get(R.string.ui_select_a_file));
-        boolean enabled = directoryReady && hasAccess() && (isMultiMode() ? !selected.isEmpty()
-                : directory != null && (isFolderMode() || isSaveMode()));
-        action.setEnabled(enabled);
-        action.setAlpha(enabled ? 1f : .5f);
-        action.setBackground(SettingsUi.states(this, enabled));
-        if (!isMultiMode() && !isFolderMode() && !isSaveMode()) action.setVisibility(View.GONE);
-    }
-
-    private String title() {
-        if (MODE_NES_FILES.equals(mode)) return AppLanguage.get(R.string.ui_add_nes_games);
-        if (MODE_NES_FOLDER.equals(mode)) return AppLanguage.get(R.string.ui_add_games_from_folder);
-        if (MODE_IMAGE_FOLDER.equals(mode)) return AppLanguage.get(R.string.ui_choose_photo_folder);
-        if (MODE_IMAGE.equals(mode)) return AppLanguage.get(R.string.ui_choose_image);
-        if (MODE_JSON.equals(mode)) return AppLanguage.get(R.string.ui_restore_backup);
-        return AppLanguage.get(R.string.ui_save_backup);
-    }
-
-    private boolean hasAccess() {
-        if (Build.VERSION.SDK_INT >= 30) return Environment.isExternalStorageManager();
-        return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-                && (!isSaveMode() || checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED);
-    }
-
-    private void requestAccess() {
-        if (Build.VERSION.SDK_INT >= 30) {
-            // Try the per-app "All files access" settings page first (Android 11+).
-            // Some OEM TV firmwares (e.g. TCL P615) don't expose this screen, so we
-            // fall through a series of intents until one resolves, then finally land
-            // on the general App Info page where the user can grant the permission
-            // manually via Permissions → Files and media → Allow management of all files.
-            Intent appFilesIntent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-            Intent allFilesIntent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-            Intent appDetailsIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.parse("package:" + getPackageName()));
-            // Some Android TV builds do not expose any of the dedicated storage
-            // permission screens. General Settings is still useful on those builds:
-            // the user can open Sva from Apps and enable file access there.
-            Intent settingsIntent = new Intent(Settings.ACTION_SETTINGS);
-            for (Intent intent : new Intent[]{appFilesIntent, allFilesIntent, appDetailsIntent, settingsIntent}) {
-                try {
-                    startActivityForResult(intent, STORAGE_SETTINGS);
-                    return;
-                } catch (Exception ignored) { }
-            }
-            Toast.makeText(this, AppLanguage.get(R.string.ui_storage_settings_are_unavailable), Toast.LENGTH_LONG).show();
-        } else {
-            requestPermissions(isSaveMode()
-                    ? new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}
-                    : new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, STORAGE_PERMISSION);
+        if (state != null) return; // The system picker owns the pending selection.
+        try {
+            startActivityForResult(documentIntent(mode), PICK_DOCUMENT);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, R.string.ui_document_picker_unavailable, Toast.LENGTH_LONG).show();
+            finish();
         }
     }
 
-    @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] grants) {
-        super.onRequestPermissionsResult(code, permissions, grants);
-        if (code == STORAGE_PERMISSION) showDirectory();
-    }
-
-    private List<File> roots() {
-        LinkedHashSet<File> roots = new LinkedHashSet<>();
-        roots.add(Environment.getExternalStorageDirectory());
-        StorageManager manager = getSystemService(StorageManager.class);
-        if (manager != null && Build.VERSION.SDK_INT >= 30) {
-            for (StorageVolume volume : manager.getStorageVolumes()) {
-                File root = volume.getDirectory();
-                if (root != null) roots.add(root);
-            }
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != PICK_DOCUMENT) return;
+        if (result == RESULT_OK && data != null) {
+            // Forward temporary grants to the caller. ROMs, cover art and backups
+            // are consumed or copied immediately; only wallpaper owners persist access.
+            setResult(RESULT_OK, data);
         }
-        File[] appDirs = getExternalFilesDirs(null);
-        if (appDirs != null) for (File appDir : appDirs) {
-            if (appDir == null) continue;
-            File root = appDir;
-            for (int i = 0; i < 4 && root.getParentFile() != null; i++) root = root.getParentFile();
-            roots.add(root);
-        }
-        ArrayList<File> available = new ArrayList<>();
-        for (File root : roots) if (root.isDirectory()) available.add(root);
-        return available;
-    }
-
-    private void showDirectory() {
-        int generation = ++directoryGeneration;
-        if (pendingDirectory != null) pendingDirectory.cancel(true);
-        directoryReady = false;
-        entries.clear();
-        path.setContentDescription(null);
-        updateAction();
-        if (!hasAccess()) {
-            path.setText(AppLanguage.get(R.string.ui_storage_access_needed));
-            instruction.setText(AppLanguage.get(R.string.ui_allow_storage_access_to_browse_files_on_this_device_and_connecte));
-            row(AppLanguage.get(R.string.ui_allow_storage_access), this::requestAccess);
-            publishRows(generation);
-            return;
-        }
-        File requested = directory;
-        path.setText(requested == null ? AppLanguage.get(R.string.ui_storage_locations) : requested.getAbsolutePath());
-        instruction.setText(AppLanguage.get(R.string.ui_loading_1_s_2_s, "", ""));
-        adapter.notifyDataSetChanged();
-        back.requestFocus();
-        pendingDirectory = browserWorker.submit(() -> {
-            File valid = requested != null && requested.isDirectory() ? requested : null;
-            List<File> roots = roots();
-            File[] children = valid == null ? null : valid.listFiles();
-            List<PickerRow> loaded = new ArrayList<>();
-            if (valid == null) {
-                for (File root : roots) loaded.add(new PickerRow(root.equals(Environment.getExternalStorageDirectory())
-                        ? AppLanguage.get(R.string.ui_internal_storage) : AppLanguage.get(R.string.ui_usb_1_s, root.getName()),
-                        () -> navigate(root), null, false));
-                if (loaded.isEmpty()) loaded.add(new PickerRow(AppLanguage.get(R.string.ui_no_local_storage_found), null, null, false));
-            } else if (children == null) {
-                loaded.add(new PickerRow(AppLanguage.get(R.string.ui_this_folder_cannot_be_read), null, null, false));
-            } else {
-                for (File child : children) {
-                    if (Thread.currentThread().isInterrupted()) return;
-                    boolean folder = child.isDirectory();
-                    if (folder ? child.canRead() : accepts(child)) loaded.add(new PickerRow(child.getName(),
-                            folder ? () -> navigate(child) : () -> chooseFile(child), child, folder));
-                }
-                loaded.sort(Comparator.comparing((PickerRow entry) -> entry.folder).reversed()
-                        .thenComparing(entry -> entry.title, String.CASE_INSENSITIVE_ORDER));
-                if (loaded.isEmpty()) loaded.add(new PickerRow(AppLanguage.get(R.string.ui_no_matching_files_here), null, null, false));
-            }
-            work.post(() -> {
-                if (generation != directoryGeneration) return;
-                directory = valid; availableRoots = roots; directoryReady = true;
-                entries.clear(); entries.addAll(loaded);
-                if (valid == null) {
-                    path.setText(AppLanguage.get(R.string.ui_storage_locations));
-                    instruction.setText(AppLanguage.get(R.string.ui_choose_internal_storage_or_a_connected_usb_drive));
-                } else {
-                    path.setText(valid.getAbsolutePath());
-                    path.setContentDescription(AppLanguage.get(R.string.ui_current_folder_1_s, valid.getAbsolutePath()));
-                    instruction.setText(isMultiMode() ? AppLanguage.get(R.string.ui_1_s_selected_press_ok_on_files_then_add_selected, selected.size())
-                            : isFolderMode() ? AppLanguage.get(R.string.ui_open_a_folder_then_choose_use_this_folder)
-                            : isSaveMode() ? AppLanguage.get(R.string.ui_enter_a_filename_and_save_in_this_folder)
-                            : AppLanguage.get(R.string.ui_select_a_file_with_ok));
-                }
-                updateAction(); publishRows(generation);
-            });
-        });
-    }
-
-    private void publishRows(int generation) {
-        adapter.notifyDataSetChanged();
-        rows.scrollToPosition(0);
-        rows.post(() -> {
-            if (generation != directoryGeneration || !work.active()) return;
-            androidx.recyclerview.widget.RecyclerView.ViewHolder holder = rows.findViewHolderForAdapterPosition(0);
-            if (holder != null && entries.get(0).click != null) holder.itemView.requestFocus();
-            else (action.isEnabled() ? action : back).requestFocus();
-        });
-    }
-
-    @Override protected void onDestroy() {
-        directoryGeneration++;
-        if (pendingDirectory != null) pendingDirectory.cancel(true);
-        work.close(); browserWorker.shutdownNow(); super.onDestroy();
-    }
-
-    private boolean accepts(File file) {
-        String name = file.getName().toLowerCase(Locale.ROOT);
-        if (isSaveMode() || isFolderMode()) return false;
-        if (isMultiMode()) return name.endsWith(".nes");
-        if (MODE_JSON.equals(mode)) return name.endsWith(".json");
-        return name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")
-                || name.endsWith(".webp") || name.endsWith(".bmp") || name.endsWith(".gif")
-                || name.endsWith(".heic") || name.endsWith(".heif") || name.endsWith(".avif");
-    }
-
-    private void row(String title, Runnable click) { entries.add(new PickerRow(title, click, null, false)); }
-
-    private static final class PickerRow {
-        final String title; final Runnable click; final File file; final boolean folder;
-        PickerRow(String title, Runnable click, File file, boolean folder) {
-            this.title = title; this.click = click; this.file = file; this.folder = folder;
-        }
-    }
-    private final class PickerAdapter extends androidx.recyclerview.widget.RecyclerView.Adapter<PickerAdapter.Holder> {
-        public Holder onCreateViewHolder(android.view.ViewGroup parent, int type) {
-            Button button = pickerButton("");
-            button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
-            button.setPadding(dp(16), 0, dp(16), 0);
-            button.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            androidx.recyclerview.widget.RecyclerView.LayoutParams params =
-                    new androidx.recyclerview.widget.RecyclerView.LayoutParams(-1, dp(56));
-            params.setMargins(dp(4), dp(4), dp(4), dp(4)); button.setLayoutParams(params);
-            return new Holder(button);
-        }
-        public void onBindViewHolder(Holder holder, int position) {
-            PickerRow entry = entries.get(position); Button button = holder.button;
-            button.setText(entry.title); button.setTag(entry.file);
-            button.setEnabled(entry.click != null); button.setFocusable(entry.click != null);
-            button.setBackground(SettingsUi.states(TvFilePickerActivity.this, false));
-            button.setCompoundDrawablesRelative(null, null, null, null);
-            button.setContentDescription(entry.title);
-            button.setOnClickListener(entry.click == null ? null : view -> entry.click.run());
-            if (entry.file != null) styleFileRow(button, entry.file, entry.folder);
-        }
-        public int getItemCount() { return entries.size(); }
-        final class Holder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
-            final Button button;
-            Holder(Button button) { super(button); this.button = button; }
-        }
-    }
-
-    private void styleFileRow(Button button, File file, boolean folder) {
-        boolean checked = !folder && selected.contains(file);
-        button.setBackground(SettingsUi.states(this, checked));
-        button.setContentDescription(file.getName() + (folder ? AppLanguage.get(R.string.ui_folder) : checked ? AppLanguage.get(R.string.ui_selected) : AppLanguage.get(R.string.ui_file)));
-        android.graphics.drawable.Drawable icon = new android.graphics.drawable.Drawable() {
-            private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-            @Override public void draw(android.graphics.Canvas canvas) {
-                canvas.save(); canvas.translate(getBounds().left, getBounds().top);
-                canvas.scale(getBounds().width() / 24f, getBounds().height() / 24f);
-                paint.setColor(checked ? LiquidTheme.accent(TvFilePickerActivity.this) : SettingsUi.muted(TvFilePickerActivity.this));
-                paint.setStyle(android.graphics.Paint.Style.STROKE); paint.setStrokeWidth(1.8f);
-                paint.setStrokeJoin(android.graphics.Paint.Join.ROUND); paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
-                if (checked) {
-                    canvas.drawRoundRect(3, 3, 21, 21, 4, 4, paint);
-                    canvas.drawLine(7, 12, 10, 15, paint); canvas.drawLine(10, 15, 17, 8, paint);
-                } else if (folder) {
-                    android.graphics.Path shape = new android.graphics.Path();
-                    shape.moveTo(3, 7); shape.lineTo(3, 5); shape.lineTo(10, 5); shape.lineTo(12, 8);
-                    shape.lineTo(21, 8); shape.lineTo(21, 19); shape.lineTo(3, 19); shape.close();
-                    canvas.drawPath(shape, paint);
-                } else {
-                    canvas.drawRoundRect(5, 3, 19, 21, 2, 2, paint);
-                    canvas.drawLine(9, 10, 15, 10, paint); canvas.drawLine(9, 14, 15, 14, paint);
-                }
-                canvas.restore();
-            }
-            @Override public void setAlpha(int alpha) { }
-            @Override public void setColorFilter(android.graphics.ColorFilter filter) { }
-            @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
-        };
-        icon.setBounds(0, 0, dp(24), dp(24));
-        button.setCompoundDrawablePadding(dp(14));
-        button.setCompoundDrawablesRelative(icon, null, null, null);
-    }
-
-    private void navigate(File next) { directory = next; showDirectory(); }
-
-    private void chooseFile(File file) {
-        if (isMultiMode()) {
-            if (!selected.add(file)) selected.remove(file);
-            for (int i = 0; i < entries.size(); i++)
-                if (file.equals(entries.get(i).file)) { adapter.notifyItemChanged(i); break; }
-            instruction.setText(AppLanguage.get(R.string.ui_1_s_selected_press_ok_on_files_then_add_selected, selected.size()));
-            updateAction();
-        } else finishWithFiles(Arrays.asList(file));
-    }
-
-    private void confirm() {
-        if (!directoryReady) return;
-        if (isMultiMode()) {
-            if (!selected.isEmpty()) finishWithFiles(new ArrayList<>(selected));
-        } else if (isFolderMode()) {
-            if (directory != null) finishWithFiles(Arrays.asList(directory));
-        } else if (isSaveMode() && directory != null) {
-            String name = filename.getText().toString().trim();
-            if (name.isEmpty() || name.equals(".") || name.equals("..") || name.contains("/") || name.contains("\\")) {
-                filename.setError(AppLanguage.get(R.string.ui_enter_a_filename_without_slashes)); return;
-            }
-            if (!name.toLowerCase(Locale.ROOT).endsWith(".json")) name += ".json";
-            File target = new File(directory, name);
-            if (target.exists()) {
-                AlertDialog prompt = new AlertDialog.Builder(this, LiquidTheme.alertDialogTheme(this))
-                        .setTitle(AppLanguage.get(R.string.ui_replace_1_s, name))
-                        .setPositiveButton(AppLanguage.get(R.string.ui_replace), (dialog, which) -> finishWithFiles(Arrays.asList(target)))
-                        .setNegativeButton(AppLanguage.get(R.string.ui_cancel), null).create();
-                Motion.dialog(prompt); prompt.show();
-            } else {
-                try {
-                    if (!target.createNewFile()) throw new IOException(AppLanguage.get(R.string.ui_could_not_create_file));
-                    finishWithFiles(Arrays.asList(target));
-                } catch (IOException e) { Toast.makeText(this, AppLanguage.get(R.string.ui_could_not_create_a_file_here), Toast.LENGTH_LONG).show(); }
-            }
-        }
-    }
-
-    private void finishWithFiles(List<File> files) {
-        setResult(RESULT_OK, localFilesResult(files));
         finish();
     }
 
+    // Internal app-private diagnostic fixtures; never used for shared-storage selection.
     static Intent localFilesResult(List<File> files) {
         Intent result = new Intent();
         if (files.size() == 1) result.setData(Uri.fromFile(files.get(0)));
@@ -490,19 +92,4 @@ public final class TvFilePickerActivity extends MotionActivity {
         return result;
     }
 
-    @Override protected void onActivityResult(int request, int result, Intent data) {
-        super.onActivityResult(request, result, data);
-        if (request == STORAGE_SETTINGS) showDirectory();
-    }
-
-    private void up() {
-        if (directory == null) { finish(); return; }
-        for (File root : availableRoots) if (root.equals(directory)) { directory = null; showDirectory(); return; }
-        directory = directory.getParentFile();
-        showDirectory();
-    }
-
-    // Legacy TV/Android <33 fallback; API 33+ uses BackNavigation.
-    @android.annotation.SuppressLint("GestureBackNavigation")
-    @Override public void onBackPressed() { up(); }
 }

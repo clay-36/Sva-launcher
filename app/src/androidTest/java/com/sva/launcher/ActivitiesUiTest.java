@@ -33,12 +33,19 @@ public final class ActivitiesUiTest extends InstrumentationTestCase {
                 p.put("poster_art_uri","android.resource://com.sva.launcher/drawable/mountain_wallpaper");
                 p.put("intent_uri",new Intent(context,MainActivity.class).toUri(Intent.URI_INTENT_SCHEME));p.put("searchable",1);
                 assertNotNull(resolver.insert(TvContract.PreviewPrograms.CONTENT_URI,p));
+                if (i == 1) {
+                    p.put("title", "Another recommendation with the same destination");
+                    assertNotNull(resolver.insert(TvContract.PreviewPrograms.CONTENT_URI,p));
+                }
             }
             List<ActivitiesRepository.Channel> loaded=ActivitiesRepository.load(resolver);
             for (ActivitiesRepository.Channel c : loaded) if (c.key.endsWith("activities-qa-2")) assertEquals("Fixture must have no programs", 0, c.programs.size());
             ActivitiesRepository.Channel first=null,second=null;
             for(ActivitiesRepository.Channel c:loaded)if(c.key.endsWith("activities-qa-0"))first=c;else if(c.key.endsWith("activities-qa-1"))second=c;
             assertNotNull(first);assertNotNull(second);assertEquals(1,first.programs.size());
+            assertEquals(2, second.programs.size());
+            assertEquals(second.programs.get(0).intent, second.programs.get(1).intent);
+            assertTrue(second.programs.get(0).id != second.programs.get(1).id);
             prefs.edit().remove(ActivitiesPanel.HIDDEN).putString(ActivitiesPanel.ORDER,second.key+"\n"+first.key).commit();
             getInstrumentation().runOnMainSync(()->AppLanguage.select(context,"en"));
             activity=(MainActivity)getInstrumentation().startActivitySync(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -64,8 +71,24 @@ public final class ActivitiesUiTest extends InstrumentationTestCase {
             assertNotNull("Content artwork must render",image.getDrawable());
             getInstrumentation().runOnMainSync(()->card.requestFocus());
             SystemClock.sleep(300);
+            assertTrue("Recommendation must receive remote focus", card.hasFocus());
+            assertEquals("App label must be visible", 3, card.getChildCount());
+            assertTrue("Recommendation must have an accessible label", card.getContentDescription().length() > 0);
             Bitmap screenshot=getInstrumentation().getUiAutomation().takeScreenshot();
             try(FileOutputStream out=new FileOutputStream(new File(context.getCacheDir(),"activities-qa.png"))){screenshot.compress(Bitmap.CompressFormat.PNG,100,out);}screenshot.recycle();
+            LinearLayout duplicateDestination = (LinearLayout) cards.getLayoutManager().findViewByPosition(1);
+            assertNotNull(duplicateDestination);
+            getInstrumentation().runOnMainSync(duplicateDestination::requestFocus);
+            Object focusedKey = duplicateDestination.getTag();
+            getInstrumentation().runOnMainSync(() -> {
+                try { Method render = ActivitiesPanel.class.getDeclaredMethod("render"); render.setAccessible(true); render.invoke(panel); }
+                catch (Exception e) { throw new RuntimeException(e); }
+            });
+            getInstrumentation().waitForIdleSync();
+            deadline = SystemClock.uptimeMillis() + 3000;
+            while (rows.findFocus() == null && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(50);
+            assertNotNull("Focus must survive channel refresh", rows.findFocus());
+            assertEquals(focusedKey, rows.findFocus().getTag());
             ActivitiesRepository.Channel hidden=second;
             getInstrumentation().runOnMainSync(()->{
                 prefs.edit().putStringSet(ActivitiesPanel.HIDDEN,new HashSet<>(Collections.singleton(hidden.key))).commit();

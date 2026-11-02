@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">Kaydedilenleri navigasyonda göster</string>
     <string name="news_reader_failed">Makale görünümü hazırlanamadı. Orijinal sayfa gösterilir.</string>
     <string name="news_reader_loading">Net bir makale görünümü hazırlanıyor…</string>
+    <string name="activities_empty_title">"Tüm uygulamalarınız bir arada"</string>
+    <string name="activities_browse_hint">"Uygulama önerilerini keşfedin · Açmak için OK tuşuna basın"</string>
+    <string name="ui_document_picker_unavailable">"Sistem dosya seçicisi yüklü değil. Dosya ve klasör seçmek için bir belge seçicisi yükleyin veya etkinleştirin."</string>
 </resources>
