@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">வழிசெலுத்தலில் சேமிக்கப்பட்டதைக் காட்டு</string>
     <string name="news_reader_failed">கட்டுரை காட்சியை தயார் செய்ய முடியவில்லை. அசல் பக்கம் காட்டப்பட்டுள்ளது.</string>
     <string name="news_reader_loading">தெளிவான கட்டுரைப் பார்வையைத் தயாரிக்கிறது…</string>
+    <string name="activities_empty_title">"உங்கள் பயன்பாடுகள் அனைத்தும் ஒரே இடத்தில்"</string>
+    <string name="activities_browse_hint">"பயன்பாட்டுப் பரிந்துரைகளைப் பாருங்கள் · திறக்க OK அழுத்தவும்"</string>
+    <string name="ui_document_picker_unavailable">"கணினி கோப்புத் தேர்வி நிறுவப்படவில்லை. கோப்புகளையும் கோப்புறைகளையும் தேர்ந்தெடுக்க ஆவணத் தேர்வியை நிறுவவும் அல்லது இயக்கவும்."</string>
 </resources>

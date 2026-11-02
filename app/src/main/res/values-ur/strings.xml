@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">نیویگیشن میں محفوظ کردہ دکھائیں۔</string>
     <string name="news_reader_failed">مضمون کا منظر تیار نہیں کیا جا سکا۔ اصل صفحہ دکھایا گیا ہے۔</string>
     <string name="news_reader_loading">مضمون کا واضح منظر تیار کیا جا رہا ہے…</string>
+    <string name="activities_empty_title">"آپ کی سب ایپس ایک جگہ"</string>
+    <string name="activities_browse_hint">"اپنی ایپس کی تجاویز دیکھیں · کھولنے کے لیے OK دبائیں"</string>
+    <string name="ui_document_picker_unavailable">"سسٹم فائل منتخب کرنے والی ایپ نصب نہیں ہے۔ فائلیں اور فولڈر منتخب کرنے کے لیے دستاویز منتخب کرنے والی ایپ نصب یا فعال کریں۔"</string>
 </resources>

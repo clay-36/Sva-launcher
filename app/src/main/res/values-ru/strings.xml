@@ -743,4 +743,7 @@
     <string name="ui_show_saved_in_navigation">Показать сохраненные в навигации</string>
     <string name="news_reader_failed">Не удалось подготовить просмотр статьи. Показана исходная страница.</string>
     <string name="news_reader_loading">Подготовка четкого представления статьи…</string>
+    <string name="activities_empty_title">"Все ваши приложения вместе"</string>
+    <string name="activities_browse_hint">"Смотрите рекомендации приложений · Нажмите OK, чтобы открыть"</string>
+    <string name="ui_document_picker_unavailable">"Системный выбор файлов недоступен. Установите или включите приложение выбора документов для выбора файлов и папок."</string>
 </resources>

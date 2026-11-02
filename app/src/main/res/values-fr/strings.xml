@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">Afficher les enregistrements enregistrés dans la navigation</string>
     <string name="news_reader_failed">Impossible de préparer la vue de l\'article. La page originale s\'affiche.</string>
     <string name="news_reader_loading">Préparer une vue claire de l’article…</string>
+    <string name="activities_empty_title">"Toutes vos applications réunies"</string>
+    <string name="activities_browse_hint">"Découvrez les recommandations de vos applications · Appuyez sur OK pour ouvrir"</string>
+    <string name="ui_document_picker_unavailable">"Aucun sélecteur de fichiers système installé. Installez ou activez un sélecteur de documents pour choisir des fichiers et des dossiers."</string>
 </resources>

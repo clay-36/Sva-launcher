@@ -245,7 +245,7 @@ adb pull /sdcard/screen.png ./screen.png
 | ├── `ScreensaverSettingsActivity.java` | Atmosphere selector, photo preview, idle timeout setup |
 | ├── `SvaDreamService.java` | Android TV DreamService integration for system-wide idle screensaver |
 | ├── `TaskProgress.java` | Noncritical indeterminate progress indicator with delayed reveal (300 ms) |
-| ├── `TvFilePickerActivity.java` | Remote-friendly file picker for local storage and USB drives |
+| ├── `TvFilePickerActivity.java` | System document picker bridge with scoped URI grants |
 | └── `BackNavigation.java` | Predictable Android TV back-stack management |
 | `app/src/main/jni/` | **NDK C++ native bridge** (`Android.mk`, `Application.mk`, JNI wrapper) |
 | `third_party/nestopia/` | **Pinned Nestopia UE C++ core** (`source/`, `headers/`, `NTSC filters`) |

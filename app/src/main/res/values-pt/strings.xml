@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">Mostrar salvos na navegação</string>
     <string name="news_reader_failed">Não foi possível preparar a visualização do artigo. A página original é mostrada.</string>
     <string name="news_reader_loading">Preparando uma visão clara do artigo…</string>
+    <string name="activities_empty_title">"Seus apps, todos juntos"</string>
+    <string name="activities_browse_hint">"Explore recomendações dos seus apps · Pressione OK para abrir"</string>
+    <string name="ui_document_picker_unavailable">"Nenhum seletor de arquivos do sistema instalado. Instale ou ative um seletor de documentos para selecionar arquivos e pastas."</string>
 </resources>

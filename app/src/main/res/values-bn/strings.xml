@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">দেখান নেভিগেশন সংরক্ষিত</string>
     <string name="news_reader_failed">নিবন্ধ দৃশ্য প্রস্তুত করা যায়নি. মূল পৃষ্ঠা দেখানো হয়.</string>
     <string name="news_reader_loading">একটি পরিষ্কার নিবন্ধ দৃশ্য প্রস্তুত করা হচ্ছে...</string>
+    <string name="activities_empty_title">"আপনার সব অ্যাপ একসাথে"</string>
+    <string name="activities_browse_hint">"অ্যাপের সুপারিশ দেখুন · খুলতে OK চাপুন"</string>
+    <string name="ui_document_picker_unavailable">"সিস্টেম ফাইল নির্বাচক ইনস্টল করা নেই। ফাইল ও ফোল্ডার বেছে নিতে নথি নির্বাচক ইনস্টল বা চালু করুন।"</string>
 </resources>

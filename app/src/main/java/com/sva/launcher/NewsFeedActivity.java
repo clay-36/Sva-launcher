@@ -17,7 +17,7 @@ public final class NewsFeedActivity extends LocalizedActivity {
     private ChannelLogoLoader artwork;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        artwork=new ChannelLogoLoader(this,1440);
+        artwork=new ChannelLogoLoader(this,1920,12 * 1024 * 1024);
         BackNavigation.install(this, this::finish);
         getWindow().getDecorView().setSystemUiVisibility(5894);
         stories=NewsRepository.decode(getSharedPreferences("launcher",0).getString(NewsRepository.CACHE,"[]"));

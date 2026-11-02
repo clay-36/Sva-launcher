@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">નેવિગેશનમાં સાચવેલ બતાવો</string>
     <string name="news_reader_failed">લેખ દૃશ્ય તૈયાર કરી શકાયું નથી. મૂળ પૃષ્ઠ બતાવવામાં આવ્યું છે.</string>
     <string name="news_reader_loading">સ્પષ્ટ લેખ દૃશ્ય તૈયાર કરી રહ્યાં છીએ...</string>
+    <string name="activities_empty_title">"તમારી બધી ઍપ્સ એકસાથે"</string>
+    <string name="activities_browse_hint">"તમારી ઍપ્સની ભલામણો જુઓ · ખોલવા માટે OK દબાવો"</string>
+    <string name="ui_document_picker_unavailable">"સિસ્ટમ ફાઇલ પસંદગી સાધન ઇન્સ્ટોલ કરેલું નથી. ફાઇલો અને ફોલ્ડર્સ પસંદ કરવા દસ્તાવેજ પસંદગી સાધન ઇન્સ્ટોલ અથવા સક્રિય કરો."</string>
 </resources>

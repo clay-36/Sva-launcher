@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">在导航中显示已保存</string>
     <string name="news_reader_failed">无法准备文章视图。显示原始页面。</string>
     <string name="news_reader_loading">准备清晰的文章视图...</string>
+    <string name="activities_empty_title">"所有应用，汇聚一处"</string>
+    <string name="activities_browse_hint">"浏览应用推荐 · 按 OK 打开"</string>
+    <string name="ui_document_picker_unavailable">"未安装系统文件选择器。请安装或启用文档选择器，以选择文件和文件夹。"</string>
 </resources>

@@ -176,28 +176,17 @@ public final class PerformanceUiTest extends InstrumentationTestCase {
             for (File file : fixtures) file.delete();
         }
     }
-    public void testDirectoryNavigationRejectsOldResultsAndRecyclesRows() throws Exception {
-        File base = new File(getInstrumentation().getTargetContext().getCacheDir(), "performance-picker");
-        File large = new File(base, "large"), latest = new File(base, "latest"); large.mkdirs(); latest.mkdirs();
-        try {
-            for (int i = 0; i < 1000; i++) new File(large, "fixture-" + i + ".nes").createNewFile();
-            new File(latest, "latest.nes").createNewFile();
-            open(TvFilePickerActivity.class, TvFilePickerActivity.MODE_NES_FILES);
-            invoke(activity, "navigate", new Class<?>[]{File.class}, large);
-            RecyclerView rows = (RecyclerView)field(activity, "rows"); awaitCount(rows, 1000);
-            assertTrue(rows.getChildCount() < 25);
-            capture("files");
-            remoteAcross(rows, 20, android.view.KeyEvent.KEYCODE_DPAD_DOWN);
-            assertTrue("Remote must scroll through recycled files", focusedPosition(rows) >= 15);
-            invoke(activity, "navigate", new Class<?>[]{File.class}, large);
-            invoke(activity, "navigate", new Class<?>[]{File.class}, latest);
-            awaitCount(rows, 1);
-            assertEquals(latest, field(activity, "directory"));
-            assertEquals("latest.nes", ((TextView)rows.getChildAt(0)).getText().toString());
-        } finally {
-            for (File dir : new File[]{large, latest}) { File[] files = dir.listFiles(); if (files != null) for (File file : files) file.delete(); dir.delete(); }
-            base.delete();
-        }
+    public void testDocumentPickerUsesScopedGrants() {
+        Intent files = TvFilePickerActivity.documentIntent(TvFilePickerActivity.MODE_NES_FILES);
+        assertEquals(Intent.ACTION_OPEN_DOCUMENT, files.getAction());
+        assertTrue(files.getBooleanExtra(Intent.EXTRA_ALLOW_MULTIPLE, false));
+        assertTrue(files.hasCategory(Intent.CATEGORY_OPENABLE));
+        assertEquals(Intent.ACTION_OPEN_DOCUMENT_TREE,
+                TvFilePickerActivity.documentIntent(TvFilePickerActivity.MODE_IMAGE_FOLDER).getAction());
+        Intent backup = TvFilePickerActivity.documentIntent(TvFilePickerActivity.MODE_SAVE_JSON);
+        assertEquals(Intent.ACTION_CREATE_DOCUMENT, backup.getAction());
+        assertEquals("application/json", backup.getType());
+        assertTrue((backup.getFlags() & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0);
     }
     public void testChannelSearchKeepsOnlyLatestQuery() throws Exception {
         open(MainActivity.class, null);

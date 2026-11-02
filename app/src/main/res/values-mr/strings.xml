@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">नेव्हिगेशनमध्ये सेव्ह केलेले दाखवा</string>
     <string name="news_reader_failed">लेख दृश्य तयार करू शकलो नाही. मूळ पान दाखवले आहे.</string>
     <string name="news_reader_loading">स्पष्ट लेख दृश्य तयार करत आहे...</string>
+    <string name="activities_empty_title">"तुमचे सर्व ॲप्स एकत्र"</string>
+    <string name="activities_browse_hint">"तुमच्या ॲप्समधील शिफारसी पाहा · उघडण्यासाठी OK दाबा"</string>
+    <string name="ui_document_picker_unavailable">"सिस्टम फाइल निवडक स्थापित नाही. फाइल्स आणि फोल्डर्स निवडण्यासाठी दस्तऐवज निवडक स्थापित किंवा सक्षम करा."</string>
 </resources>

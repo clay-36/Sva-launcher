@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">నావిగేషన్‌లో సేవ్ చేయబడినవి చూపించు</string>
     <string name="news_reader_failed">వ్యాస వీక్షణను సిద్ధం చేయడం సాధ్యపడలేదు. అసలు పేజీ చూపబడింది.</string>
     <string name="news_reader_loading">స్పష్టమైన కథన వీక్షణను సిద్ధం చేస్తోంది...</string>
+    <string name="activities_empty_title">"మీ యాప్‌లన్నీ ఒకే చోట"</string>
+    <string name="activities_browse_hint">"మీ యాప్‌ల సిఫార్సులను చూడండి · తెరవడానికి OK నొక్కండి"</string>
+    <string name="ui_document_picker_unavailable">"సిస్టమ్ ఫైల్ ఎంపిక సాధనం ఇన్‌స్టాల్ కాలేదు. ఫైల్‌లు, ఫోల్డర్‌లను ఎంచుకోవడానికి డాక్యుమెంట్ ఎంపిక సాధనాన్ని ఇన్‌స్టాల్ చేయండి లేదా ప్రారంభించండి."</string>
 </resources>

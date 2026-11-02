@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">탐색에 저장된 내용 표시</string>
     <string name="news_reader_failed">기사 보기를 준비할 수 없습니다. 원본 페이지가 표시됩니다.</string>
     <string name="news_reader_loading">명확한 기사보기 준비 중…</string>
+    <string name="activities_empty_title">"모든 앱을 한곳에"</string>
+    <string name="activities_browse_hint">"앱의 추천 콘텐츠 탐색 · OK를 눌러 열기"</string>
+    <string name="ui_document_picker_unavailable">"시스템 파일 선택기가 설치되어 있지 않습니다. 파일과 폴더를 선택하려면 문서 선택기를 설치하거나 활성화하세요."</string>
 </resources>

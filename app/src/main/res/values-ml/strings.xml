@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">നാവിഗേഷനിൽ സംരക്ഷിച്ചവ കാണിക്കുക</string>
     <string name="news_reader_failed">ലേഖന കാഴ്ച തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല. യഥാർത്ഥ പേജ് കാണിച്ചിരിക്കുന്നു.</string>
     <string name="news_reader_loading">വ്യക്തമായ ഒരു ലേഖന കാഴ്ച തയ്യാറാക്കുന്നു...</string>
+    <string name="activities_empty_title">"നിങ്ങളുടെ ആപ്പുകളെല്ലാം ഒരിടത്ത്"</string>
+    <string name="activities_browse_hint">"ആപ്പുകളുടെ ശുപാർശകൾ കാണുക · തുറക്കാൻ OK അമർത്തുക"</string>
+    <string name="ui_document_picker_unavailable">"സിസ്റ്റം ഫയൽ പിക്കർ ഇൻസ്റ്റാൾ ചെയ്തിട്ടില്ല. ഫയലുകളും ഫോൾഡറുകളും തിരഞ്ഞെടുക്കാൻ ഡോക്യുമെന്റ് പിക്കർ ഇൻസ്റ്റാൾ ചെയ്യുക അല്ലെങ്കിൽ പ്രവർത്തനക്ഷമമാക്കുക."</string>
 </resources>

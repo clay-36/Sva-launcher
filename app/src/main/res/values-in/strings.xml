@@ -761,4 +761,7 @@
     <string name="ui_show_saved_in_navigation">Tampilkan Tersimpan di navigasi</string>
     <string name="news_reader_failed">Tidak dapat menyiapkan tampilan artikel. Halaman asli ditampilkan.</string>
     <string name="news_reader_loading">Mempersiapkan tampilan artikel yang jelas…</string>
+    <string name="activities_empty_title">"Semua aplikasi Anda, bersama"</string>
+    <string name="activities_browse_hint">"Jelajahi rekomendasi aplikasi Anda · Tekan OK untuk membuka"</string>
+    <string name="ui_document_picker_unavailable">"Pemilih file sistem belum terpasang. Pasang atau aktifkan pemilih dokumen untuk memilih file dan folder."</string>
 </resources>

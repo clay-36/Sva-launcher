@@ -32,6 +32,7 @@ final class ChannelLogoLoader {
 
     private final File cacheDir;
     private final int maxLogoPx;
+    private final int maxImageBytes;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final LruCache<String, Bitmap> memoryCache;
     private final ConcurrentMap<String, Object> fetchLocks = new ConcurrentHashMap<>();
@@ -46,6 +47,11 @@ final class ChannelLogoLoader {
     }
 
     ChannelLogoLoader(Context context, int maxImagePx) {
+        this(context, maxImagePx, MAX_IMAGE_BYTES);
+    }
+
+    ChannelLogoLoader(Context context, int maxImagePx, int downloadLimitBytes) {
+        maxImageBytes = downloadLimitBytes;
         cacheDir = new File(context.getCacheDir(), "channel-logos");
         cacheDir.mkdirs();
         maxLogoPx = maxImagePx;
@@ -117,13 +123,13 @@ final class ChannelLogoLoader {
             connection.setRequestProperty("User-Agent", "SvaLauncher/1.0");
             int code = connection.getResponseCode();
             if (code < 200 || code >= 300) return null;
-            if (connection.getContentLength() > MAX_IMAGE_BYTES) return null;
+            if (connection.getContentLength() > maxImageBytes) return null;
             try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(temp)) {
                 byte[] buffer = new byte[8192];
                 int count, total = 0;
                 while ((count = input.read(buffer)) != -1) {
                     total += count;
-                    if (total > MAX_IMAGE_BYTES) { temp.delete(); return null; }
+                    if (total > maxImageBytes) { temp.delete(); return null; }
                     output.write(buffer, 0, count);
                 }
             }
@@ -158,9 +164,9 @@ final class ChannelLogoLoader {
         } catch (Exception ignored) { return null; }
     }
 
-    private static int sampleSize(int width, int height, int target) {
+    static int sampleSize(int width, int height, int target) {
         int sample = 1;
-        while (width / sample > target || height / sample > target) sample *= 2;
+        while (width / (sample * 2L) >= target || height / (sample * 2L) >= target) sample *= 2;
         return sample;
     }
 

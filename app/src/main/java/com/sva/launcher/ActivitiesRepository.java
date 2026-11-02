@@ -19,6 +19,7 @@ final class ActivitiesRepository {
         final List<Program> programs = new ArrayList<>();
     }
     static final class Program {
+        long id;
         String title, artwork, intent;
     }
     static List<Channel> load(ContentResolver resolver) {
@@ -36,11 +37,11 @@ final class ActivitiesRepository {
         }
         // No selection clause: ordinary apps cannot use selection on this provider.
         try (Cursor c = resolver.query(TvContract.PreviewPrograms.CONTENT_URI,
-                new String[]{"channel_id", "title", "poster_art_uri", "intent_uri"}, null, null, null)) {
+                new String[]{"channel_id", "title", "poster_art_uri", "intent_uri", "_id"}, null, null, null)) {
             if (c != null) while (c.moveToNext()) {
                 Channel channel = channels.get(c.getLong(0));
                 if (channel == null || channel.programs.size() >= 30) continue;
-                Program program = new Program(); program.title = c.getString(1); program.artwork = c.getString(2); program.intent = c.getString(3);
+                Program program = new Program(); program.id = c.getLong(4); program.title = c.getString(1); program.artwork = c.getString(2); program.intent = c.getString(3);
                 if (program.intent != null && !program.intent.isEmpty()) channel.programs.add(program);
             }
         }

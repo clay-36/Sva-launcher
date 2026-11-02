@@ -321,7 +321,7 @@ public final class MainActivity extends LocalizedActivity {
         iptv = new IptvRepository(this);
         acceptReminderIntent(getIntent());
         logoLoader = new ChannelLogoLoader(this);
-        newsArtworkLoader = new ChannelLogoLoader(this, 1440);
+        newsArtworkLoader = new ChannelLogoLoader(this, 1920, 12 * 1024 * 1024);
         weatherForecast = cachedWeather();
         hiddenChannelKeys.addAll(HiddenChannels.load(preferences));
         favoriteChannelKeys.addAll(FavoriteChannels.load(preferences));
