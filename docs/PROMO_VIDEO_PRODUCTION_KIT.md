@@ -132,8 +132,7 @@ Sva Launcher is a calm, personal home screen for Android TV. It brings your favo
 • Utilities: Full monthly calendar with lunar illumination, 3-day weather forecast, and saved video shortcuts.
 
 📥 Get Sva Launcher:
-Google Play Testing: https://play.google.com/apps/testing/com.sva.launcher
-Google Group: https://groups.google.com/g/sva-launcher
+Google Play: https://play.google.com/store/apps/details?id=com.sva.launcher
 Source Code & Releases: https://github.com/user/sva-launcher
 
 ⏱️ Chapters:

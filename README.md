@@ -5,6 +5,12 @@
 <h1 align="center">Sva Launcher</h1>
 
 <p align="center">
+  <a href="https://play.google.com/store/apps/details?id=com.sva.launcher">
+    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" width="200" />
+  </a>
+</p>
+
+<p align="center">
   <strong>A calm, personal home screen for Android TV.</strong><br />
   Bring apps, live TV, games, calendars, saved videos, weather, and your own photos together in one remote-first interface.
 </p>
@@ -83,14 +89,7 @@ Cached channels, guide data, calendar entries, weather, and artwork remain avail
 
 ## Installation
 
-Install Sva Launcher on your Android TV through the Google Play testing programme:
-
-1. Join the [Sva Launcher Google Group](https://groups.google.com/g/sva-launcher).
-2. Open the [Google Play testing page](https://play.google.com/apps/testing/com.sva.launcher) and join the testing programme.
-3. Follow the Google Play link on that page to install **Sva Launcher** on your Android TV.
-
-Use the same Google account to join the group, join the testing programme, and
-install the app on your TV. Join the group before opening the testing page.
+Install [Sva Launcher from Google Play](https://play.google.com/store/apps/details?id=com.sva.launcher) on your Android TV.
 
 You can also [build and install the APK from source](DEVELOPER.md).
 
