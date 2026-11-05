@@ -59,7 +59,7 @@ public final class TaskLoaderUiTest extends InstrumentationTestCase {
     }
 
     private void open() {
-        activity = (MainActivity) getInstrumentation().startActivitySync(
+        activity = (MainActivity) TestActivities.start(getInstrumentation(),
                 new Intent(getInstrumentation().getTargetContext(), MainActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
         getInstrumentation().waitForIdleSync();
@@ -226,7 +226,7 @@ public final class TaskLoaderUiTest extends InstrumentationTestCase {
     }
 
     public void testAlbumEditInvalidatesPendingCheckWithoutNetwork() throws Exception {
-        ScreensaverSettingsActivity screen = (ScreensaverSettingsActivity)getInstrumentation().startActivitySync(
+        ScreensaverSettingsActivity screen = (ScreensaverSettingsActivity)TestActivities.start(getInstrumentation(),
                 new Intent(getInstrumentation().getTargetContext(), ScreensaverSettingsActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
         java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);

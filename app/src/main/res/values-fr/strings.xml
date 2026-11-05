@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"Toutes vos applications réunies"</string>
     <string name="activities_browse_hint">"Découvrez les recommandations de vos applications · Appuyez sur OK pour ouvrir"</string>
     <string name="ui_document_picker_unavailable">"Aucun sélecteur de fichiers système installé. Installez ou activez un sélecteur de documents pour choisir des fichiers et des dossiers."</string>
+    <string name="accessibility_disclosure_title">"Accueil alternatif facultatif : AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher utilise l’API Android AccessibilityService pour la fonction facultative d’accueil alternatif. Lorsque le service est activé, il accède aux événements de changement de fenêtre et aux noms de paquet du lanceur TV pour détecter le lanceur intégré et ouvrir automatiquement Sva à sa place, même si Sva est fermé.\n\nCes données restent sur votre téléviseur et ne sont ni enregistrées ni partagées. Le contenu de l’écran et le texte saisi ne sont pas lus.\n\nAccepter ouvre les paramètres d’accessibilité Android pour activer Sva Launcher. Vous pouvez y désactiver le service à tout moment. Non merci permet de continuer à utiliser Sva sans accueil alternatif."</string>
+    <string name="accessibility_disclosure_agree">"Accepter et ouvrir les paramètres"</string>
+    <string name="accessibility_disclosure_decline">"Non merci"</string>
 </resources>

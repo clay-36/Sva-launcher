@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"所有应用，汇聚一处"</string>
     <string name="activities_browse_hint">"浏览应用推荐 · 按 OK 打开"</string>
     <string name="ui_document_picker_unavailable">"未安装系统文件选择器。请安装或启用文档选择器，以选择文件和文件夹。"</string>
+    <string name="accessibility_disclosure_title">"可选主页切换：AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher 使用 Android AccessibilityService API 提供可选的主页切换功能。启用后，服务会访问窗口切换事件和电视启动器的包名，以识别电视内置启动器并自动改为打开 Sva，即使 Sva 当前未打开也会生效。\n\n这些数据仅在电视本地处理，不会保存或分享。服务不会读取屏幕内容或输入的文字。\n\n选择同意将打开 Android 无障碍设置，以便启用 Sva Launcher。您随时可以在那里停用服务。选择不用了，仍可继续使用 Sva，只是不启用主页切换。"</string>
+    <string name="accessibility_disclosure_agree">"同意并打开设置"</string>
+    <string name="accessibility_disclosure_decline">"不用了"</string>
 </resources>

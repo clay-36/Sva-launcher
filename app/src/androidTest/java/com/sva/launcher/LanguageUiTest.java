@@ -47,6 +47,13 @@ public final class LanguageUiTest extends InstrumentationTestCase {
                     assertFalse(localized.getResources().getQuantityString(field.getInt(null), count, count).isEmpty());
                 }
             }
+            if (!"en".equals(tag)) {
+                Context english = base.createConfigurationContext(englishConfiguration(base));
+                for (int id : new int[]{R.string.accessibility_disclosure_title, R.string.accessibility_disclosure_message,
+                        R.string.accessibility_disclosure_agree, R.string.accessibility_disclosure_decline}) {
+                    assertFalse(tag + ": disclosure must be translated", english.getString(id).equals(localized.getString(id)));
+                }
+            }
             String language = localized.getString(R.string.ui_language);
             if (!"en".equals(tag)) assertFalse(tag + " has no translation", "Language".equals(language));
         }
@@ -219,6 +226,12 @@ public final class LanguageUiTest extends InstrumentationTestCase {
         }
     }
 
+    private Configuration englishConfiguration(Context base) {
+        Configuration config = new Configuration(base.getResources().getConfiguration());
+        config.setLocales(LocaleList.forLanguageTags("en"));
+        return config;
+    }
+
     private boolean hasText(View view, String text) {
         if (view instanceof android.widget.TextView && text.contentEquals(((android.widget.TextView) view).getText())) return true;
         if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++) if (hasText(((ViewGroup) view).getChildAt(i), text)) return true;
@@ -243,7 +256,7 @@ public final class LanguageUiTest extends InstrumentationTestCase {
         getInstrumentation().waitForIdleSync();
     }
     private <T extends Activity> T start(Class<T> type) {
-        Activity activity = getInstrumentation().startActivitySync(new Intent(getInstrumentation().getTargetContext(), type)
+        Activity activity = TestActivities.start(getInstrumentation(), new Intent(getInstrumentation().getTargetContext(), type)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         getInstrumentation().setInTouchMode(false);
         getInstrumentation().waitForIdleSync();

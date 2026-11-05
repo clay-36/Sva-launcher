@@ -26,8 +26,4 @@ References: https://support.google.com/googleplay/android-developer/answer/10964
 
 ## Verification in this checkout
 
-- Built the app and instrumentation APKs with a temporary Gradle init script excluding the pre-existing unfinished music sources/tests. The normal build currently fails because those sources reference missing Media3 session and music-provider dependencies.
-- Installed verification builds under a separate application ID, preserving the existing emulator installation.
-- Passed five instrumentation tests covering affirmative consent, cancellation, consent withdrawal, and accessibility-settings fallback behavior.
-- Visually verified the first-launch disclosure at 1280×720: all disclosure text and both buttons fit; No thanks receives remote focus. New disclosure strings currently use the English fallback for other app languages.
-- No release was uploaded or submitted to Google Play.
+See [the pre-production review](PREPRODUCTION_ACCESSIBILITY_REVIEW.md) for current build, lint, runtime and regression results. Version 4.1.10 adds complete disclosure translations, theme contrast fixes and test-fixture corrections. The linked report records the final check results and remaining manual release operations. No release was uploaded or submitted to Google Play.

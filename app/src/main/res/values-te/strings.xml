@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"మీ యాప్‌లన్నీ ఒకే చోట"</string>
     <string name="activities_browse_hint">"మీ యాప్‌ల సిఫార్సులను చూడండి · తెరవడానికి OK నొక్కండి"</string>
     <string name="ui_document_picker_unavailable">"సిస్టమ్ ఫైల్ ఎంపిక సాధనం ఇన్‌స్టాల్ కాలేదు. ఫైల్‌లు, ఫోల్డర్‌లను ఎంచుకోవడానికి డాక్యుమెంట్ ఎంపిక సాధనాన్ని ఇన్‌స్టాల్ చేయండి లేదా ప్రారంభించండి."</string>
+    <string name="accessibility_disclosure_title">"ఐచ్ఛిక హోమ్ మార్పు: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"ఐచ్ఛిక హోమ్ మార్పు కోసం Sva Launcher, Android AccessibilityService API ని ఉపయోగిస్తుంది. సేవ ఆన్‌లో ఉన్నప్పుడు విండో మార్పు ఈవెంట్‌లు, TV లాంచర్ ప్యాకేజీ పేర్లను యాక్సెస్ చేసి, TV అంతర్నిర్మిత లాంచర్‌ను గుర్తించి దాని బదులు Sva ను స్వయంచాలకంగా తెరుస్తుంది. Sva తెరిచి లేకపోయినా ఇది పనిచేస్తుంది.\n\nఈ డేటా TV లోనే ఉంటుంది; నిల్వ చేయబడదు లేదా పంచుకోబడదు. స్క్రీన్ కంటెంట్ లేదా టైప్ చేసిన వచనం చదవబడదు.\n\nఅంగీకరిస్తే Sva Launcher ఆన్ చేయడానికి Android యాక్సెసిబిలిటీ సెట్టింగ్‌లు తెరుచుకుంటాయి. అక్కడ ఎప్పుడైనా సేవను ఆఫ్ చేయవచ్చు. వద్దు ఎంచుకుని హోమ్ మార్పు లేకుండా Sva ను వాడవచ్చు."</string>
+    <string name="accessibility_disclosure_agree">"అంగీకరించి సెట్టింగ్‌లు తెరవండి"</string>
+    <string name="accessibility_disclosure_decline">"వద్దు"</string>
 </resources>

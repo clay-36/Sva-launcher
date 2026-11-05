@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"ನಿಮ್ಮ ಎಲ್ಲಾ ಆ್ಯಪ್‌ಗಳು ಒಂದೇ ಕಡೆ"</string>
     <string name="activities_browse_hint">"ನಿಮ್ಮ ಆ್ಯಪ್‌ಗಳ ಶಿಫಾರಸುಗಳನ್ನು ನೋಡಿ · ತೆರೆಯಲು OK ಒತ್ತಿರಿ"</string>
     <string name="ui_document_picker_unavailable">"ಸಿಸ್ಟಮ್ ಫೈಲ್ ಆಯ್ಕೆ ಸಾಧನ ಸ್ಥಾಪಿಸಲಾಗಿಲ್ಲ. ಫೈಲ್‌ಗಳು ಮತ್ತು ಫೋಲ್ಡರ್‌ಗಳನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಡಾಕ್ಯುಮೆಂಟ್ ಆಯ್ಕೆ ಸಾಧನವನ್ನು ಸ್ಥಾಪಿಸಿ ಅಥವಾ ಸಕ್ರಿಯಗೊಳಿಸಿ."</string>
+    <string name="accessibility_disclosure_title">"ಐಚ್ಛಿಕ ಹೋಮ್ ಬದಲಾವಣೆ: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"ಐಚ್ಛಿಕ ಹೋಮ್ ಬದಲಾವಣೆಗಾಗಿ Sva Launcher, Android AccessibilityService API ಬಳಸುತ್ತದೆ. ಸೇವೆ ಚಾಲನೆಯಲ್ಲಿದ್ದಾಗ ವಿಂಡೋ ಬದಲಾವಣೆಯ ಈವೆಂಟ್‌ಗಳು ಮತ್ತು TV ಲಾಂಚರ್‌ನ ಪ್ಯಾಕೇಜ್ ಹೆಸರುಗಳನ್ನು ಪ್ರವೇಶಿಸಿ, TV ಯ ಅಂತರ್ನಿರ್ಮಿತ ಲಾಂಚರ್ ಗುರುತಿಸಿ ಅದರ ಬದಲಿಗೆ Sva ಅನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ತೆರೆಯುತ್ತದೆ. Sva ತೆರೆದಿಲ್ಲದಿದ್ದರೂ ಇದು ಕೆಲಸ ಮಾಡುತ್ತದೆ.\n\nಈ ಡೇಟಾ TV ಯಲ್ಲೇ ಇರುತ್ತದೆ; ಸಂಗ್ರಹಿಸಲಾಗುವುದಿಲ್ಲ ಅಥವಾ ಹಂಚಿಕೊಳ್ಳಲಾಗುವುದಿಲ್ಲ. ಪರದೆಯ ವಿಷಯ ಅಥವಾ ಟೈಪ್ ಮಾಡಿದ ಪಠ್ಯವನ್ನು ಓದುವುದಿಲ್ಲ.\n\nಒಪ್ಪಿದರೆ Sva Launcher ಸಕ್ರಿಯಗೊಳಿಸಲು Android ಪ್ರವೇಶಿಸುವಿಕೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು ತೆರೆಯುತ್ತವೆ. ಅಲ್ಲಿ ಸೇವೆಯನ್ನು ಯಾವಾಗ ಬೇಕಾದರೂ ನಿಲ್ಲಿಸಬಹುದು. ಬೇಡ ಆಯ್ಕೆಮಾಡಿ ಹೋಮ್ ಬದಲಾವಣೆ ಇಲ್ಲದೆ Sva ಬಳಸಬಹುದು."</string>
+    <string name="accessibility_disclosure_agree">"ಒಪ್ಪಿ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ತೆರೆಯಿರಿ"</string>
+    <string name="accessibility_disclosure_decline">"ಬೇಡ"</string>
 </resources>

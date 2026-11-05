@@ -746,4 +746,8 @@
     <string name="activities_empty_title">"Все ваши приложения вместе"</string>
     <string name="activities_browse_hint">"Смотрите рекомендации приложений · Нажмите OK, чтобы открыть"</string>
     <string name="ui_document_picker_unavailable">"Системный выбор файлов недоступен. Установите или включите приложение выбора документов для выбора файлов и папок."</string>
+    <string name="accessibility_disclosure_title">"Замена главного экрана: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher использует Android AccessibilityService API для необязательной замены главного экрана. Когда служба включена, она получает события смены окон и имена пакетов ТВ-лаунчера, чтобы распознать встроенный лаунчер и автоматически открыть вместо него Sva, даже если Sva закрыт.\n\nЭти данные остаются на телевизоре, не сохраняются и не передаются. Содержимое экрана и вводимый текст не читаются.\n\nКнопка согласия открывает настройки специальных возможностей Android для включения Sva Launcher. Там можно в любое время отключить службу. Выбрав «Нет, спасибо», вы продолжите пользоваться Sva без замены главного экрана."</string>
+    <string name="accessibility_disclosure_agree">"Согласиться и открыть настройки"</string>
+    <string name="accessibility_disclosure_decline">"Нет, спасибо"</string>
 </resources>

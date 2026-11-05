@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"आपके ऐप्स, एक साथ"</string>
     <string name="activities_browse_hint">"अपने ऐप्स की अनुशंसाएँ देखें · खोलने के लिए OK दबाएँ"</string>
     <string name="ui_document_picker_unavailable">"सिस्टम फ़ाइल पिकर उपलब्ध नहीं है। फ़ाइलें और फ़ोल्डर चुनने के लिए दस्तावेज़ पिकर इंस्टॉल या सक्षम करें।"</string>
+    <string name="accessibility_disclosure_title">"वैकल्पिक होम बदलाव: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher वैकल्पिक होम बदलाव के लिए Android AccessibilityService API का उपयोग करता है। चालू होने पर सेवा विंडो बदलने के इवेंट और टीवी लॉन्चर के पैकेज नामों तक पहुँचती है, ताकि टीवी के मूल लॉन्चर को पहचानकर उसकी जगह अपने आप Sva खोल सके, भले ही Sva खुला न हो।\n\nयह डेटा टीवी पर ही रहता है और न सहेजा जाता है, न साझा किया जाता है। स्क्रीन की सामग्री या टाइप किया गया टेक्स्ट नहीं पढ़ा जाता।\n\nसहमति देने पर Sva Launcher चालू करने के लिए Android की सुलभता सेटिंग खुलेगी। सेवा वहाँ कभी भी बंद कर सकते हैं। नहीं, धन्यवाद चुनकर होम बदलाव के बिना Sva इस्तेमाल कर सकते हैं।"</string>
+    <string name="accessibility_disclosure_agree">"सहमत हूँ, सेटिंग खोलें"</string>
+    <string name="accessibility_disclosure_decline">"नहीं, धन्यवाद"</string>
 </resources>

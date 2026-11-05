@@ -50,7 +50,7 @@ public final class HomeUiTest extends InstrumentationTestCase {
     }
 
     public void testFirstAndLastFocusedAppStayInsideScrollViewport() throws Exception {
-        MainActivity activity = (MainActivity)getInstrumentation().startActivitySync(new Intent(
+        MainActivity activity = (MainActivity)TestActivities.start(getInstrumentation(), new Intent(
                 getInstrumentation().getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         getInstrumentation().setInTouchMode(false);
         try {
@@ -151,7 +151,7 @@ public final class HomeUiTest extends InstrumentationTestCase {
     }
 
     private MainActivity startHome() throws Exception {
-        MainActivity activity = (MainActivity)getInstrumentation().startActivitySync(new Intent(
+        MainActivity activity = (MainActivity)TestActivities.start(getInstrumentation(), new Intent(
                 getInstrumentation().getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         getInstrumentation().setInTouchMode(false);
         for (int i = 0; i < 100 && !activity.hasWindowFocus(); i++) {

@@ -5042,9 +5042,14 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private SettingsScreen settingsScreen;
 
     private AlertDialog showAccessibilityDisclosure(TextView feedback) {
+        TextView title = SettingsUi.text(this, AppLanguage.get(R.string.accessibility_disclosure_title), 20, false);
+        title.setTextColor(LiquidTheme.text(this));
+        title.setPadding(dp(24), dp(20), dp(24), dp(12));
+        title.setTag("accessibility-disclosure-title");
         AlertDialog disclosure = new AlertDialog.Builder(new android.view.ContextThemeWrapper(this,
-                R.style.SvaDeviceAlertDialogTheme))
+                LiquidTheme.alertDialogTheme(this)))
                 .setTitle(AppLanguage.get(R.string.accessibility_disclosure_title))
+                .setCustomTitle(title)
                 .setMessage(AppLanguage.get(R.string.accessibility_disclosure_message))
                 .setPositiveButton(AppLanguage.get(R.string.accessibility_disclosure_agree), (dialog, which) -> {
                     preferences.edit().putBoolean("accessibilityConsentV1", true).apply();
@@ -5064,6 +5069,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         disclosure.setCanceledOnTouchOutside(false);
         disclosure.show();
         styleDialog(disclosure);
+        TextView message = disclosure.findViewById(android.R.id.message);
+        if (message != null) message.setTextColor(LiquidTheme.text(this));
         disclosure.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
         return disclosure;
     }

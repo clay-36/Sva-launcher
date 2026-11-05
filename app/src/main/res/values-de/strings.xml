@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"Alle deine Apps an einem Ort"</string>
     <string name="activities_browse_hint">"Entdecke Empfehlungen deiner Apps · Zum Öffnen OK drücken"</string>
     <string name="ui_document_picker_unavailable">"Kein System-Dateiauswahldialog installiert. Installiere oder aktiviere eine Dokumentauswahl, um Dateien und Ordner auszuwählen."</string>
+    <string name="accessibility_disclosure_title">"Optionale Home-Umleitung: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher verwendet die Android AccessibilityService API für die optionale Home-Umleitung. Wenn der Dienst aktiviert ist, greift er auf Fensterwechsel-Ereignisse und Paketnamen des TV-Launchers zu, um den integrierten Launcher zu erkennen und stattdessen automatisch Sva zu öffnen, auch wenn Sva nicht geöffnet ist.\n\nDiese Daten bleiben auf Ihrem Fernseher und werden weder gespeichert noch weitergegeben. Bildschirminhalte und eingegebener Text werden nicht gelesen.\n\nMit Zustimmen öffnen Sie die Android-Bedienungshilfen, um Sva Launcher zu aktivieren. Dort können Sie den Dienst jederzeit deaktivieren. Mit Nein danke verwenden Sie Sva ohne Home-Umleitung weiter."</string>
+    <string name="accessibility_disclosure_agree">"Zustimmen und Einstellungen öffnen"</string>
+    <string name="accessibility_disclosure_decline">"Nein danke"</string>
 </resources>
