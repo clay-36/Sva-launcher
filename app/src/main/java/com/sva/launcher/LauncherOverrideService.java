@@ -16,6 +16,7 @@ public final class LauncherOverrideService extends AccessibilityService {
     private long lastReopenAt;
 
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (!getSharedPreferences("launcher", MODE_PRIVATE).getBoolean("accessibilityConsentV1", false)) return;
         if (event == null || event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
         CharSequence packageName = event.getPackageName();
         if (packageName == null || !isStockLauncher(packageName.toString())) return;

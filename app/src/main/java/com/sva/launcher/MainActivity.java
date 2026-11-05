@@ -586,6 +586,10 @@ public final class MainActivity extends LocalizedActivity {
     @Override protected void onResume() {
         super.onResume();
         screenActive = true;
+        if (!preferences.getBoolean("accessibilityDisclosureShownV1", false)) {
+            preferences.edit().putBoolean("accessibilityDisclosureShownV1", true).apply();
+            showAccessibilityDisclosure(null);
+        }
         restoreNewsCarouselSelection();
         updateNewsCarouselPlayback();
         updateClock();
@@ -4198,6 +4202,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private boolean isLauncherOverrideEnabled() {
+        if (!preferences.getBoolean("accessibilityConsentV1", false)) return false;
         AccessibilityManager manager = (AccessibilityManager) getSystemService(ACCESSIBILITY_SERVICE);
         if (manager == null) return false;
         String expectedPackage = getPackageName();
@@ -5036,6 +5041,33 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     private volatile boolean restoringBackup;
     private SettingsScreen settingsScreen;
 
+    private AlertDialog showAccessibilityDisclosure(TextView feedback) {
+        AlertDialog disclosure = new AlertDialog.Builder(new android.view.ContextThemeWrapper(this,
+                R.style.SvaDeviceAlertDialogTheme))
+                .setTitle(AppLanguage.get(R.string.accessibility_disclosure_title))
+                .setMessage(AppLanguage.get(R.string.accessibility_disclosure_message))
+                .setPositiveButton(AppLanguage.get(R.string.accessibility_disclosure_agree), (dialog, which) -> {
+                    preferences.edit().putBoolean("accessibilityConsentV1", true).apply();
+                    TextView instructions = feedback != null ? feedback : new TextView(this);
+                    AccessibilitySettingsShortcut.Destination destination = AccessibilitySettingsShortcut.open(
+                            action -> startActivity(new Intent(action)), instructions);
+                    if (feedback == null && destination == AccessibilitySettingsShortcut.Destination.UNAVAILABLE) {
+                        Toast.makeText(this, instructions.getText(), Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton(AppLanguage.get(R.string.accessibility_disclosure_decline), (dialog, which) ->
+                        preferences.edit().putBoolean("accessibilityConsentV1", false).apply())
+                .create();
+        // Back or outside dismissal never grants consent.
+        disclosure.setOnCancelListener(dialog ->
+                preferences.edit().putBoolean("accessibilityConsentV1", false).apply());
+        disclosure.setCanceledOnTouchOutside(false);
+        disclosure.show();
+        styleDialog(disclosure);
+        disclosure.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
+        return disclosure;
+    }
+
     private void styleDialog(AlertDialog dialog) {
         Motion.dialog(dialog);
         Window window = dialog.getWindow();
@@ -5813,8 +5845,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             TextView accessibilityFeedback = SettingsUi.text(MainActivity.this, "", 14, true);
             accessibilityFeedback.setTag("accessibility-shortcut-feedback");
             accessibilityFeedback.setVisibility(View.GONE);
-            addFormButton(form, AppLanguage.get(R.string.ui_open_accessibility_settings), v -> AccessibilitySettingsShortcut.open(
-                    action -> startActivity(new Intent(action)), accessibilityFeedback));
+            addFormButton(form, AppLanguage.get(R.string.ui_open_accessibility_settings), v -> showAccessibilityDisclosure(accessibilityFeedback));
             SettingsUi.add(form, accessibilityFeedback);
             addFormButton(form, AppLanguage.get(R.string.ui_try_setting_sva_as_the_home_app), v -> {
                 try {
