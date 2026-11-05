@@ -715,4 +715,8 @@
     <string name="ui_document_picker_unavailable">No system file picker is installed. Install or enable a document picker to select files and folders.</string>
     <string name="activities_empty_title">Your apps, all together</string>
     <string name="activities_browse_hint">Explore recommendations from your apps · Press OK to open</string>
+    <string name="accessibility_disclosure_title">Optional Home override: AccessibilityService</string>
+    <string name="accessibility_disclosure_message">Sva Launcher uses the Android AccessibilityService API for the optional Home override feature. When your TV opens its built-in launcher, this service automatically opens Sva Launcher instead, including while another app is in use.\n\nWhile enabled, it accesses window-change events and the package name identifying the app opening a window to detect the built-in launcher. It does not read screen contents or typed text. This event data is processed only on your TV; it is not stored, collected off the device, or shared.\n\nChoose Agree to consent and open Android Accessibility settings, where you can enable Sva Launcher. You can disable the service there at any time. Choose No thanks to continue using Sva Launcher without Home override.</string>
+    <string name="accessibility_disclosure_agree">Agree and open settings</string>
+    <string name="accessibility_disclosure_decline">No thanks</string>
 </resources>

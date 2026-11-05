@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"നിങ്ങളുടെ ആപ്പുകളെല്ലാം ഒരിടത്ത്"</string>
     <string name="activities_browse_hint">"ആപ്പുകളുടെ ശുപാർശകൾ കാണുക · തുറക്കാൻ OK അമർത്തുക"</string>
     <string name="ui_document_picker_unavailable">"സിസ്റ്റം ഫയൽ പിക്കർ ഇൻസ്റ്റാൾ ചെയ്തിട്ടില്ല. ഫയലുകളും ഫോൾഡറുകളും തിരഞ്ഞെടുക്കാൻ ഡോക്യുമെന്റ് പിക്കർ ഇൻസ്റ്റാൾ ചെയ്യുക അല്ലെങ്കിൽ പ്രവർത്തനക്ഷമമാക്കുക."</string>
+    <string name="accessibility_disclosure_title">"ഐച്ഛിക ഹോം മാറ്റം: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"ഐച്ഛിക ഹോം മാറ്റത്തിനായി Sva Launcher, Android AccessibilityService API ഉപയോഗിക്കുന്നു. സേവനം ഓണായിരിക്കുമ്പോൾ വിൻഡോ മാറ്റ ഇവന്റുകളും TV ലോഞ്ചറിന്റെ പാക്കേജ് പേരുകളും പരിശോധിച്ച് TV യിലെ ബിൽറ്റ്-ഇൻ ലോഞ്ചർ തിരിച്ചറിഞ്ഞ് പകരം Sva സ്വയം തുറക്കും. Sva തുറന്നിട്ടില്ലെങ്കിലും ഇത് പ്രവർത്തിക്കും.\n\nഈ ഡാറ്റ TV യിൽ മാത്രം നിലനിൽക്കും; സൂക്ഷിക്കുകയോ പങ്കിടുകയോ ചെയ്യില്ല. സ്ക്രീൻ ഉള്ളടക്കമോ ടൈപ്പ് ചെയ്ത വാചകമോ വായിക്കില്ല.\n\nസമ്മതിച്ചാൽ Sva Launcher പ്രവർത്തനക്ഷമമാക്കാൻ Android ആക്സസിബിലിറ്റി ക്രമീകരണങ്ങൾ തുറക്കും. അവിടെ എപ്പോൾ വേണമെങ്കിലും സേവനം നിർത്താം. വേണ്ട തിരഞ്ഞെടുത്താൽ ഹോം മാറ്റമില്ലാതെ Sva ഉപയോഗിക്കാം."</string>
+    <string name="accessibility_disclosure_agree">"സമ്മതിച്ച് ക്രമീകരണങ്ങൾ തുറക്കുക"</string>
+    <string name="accessibility_disclosure_decline">"വേണ്ട"</string>
 </resources>

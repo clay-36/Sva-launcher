@@ -20,7 +20,7 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
     }
 
     private void open() throws Exception {
-        activity = (MainActivity)getInstrumentation().startActivitySync(new Intent(
+        activity = (MainActivity)TestActivities.start(getInstrumentation(), new Intent(
                 getInstrumentation().getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         getInstrumentation().setInTouchMode(false);
         getInstrumentation().runOnMainSync(() -> {
@@ -266,7 +266,7 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
 
     public void testScreensaverRowsAndControllerCancellation() throws Exception {
         android.content.Context context = getInstrumentation().getTargetContext();
-        ScreensaverSettingsActivity screensaver = (ScreensaverSettingsActivity)getInstrumentation().startActivitySync(
+        ScreensaverSettingsActivity screensaver = (ScreensaverSettingsActivity)TestActivities.start(getInstrumentation(),
                 new Intent(context, ScreensaverSettingsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         try {
             getInstrumentation().waitForIdleSync();
@@ -280,7 +280,7 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             int[] location = new int[2]; preview.getLocationOnScreen(location);
             assertTrue("Preview action clipped", location[1] + preview.getHeight() <= decor.getHeight());
         } finally { getInstrumentation().runOnMainSync(screensaver::finish); }
-        ControllerSettingsActivity controllers = (ControllerSettingsActivity)getInstrumentation().startActivitySync(
+        ControllerSettingsActivity controllers = (ControllerSettingsActivity)TestActivities.start(getInstrumentation(),
                 new Intent(context, ControllerSettingsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         try {
             getInstrumentation().waitForIdleSync();
@@ -382,30 +382,30 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             clean.commit();
             open(); select(13);
             chooseFirstPosition(4);
-            assertEquals("saved,live_tv,games,events,news,activities", prefs.getString(NavigationPreferences.ORDER, ""));
-            assertEquals(java.util.Arrays.asList(0, 4, 1, 2, 3, 5, 6), barOrder());
+            assertEquals("saved,live_tv,activities,games,events,news", prefs.getString(NavigationPreferences.ORDER, ""));
+            assertEquals(java.util.Arrays.asList(0, 4, 1, 6, 2, 3, 5), barOrder());
             View moved = ((View)field(screen, "detail")).findViewWithTag("navigation-order-4");
             assertTrue("Focus must follow the moved category", moved.hasFocus());
             getInstrumentation().runOnMainSync(() -> {
                 try { findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_events_in_navigation), AppLanguage.get(R.string.ui_on))).performClick(); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
-            assertEquals(java.util.Arrays.asList(0, 4, 1, 2, 5, 6), barOrder());
+            assertEquals(java.util.Arrays.asList(0, 4, 1, 6, 2, 5), barOrder());
             close(); open(); select(13);
-            assertEquals("Order and visibility must survive reopening", java.util.Arrays.asList(0, 4, 1, 2, 5, 6), barOrder());
+            assertEquals("Order and visibility must survive reopening", java.util.Arrays.asList(0, 4, 1, 6, 2, 5), barOrder());
             chooseFirstPosition(3);
-            assertEquals("events,saved,live_tv,games,news,activities", prefs.getString(NavigationPreferences.ORDER, ""));
-            assertEquals("Moving a hidden item must not reveal it", java.util.Arrays.asList(0, 4, 1, 2, 5, 6), barOrder());
+            assertEquals("events,saved,live_tv,activities,games,news", prefs.getString(NavigationPreferences.ORDER, ""));
+            assertEquals("Moving a hidden item must not reveal it", java.util.Arrays.asList(0, 4, 1, 6, 2, 5), barOrder());
             getInstrumentation().runOnMainSync(() -> {
                 try { findDescription((View)field(screen, "detail"), AppLanguage.get(R.string.ui_label_state, AppLanguage.get(R.string.ui_show_events_in_navigation), AppLanguage.get(R.string.ui_off))).performClick(); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
-            assertEquals(java.util.Arrays.asList(0, 3, 4, 1, 2, 5, 6), barOrder());
+            assertEquals(java.util.Arrays.asList(0, 3, 4, 1, 6, 2, 5), barOrder());
             getInstrumentation().runOnMainSync(() -> {
                 try { findText((View)field(screen, "detail"), AppLanguage.get(R.string.ui_reset_item_order)).performClick(); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
-            assertEquals(java.util.Arrays.asList(0, 1, 2, 3, 4, 5, 6), barOrder());
+            assertEquals(java.util.Arrays.asList(0, 1, 6, 2, 3, 4, 5), barOrder());
             assertFalse(prefs.contains(NavigationPreferences.ORDER));
         } finally {
             close();
@@ -771,9 +771,17 @@ public final class SettingsNavigationTest extends InstrumentationTestCase {
             android.os.SystemClock.sleep(20);
             getInstrumentation().waitForIdleSync();
         }
-        for (int i = 0; i < 6; i++) getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_UP);
-        getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER);
-        getInstrumentation().waitForIdleSync();
+        assertFalse("Position picker must own focus before sending remote keys", dialog.getWindow().getDecorView().hasWindowFocus());
+        for (int i = 0; i < 6; i++) remote(android.view.KeyEvent.KEYCODE_DPAD_UP);
+        remote(android.view.KeyEvent.KEYCODE_DPAD_CENTER);
+        for (int attempt = 0; attempt < 100 && !dialog.getWindow().getDecorView().hasWindowFocus(); attempt++) {
+            android.os.SystemClock.sleep(20);
+            getInstrumentation().waitForIdleSync();
+        }
+        assertTrue("Settings must regain focus before opening another picker", dialog.getWindow().getDecorView().hasWindowFocus());
+        assertEquals("Selected category must move to the first position", tab,
+                NavigationPreferences.order(getInstrumentation().getTargetContext().getSharedPreferences("launcher", 0)
+                        .getString(NavigationPreferences.ORDER, null), 0).get(0).intValue());
     }
 
     private java.util.List<Integer> barOrder() throws Exception {

@@ -61,7 +61,7 @@ public final class PerformanceUiTest extends InstrumentationTestCase {
         Intent intent = new Intent(getInstrumentation().getTargetContext(), type)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         if (mode != null) intent.putExtra(TvFilePickerActivity.EXTRA_MODE, mode);
-        activity = getInstrumentation().startActivitySync(intent);
+        activity = TestActivities.start(getInstrumentation(), intent);
         getInstrumentation().setInTouchMode(false); getInstrumentation().waitForIdleSync();
     }
     private void select(int tab) throws Exception {

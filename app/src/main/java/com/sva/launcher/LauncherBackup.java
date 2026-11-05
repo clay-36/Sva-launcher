@@ -17,7 +17,8 @@ final class LauncherBackup {
     private static final int VERSION = 1;
     private static final Map<String, String> EXPECTED_TYPES = expectedTypes();
     private static final Set<String> EXCLUDED_PREFERENCES = new HashSet<>(Arrays.asList(
-            "publicCalendarEvents", CalendarFeedCache.KEY, "appLanguageMigrated"
+            "publicCalendarEvents", CalendarFeedCache.KEY, "appLanguageMigrated",
+            "accessibilityConsentV1", "accessibilityDisclosureShownV1"
     ));
 
     private static Map<String, String> expectedTypes() {

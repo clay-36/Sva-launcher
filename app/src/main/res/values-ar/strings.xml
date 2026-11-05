@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"تطبيقاتك، كلها معًا"</string>
     <string name="activities_browse_hint">"استكشف توصيات تطبيقاتك · اضغط OK للفتح"</string>
     <string name="ui_document_picker_unavailable">"لا يوجد منتقي ملفات للنظام. ثبّت منتقي مستندات أو فعّله لتحديد الملفات والمجلدات."</string>
+    <string name="accessibility_disclosure_title">"تبديل الشاشة الرئيسية الاختياري: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"يستخدم Sva Launcher واجهة Android AccessibilityService API لميزة تبديل الشاشة الرئيسية الاختيارية. عند تفعيل الخدمة، تصل إلى أحداث تغيّر النوافذ وأسماء حزم مشغّل التلفزيون لاكتشاف المشغّل المدمج وفتح Sva تلقائيًا بدلاً منه، حتى عندما لا يكون Sva مفتوحًا.\n\nتبقى هذه البيانات على التلفزيون ولا تُحفظ أو تُشارك. لا تُقرأ محتويات الشاشة أو النصوص المكتوبة.\n\nتفتح الموافقة إعدادات تسهيل الاستخدام في Android لتفعيل Sva Launcher. يمكنك تعطيل الخدمة هناك في أي وقت. يتيح اختيار «لا، شكرًا» متابعة استخدام Sva دون تبديل الشاشة الرئيسية."</string>
+    <string name="accessibility_disclosure_agree">"الموافقة وفتح الإعدادات"</string>
+    <string name="accessibility_disclosure_decline">"لا، شكرًا"</string>
 </resources>

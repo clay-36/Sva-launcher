@@ -22,6 +22,8 @@ public final class ActivitiesUiTest extends InstrumentationTestCase {
         String oldOrder=prefs.getString(ActivitiesPanel.ORDER,null), oldLanguage=AppLanguage.selected(context);
         Set<String> oldHidden=new HashSet<>(prefs.getStringSet(ActivitiesPanel.HIDDEN,Collections.emptySet()));
         List<Uri> fixtures=new ArrayList<>(); MainActivity activity=null;
+        // The panel reads listings on its own worker; the test thread also needs fixture-write access.
+        getInstrumentation().getUiAutomation().grantRuntimePermission(context.getPackageName(), ActivitiesRepository.PERMISSION);
         getInstrumentation().getUiAutomation().adoptShellPermissionIdentity("com.android.providers.tv.permission.WRITE_EPG_DATA");
         try {
             for(int i=0;i<3;i++) {
@@ -30,7 +32,7 @@ public final class ActivitiesUiTest extends InstrumentationTestCase {
                 Uri channel=resolver.insert(TvContract.Channels.CONTENT_URI,c);assertNotNull(channel);fixtures.add(channel);
                 if (i == 2) continue;
                 ContentValues p=new ContentValues();p.put("channel_id",ContentUris.parseId(channel));p.put("type",0);p.put("title",i==0?"Discover your next adventure":"Recommended for your evening");
-                p.put("poster_art_uri","android.resource://com.sva.launcher/drawable/mountain_wallpaper");
+                p.put("poster_art_uri","android.resource://"+context.getPackageName()+"/drawable/mountain_wallpaper");
                 p.put("intent_uri",new Intent(context,MainActivity.class).toUri(Intent.URI_INTENT_SCHEME));p.put("searchable",1);
                 assertNotNull(resolver.insert(TvContract.PreviewPrograms.CONTENT_URI,p));
                 if (i == 1) {
@@ -48,7 +50,7 @@ public final class ActivitiesUiTest extends InstrumentationTestCase {
             assertTrue(second.programs.get(0).id != second.programs.get(1).id);
             prefs.edit().remove(ActivitiesPanel.HIDDEN).putString(ActivitiesPanel.ORDER,second.key+"\n"+first.key).commit();
             getInstrumentation().runOnMainSync(()->AppLanguage.select(context,"en"));
-            activity=(MainActivity)getInstrumentation().startActivitySync(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            activity=(MainActivity)TestActivities.start(getInstrumentation(), new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             MainActivity current=activity;
             Method select=MainActivity.class.getDeclaredMethod("selectTab",int.class,boolean.class);select.setAccessible(true);
             getInstrumentation().runOnMainSync(()->{try{select.invoke(current,6,true);}catch(Exception e){throw new RuntimeException(e);}});

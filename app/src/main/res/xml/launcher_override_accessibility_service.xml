@@ -1,5 +1,7 @@
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
+    android:packageNames="com.google.android.tvlauncher,com.google.android.apps.tv.launcherx,com.google.android.leanbacklauncher,com.google.android.leanbacklauncher.recommendations"
+    android:isAccessibilityTool="false"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRetrieveWindowContent="false"
     android:description="@string/launcher_override_service_description"

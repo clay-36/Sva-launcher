@@ -44,7 +44,7 @@ public final class GuideUiTest extends InstrumentationTestCase {
         new IptvRepository(context).restoreCachedChannels(data);
     }
     private void open(String category) throws Exception {
-        activity = (GuideActivity)getInstrumentation().startActivitySync(new Intent(context, GuideActivity.class)
+        activity = (GuideActivity)TestActivities.start(getInstrumentation(), new Intent(context, GuideActivity.class)
                 .putExtra("category", category).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         waitReady();
     }
@@ -153,6 +153,17 @@ public final class GuideUiTest extends InstrumentationTestCase {
         key(KeyEvent.KEYCODE_DPAD_DOWN); assertNotNull(activity.getCurrentFocus().getTag());
     }
     public void testReminderAndSafePlaybackFromGuide() throws Exception {
+        // This test covers setting/removing reminders, not the system permission dialogs.
+        if (Build.VERSION.SDK_INT >= 33) getInstrumentation().getUiAutomation().grantRuntimePermission(
+                context.getPackageName(), android.Manifest.permission.POST_NOTIFICATIONS);
+        if (Build.VERSION.SDK_INT >= 31) {
+            try (ParcelFileDescriptor command = getInstrumentation().getUiAutomation().executeShellCommand(
+                    "appops set " + context.getPackageName() + " SCHEDULE_EXACT_ALARM allow");
+                 FileInputStream output = new FileInputStream(command.getFileDescriptor())) {
+                byte[] buffer = new byte[256];
+                while (output.read(buffer) != -1) { /* Wait until the fixture permission is applied. */ }
+            }
+        }
         seed(8); open("News"); key(KeyEvent.KEYCODE_DPAD_RIGHT);
         Object target=activity.getCurrentFocus().getTag(); Object slot=targetField(target,"slot");
         IptvRepository.Programme programme=(IptvRepository.Programme)targetField(slot,"programme");
@@ -213,7 +224,7 @@ public final class GuideUiTest extends InstrumentationTestCase {
     }
     public void testLiveTvEntryReturnsFocusAndEmptyGuideRemainsNavigable() throws Exception {
         seed(8);
-        MainActivity main=(MainActivity)getInstrumentation().startActivitySync(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        MainActivity main=(MainActivity)TestActivities.start(getInstrumentation(), new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         Instrumentation.ActivityMonitor monitor=getInstrumentation().addMonitor(GuideActivity.class.getName(),null,false);
         try {
             getInstrumentation().runOnMainSync(() -> {
@@ -229,7 +240,7 @@ public final class GuideUiTest extends InstrumentationTestCase {
             assertSame(button.get(main),main.getCurrentFocus());
         }finally{getInstrumentation().removeMonitor(monitor);getInstrumentation().runOnMainSync(main::finish);}
         new IptvRepository(context).restoreCachedChannels(new JSONArray());
-        activity=(GuideActivity)getInstrumentation().startActivitySync(new Intent(context,GuideActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        activity=(GuideActivity)TestActivities.start(getInstrumentation(), new Intent(context,GuideActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         long deadline=SystemClock.uptimeMillis()+5000;
         while(!(Boolean)field("loaded") && SystemClock.uptimeMillis()<deadline)SystemClock.sleep(30);
         getInstrumentation().waitForIdleSync();

@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"உங்கள் பயன்பாடுகள் அனைத்தும் ஒரே இடத்தில்"</string>
     <string name="activities_browse_hint">"பயன்பாட்டுப் பரிந்துரைகளைப் பாருங்கள் · திறக்க OK அழுத்தவும்"</string>
     <string name="ui_document_picker_unavailable">"கணினி கோப்புத் தேர்வி நிறுவப்படவில்லை. கோப்புகளையும் கோப்புறைகளையும் தேர்ந்தெடுக்க ஆவணத் தேர்வியை நிறுவவும் அல்லது இயக்கவும்."</string>
+    <string name="accessibility_disclosure_title">"விருப்ப முகப்புத் திரை மாற்றம்: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"விருப்ப முகப்புத் திரை மாற்றத்திற்கு Sva Launcher, Android AccessibilityService API ஐப் பயன்படுத்துகிறது. சேவை இயக்கப்பட்டால், சாளர மாற்ற நிகழ்வுகள் மற்றும் TV துவக்கியின் தொகுப்புப் பெயர்களை அணுகி, TV இன் உள்ளமைந்த துவக்கியைக் கண்டறிந்து அதற்குப் பதிலாக Sva ஐத் தானாகத் திறக்கும். Sva திறந்திருக்காத போதும் இது செயல்படும்.\n\nஇந்தத் தரவு TV இல் மட்டுமே இருக்கும்; சேமிக்கப்படாது, பகிரப்படாது. திரை உள்ளடக்கமோ தட்டச்சு செய்த உரையோ படிக்கப்படாது.\n\nஒப்புக்கொண்டால் Sva Launcher ஐ இயக்க Android அணுகல்தன்மை அமைப்புகள் திறக்கும். அங்கு எப்போது வேண்டுமானாலும் சேவையை முடக்கலாம். வேண்டாம் என்பதைத் தேர்ந்தெடுத்து முகப்புத் திரை மாற்றமின்றி Sva ஐப் பயன்படுத்தலாம்."</string>
+    <string name="accessibility_disclosure_agree">"ஒப்புக்கொண்டு அமைப்புகளைத் திற"</string>
+    <string name="accessibility_disclosure_decline">"வேண்டாம்"</string>
 </resources>

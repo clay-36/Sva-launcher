@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"アプリをひとつの場所に"</string>
     <string name="activities_browse_hint">"アプリのおすすめを見る · OKで開く"</string>
     <string name="ui_document_picker_unavailable">"システムのファイル選択アプリがありません。ファイルやフォルダを選択するには、ドキュメント選択アプリをインストールするか有効にしてください。"</string>
+    <string name="accessibility_disclosure_title">"任意のホーム切り替え：AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher は、任意のホーム切り替え機能に Android の AccessibilityService API を使用します。有効な間、ウィンドウ変更イベントとテレビのランチャーのパッケージ名にアクセスし、内蔵ランチャーを検出して代わりに Sva を自動で開きます。Sva を開いていないときも動作します。\n\nこのデータはテレビ内でのみ処理され、保存や共有はされません。画面の内容や入力した文字は読み取りません。\n\n同意すると Android のユーザー補助設定が開き、Sva Launcher を有効にできます。サービスはその設定でいつでも無効にできます。「いいえ」を選ぶと、ホーム切り替えなしで Sva を使い続けられます。"</string>
+    <string name="accessibility_disclosure_agree">"同意して設定を開く"</string>
+    <string name="accessibility_disclosure_decline">"いいえ"</string>
 </resources>

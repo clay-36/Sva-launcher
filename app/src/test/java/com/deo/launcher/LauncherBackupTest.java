@@ -14,6 +14,23 @@ import static org.junit.Assert.assertTrue;
 public final class LauncherBackupTest {
 
     @Test
+    public void accessibilityConsentCannotBeExportedOrImported() throws Exception {
+        java.util.Map<String, Object> values = new java.util.HashMap<>();
+        values.put("accessibilityConsentV1", true);
+        values.put("accessibilityDisclosureShownV1", true);
+        android.content.SharedPreferences launcher = new FakeSharedPreferences(values, java.util.Collections.emptyMap());
+        JSONObject exported = LauncherBackup.create(launcher,
+                new FakeSharedPreferences(java.util.Collections.emptyMap(), java.util.Collections.emptyMap()))
+                .getJSONObject("launcher");
+        assertTrue(!exported.has("accessibilityConsentV1"));
+        assertTrue(!exported.has("accessibilityDisclosureShownV1"));
+        JSONObject incoming = new JSONObject();
+        for (String key : values.keySet()) incoming.put(key,
+                new JSONObject().put("type", "boolean").put("value", true));
+        assertTrue(LauncherBackup.decodePreferences(incoming).isEmpty());
+    }
+
+    @Test
     public void decodePreferencesExtractsHiddenAndFavoriteChannels() throws Exception {
         JSONObject encoded = new JSONObject();
 

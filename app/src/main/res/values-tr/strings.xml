@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"Tüm uygulamalarınız bir arada"</string>
     <string name="activities_browse_hint">"Uygulama önerilerini keşfedin · Açmak için OK tuşuna basın"</string>
     <string name="ui_document_picker_unavailable">"Sistem dosya seçicisi yüklü değil. Dosya ve klasör seçmek için bir belge seçicisi yükleyin veya etkinleştirin."</string>
+    <string name="accessibility_disclosure_title">"İsteğe bağlı Ana ekran yönlendirmesi: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher, isteğe bağlı Ana ekran yönlendirmesi için Android AccessibilityService API’sini kullanır. Hizmet açıkken, TV’nin yerleşik başlatıcısını algılamak ve Sva kapalı olsa bile onun yerine otomatik olarak Sva’yı açmak için pencere değişikliği olaylarına ve TV başlatıcısının paket adlarına erişir.\n\nBu veriler TV’nizde kalır; kaydedilmez veya paylaşılmaz. Ekran içeriği ve yazılan metin okunmaz.\n\nKabul et, Sva Launcher’ı etkinleştirmek için Android Erişilebilirlik ayarlarını açar. Hizmeti oradan istediğiniz zaman kapatabilirsiniz. Hayır, teşekkürler ile Sva’yı Ana ekran yönlendirmesi olmadan kullanabilirsiniz."</string>
+    <string name="accessibility_disclosure_agree">"Kabul et ve ayarları aç"</string>
+    <string name="accessibility_disclosure_decline">"Hayır, teşekkürler"</string>
 </resources>

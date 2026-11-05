@@ -22,7 +22,7 @@ public final class MotionTest extends InstrumentationTestCase {
         originalEnabled = Motion.enabled();
         getInstrumentation().getUiAutomation().adoptShellPermissionIdentity("android.permission.WRITE_SECURE_SETTINGS");
         scale("1", true);
-        activity = getInstrumentation().startActivitySync(new Intent(getInstrumentation().getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        activity = TestActivities.start(getInstrumentation(), new Intent(getInstrumentation().getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         getInstrumentation().runOnMainSync(() -> {
             parent = (FrameLayout)activity.getWindow().getDecorView();
             panel = new FrameLayout(activity); control = new Button(activity); control.setText("Initial");

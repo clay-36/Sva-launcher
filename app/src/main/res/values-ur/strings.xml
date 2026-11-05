@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"آپ کی سب ایپس ایک جگہ"</string>
     <string name="activities_browse_hint">"اپنی ایپس کی تجاویز دیکھیں · کھولنے کے لیے OK دبائیں"</string>
     <string name="ui_document_picker_unavailable">"سسٹم فائل منتخب کرنے والی ایپ نصب نہیں ہے۔ فائلیں اور فولڈر منتخب کرنے کے لیے دستاویز منتخب کرنے والی ایپ نصب یا فعال کریں۔"</string>
+    <string name="accessibility_disclosure_title">"اختیاری ہوم تبدیلی: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher اختیاری ہوم تبدیلی کے لیے Android AccessibilityService API استعمال کرتا ہے۔ فعال ہونے پر سروس ونڈو بدلنے کے واقعات اور ٹی وی لانچر کے پیکیج ناموں تک رسائی لیتی ہے تاکہ ٹی وی کے اصل لانچر کو پہچان کر اس کی جگہ خود بخود Sva کھولے، چاہے Sva کھلا نہ ہو۔\n\nیہ ڈیٹا ٹی وی پر ہی رہتا ہے، محفوظ یا شیئر نہیں کیا جاتا۔ اسکرین کا مواد یا ٹائپ کیا گیا متن نہیں پڑھا جاتا۔\n\nرضامندی دینے سے Sva Launcher فعال کرنے کے لیے Android کی رسائی کی ترتیبات کھلیں گی۔ آپ وہاں سروس کسی بھی وقت بند کر سکتے ہیں۔ نہیں، شکریہ منتخب کر کے ہوم تبدیلی کے بغیر Sva استعمال کر سکتے ہیں۔"</string>
+    <string name="accessibility_disclosure_agree">"متفق ہوں، ترتیبات کھولیں"</string>
+    <string name="accessibility_disclosure_decline">"نہیں، شکریہ"</string>
 </resources>

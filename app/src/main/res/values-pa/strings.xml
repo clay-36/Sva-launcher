@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"ਤੁਹਾਡੀਆਂ ਸਾਰੀਆਂ ਐਪਾਂ ਇਕੱਠੀਆਂ"</string>
     <string name="activities_browse_hint">"ਆਪਣੀਆਂ ਐਪਾਂ ਦੀਆਂ ਸਿਫ਼ਾਰਸ਼ਾਂ ਦੇਖੋ · ਖੋਲ੍ਹਣ ਲਈ OK ਦਬਾਓ"</string>
     <string name="ui_document_picker_unavailable">"ਸਿਸਟਮ ਫਾਈਲ ਚੋਣਕਾਰ ਇੰਸਟਾਲ ਨਹੀਂ ਹੈ। ਫਾਈਲਾਂ ਅਤੇ ਫੋਲਡਰ ਚੁਣਨ ਲਈ ਦਸਤਾਵੇਜ਼ ਚੋਣਕਾਰ ਇੰਸਟਾਲ ਜਾਂ ਚਾਲੂ ਕਰੋ।"</string>
+    <string name="accessibility_disclosure_title">"ਵਿਕਲਪਿਕ ਹੋਮ ਬਦਲਾਅ: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher ਵਿਕਲਪਿਕ ਹੋਮ ਬਦਲਾਅ ਲਈ Android AccessibilityService API ਵਰਤਦਾ ਹੈ। ਸੇਵਾ ਚਾਲੂ ਹੋਣ ਤੇ ਵਿੰਡੋ ਬਦਲਣ ਦੀਆਂ ਇਵੈਂਟਾਂ ਅਤੇ TV ਲਾਂਚਰ ਦੇ ਪੈਕੇਜ ਨਾਂ ਵਰਤਦੀ ਹੈ ਤਾਂ ਜੋ TV ਦੇ ਮੂਲ ਲਾਂਚਰ ਨੂੰ ਪਛਾਣ ਕੇ ਉਸ ਦੀ ਥਾਂ Sva ਆਪਣੇ ਆਪ ਖੋਲ੍ਹੇ, ਭਾਵੇਂ Sva ਖੁੱਲ੍ਹਾ ਨਾ ਹੋਵੇ।\n\nਇਹ ਡੇਟਾ TV ਉੱਤੇ ਹੀ ਰਹਿੰਦਾ ਹੈ; ਸੰਭਾਲਿਆ ਜਾਂ ਸਾਂਝਾ ਨਹੀਂ ਕੀਤਾ ਜਾਂਦਾ। ਸਕ੍ਰੀਨ ਦੀ ਸਮੱਗਰੀ ਜਾਂ ਟਾਈਪ ਕੀਤਾ ਟੈਕਸਟ ਨਹੀਂ ਪੜ੍ਹਿਆ ਜਾਂਦਾ।\n\nਸਹਿਮਤੀ ਦੇਣ ਤੇ Sva Launcher ਚਾਲੂ ਕਰਨ ਲਈ Android ਪਹੁੰਚਯੋਗਤਾ ਸੈਟਿੰਗਾਂ ਖੁੱਲ੍ਹਣਗੀਆਂ। ਉੱਥੇ ਸੇਵਾ ਕਦੇ ਵੀ ਬੰਦ ਕਰ ਸਕਦੇ ਹੋ। ਨਹੀਂ, ਧੰਨਵਾਦ ਚੁਣ ਕੇ ਹੋਮ ਬਦਲਾਅ ਤੋਂ ਬਿਨਾਂ Sva ਵਰਤ ਸਕਦੇ ਹੋ।"</string>
+    <string name="accessibility_disclosure_agree">"ਸਹਿਮਤ ਹਾਂ, ਸੈਟਿੰਗਾਂ ਖੋਲ੍ਹੋ"</string>
+    <string name="accessibility_disclosure_decline">"ਨਹੀਂ, ਧੰਨਵਾਦ"</string>
 </resources>

@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"Semua aplikasi Anda, bersama"</string>
     <string name="activities_browse_hint">"Jelajahi rekomendasi aplikasi Anda · Tekan OK untuk membuka"</string>
     <string name="ui_document_picker_unavailable">"Pemilih file sistem belum terpasang. Pasang atau aktifkan pemilih dokumen untuk memilih file dan folder."</string>
+    <string name="accessibility_disclosure_title">"Pengalihan Beranda opsional: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"Sva Launcher menggunakan API AccessibilityService Android untuk fitur pengalihan Beranda opsional. Saat aktif, layanan mengakses peristiwa perubahan jendela dan nama paket peluncur TV untuk mendeteksi peluncur bawaan dan otomatis membuka Sva sebagai gantinya, meskipun Sva tidak terbuka.\n\nData ini tetap di TV Anda dan tidak disimpan atau dibagikan. Isi layar dan teks yang diketik tidak dibaca.\n\nSetuju membuka setelan Aksesibilitas Android untuk mengaktifkan Sva Launcher. Anda dapat menonaktifkan layanan di sana kapan saja. Tidak, terima kasih memungkinkan Anda tetap memakai Sva tanpa pengalihan Beranda."</string>
+    <string name="accessibility_disclosure_agree">"Setuju dan buka setelan"</string>
+    <string name="accessibility_disclosure_decline">"Tidak, terima kasih"</string>
 </resources>

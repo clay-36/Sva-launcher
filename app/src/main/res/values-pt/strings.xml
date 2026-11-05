@@ -764,4 +764,8 @@
     <string name="activities_empty_title">"Seus apps, todos juntos"</string>
     <string name="activities_browse_hint">"Explore recomendações dos seus apps · Pressione OK para abrir"</string>
     <string name="ui_document_picker_unavailable">"Nenhum seletor de arquivos do sistema instalado. Instale ou ative um seletor de documentos para selecionar arquivos e pastas."</string>
+    <string name="accessibility_disclosure_title">"Início alternativo opcional: AccessibilityService"</string>
+    <string name="accessibility_disclosure_message">"O Sva Launcher usa a API AccessibilityService do Android para o recurso opcional de início alternativo. Enquanto ativado, o serviço acessa eventos de mudança de janela e nomes de pacote do inicializador da TV para detectar o inicializador integrado e abrir o Sva automaticamente em seu lugar, mesmo quando o Sva está fechado.\n\nEsses dados ficam na TV e não são armazenados nem compartilhados. O conteúdo da tela e o texto digitado não são lidos.\n\nConcordar abre as configurações de Acessibilidade do Android para ativar o Sva Launcher. Você pode desativar o serviço lá a qualquer momento. Não, obrigado permite continuar usando o Sva sem o início alternativo."</string>
+    <string name="accessibility_disclosure_agree">"Concordar e abrir configurações"</string>
+    <string name="accessibility_disclosure_decline">"Não, obrigado"</string>
 </resources>
