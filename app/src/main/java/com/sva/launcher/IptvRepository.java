@@ -554,6 +554,19 @@ final class IptvRepository {
     }
 
     private List<Channel> downloadPlaylist(String address) throws Exception {
+        XtreamCodes account = XtreamCodes.fromSource(address);
+        if (account != null) {
+            try {
+                JSONArray streams = downloadXtreamArray(account.api("get_live_streams"));
+                JSONArray categories;
+                try { categories = downloadXtreamArray(account.api("get_live_categories")); }
+                catch (Exception unavailableCategories) { categories = new JSONArray(); }
+                return account.channels(streams, categories);
+            } catch (Exception e) {
+                // Provider responses and network exceptions can contain account URLs.
+                throw new IllegalStateException(AppLanguage.text(R.string.ui_xtream_load_failed, "Could not load Xtream Codes Live TV. Check the server, credentials, and account status."));
+            }
+        }
         HttpURLConnection connection = openConnection(address);
         try {
             int length = connection.getContentLength();
@@ -562,6 +575,18 @@ final class IptvRepository {
                  BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
                 return parseLines(reader);
             }
+        } finally { connection.disconnect(); }
+    }
+
+    private JSONArray downloadXtreamArray(String address) throws Exception {
+        HttpURLConnection connection = openConnection(address);
+        try (InputStream input = new ByteLimitInputStream(connection.getInputStream(), MAX_PLAYLIST_BYTES);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
+            StringBuilder json = new StringBuilder();
+            char[] buffer = new char[4096];
+            int count;
+            while ((count = reader.read(buffer)) != -1) json.append(buffer, 0, count);
+            return new JSONArray(json.toString());
         } finally { connection.disconnect(); }
     }
 

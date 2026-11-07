@@ -7,12 +7,13 @@ import android.view.MotionEvent;
 import android.view.View;
 
 public final class ScreensaverPreviewActivity extends LocalizedActivity {
-    private ScreensaverView slideshow;
+    private ScreensaverContent slideshow;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        slideshow = new ScreensaverView(this);
+        slideshow = getIntent().getBooleanExtra("aerialPreview", false)
+                ? new ScreensaverContent(this, true) : new ScreensaverContent(this);
         setContentView(slideshow);
         slideshow.start();
     }

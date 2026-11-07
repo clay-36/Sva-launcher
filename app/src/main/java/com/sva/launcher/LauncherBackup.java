@@ -23,12 +23,12 @@ final class LauncherBackup {
 
     private static Map<String, String> expectedTypes() {
         Map<String, String> types = new LinkedHashMap<>();
-        register(types, "string", "playlist guide drmHeaders drmLicenseUrl channelsCacheSource guideCacheSource "
+        register(types, "string", "aerialProvider playlist guide drmHeaders drmLicenseUrl channelsCacheSource guideCacheSource "
                 + "selectedApps wallpaper wallpaperAlbum wallpaperFolder photoFolderCacheUri photoFolderCacheImages "
                 + "googlePhotosCacheImages googlePhotosCacheUrl publicCalendarEvents publicCalendarUrl programmeReminders "
                 + "screensaverCacheImages screensaverCacheUrl screensaverAlbum screensaverCaption screensaverTheme "
                 + "appLanguage weatherCache weatherLocationLabel weatherLocationMode youtubeCards liquidGlassMode navigationOrder activitiesChannelOrder");
-        register(types, "boolean", "24h customApps guideCollapsed showDate weatherFahrenheit weatherMph "
+        register(types, "boolean", "aerialWallpaper screensaverAerial 24h customApps guideCollapsed showDate weatherFahrenheit weatherMph "
                 + "youtubeArtworkFeedFallbackTried hideLiveTvNavigation hideGamesNavigation hideEventsNavigation hideActivitiesNavigation hideSavedNavigation hideNewsNavigation "
                 + "screensaverClock screensaverWeather screensaverEvents");
         register(types, "integer", "publicCalendarAttemptedVersion publicCalendarCacheVersion liveTvNavigationPosition "

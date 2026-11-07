@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 
 public final class ScreensaverSettingsActivity extends MotionActivity {
     private SharedPreferences prefs;
+    private View aerialToggle;
     private LinearLayout page;
     private EditText album, caption;
     private TextView source, feedback;
@@ -33,6 +34,14 @@ public final class ScreensaverSettingsActivity extends MotionActivity {
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         LinearLayout shell = SettingsUi.page(this, AppLanguage.get(R.string.ui_screensaver), AppLanguage.get(R.string.ui_sva_memories_personalize_your_idle_screen), this::requestClose);
         page = SettingsUi.scroll(shell);
+        SettingsUi.heading(page, AppLanguage.get(R.string.aerial_title));
+        aerialToggle = SettingsUi.toggle(this, AppLanguage.get(R.string.aerial_screensaver),
+                prefs.getBoolean(AerialCatalog.SCREENSAVER, false),
+                enabled -> prefs.edit().putBoolean(AerialCatalog.SCREENSAVER, enabled).apply());
+        SettingsUi.add(page, aerialToggle);
+        SettingsUi.add(page, SettingsUi.action(this, AppLanguage.get(R.string.aerial_settings), () ->
+                startActivity(new Intent(this, AerialSettingsActivity.class))));
+        SettingsUi.hint(page, AppLanguage.get(R.string.aerial_photo_hint));
         SettingsUi.heading(page, AppLanguage.get(R.string.ui_photo_source));
         source = SettingsUi.text(this, "", 14, true); page.addView(source); updateSource();
         album = input(AppLanguage.get(R.string.ui_separate_google_photos_album_optional), true, state == null
@@ -113,6 +122,11 @@ public final class ScreensaverSettingsActivity extends MotionActivity {
         shell.addView(footer, footerParams);
         setContentView(shell); save.requestFocus();
         if (state != null) page.post(() -> ((ScrollView) page.getParent()).scrollTo(0, state.getInt("scroll", 0)));
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (aerialToggle != null) SettingsUi.refreshToggle(aerialToggle, prefs.getBoolean(AerialCatalog.SCREENSAVER, false));
     }
 
     private void overlayToggle(String label, String key, boolean fallback) {

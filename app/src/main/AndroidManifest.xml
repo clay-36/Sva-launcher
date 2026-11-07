@@ -88,6 +88,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <activity android:name=".AerialSettingsActivity"
+            android:exported="false" android:screenOrientation="landscape" />
         <activity android:name=".ScreensaverSettingsActivity"
             android:exported="true" android:screenOrientation="landscape" />
         <activity android:name=".ScreensaverPreviewActivity"

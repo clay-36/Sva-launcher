@@ -20,8 +20,8 @@ android {
         minSdk 26
         targetSdk 36
 
-        versionCode 16
-        versionName "4.1.11"
+        versionCode 17
+        versionName "4.1.12"
         testInstrumentationRunner "android.test.InstrumentationTestRunner"
         testInstrumentationRunnerArguments package: "com.sva.launcher"
 

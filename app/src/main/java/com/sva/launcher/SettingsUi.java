@@ -125,6 +125,14 @@ final class SettingsUi {
         });
         return row;
     }
+    static void refreshToggle(View control, boolean checked) {
+        LinearLayout row = (LinearLayout) control;
+        ((Switch)row.getChildAt(1)).setChecked(checked);
+        String title = ((TextView)row.getChildAt(0)).getText().toString();
+        row.setContentDescription(AppLanguage.get(R.string.ui_label_state, title,
+                checked ? AppLanguage.get(R.string.ui_on) : AppLanguage.get(R.string.ui_off)));
+    }
+
     static View choice(Context c, String title, String[] options, int selected, IntConsumer save) {
         LinearLayout row = row(c); TextView label = text(c, title, 16, false);
         row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));

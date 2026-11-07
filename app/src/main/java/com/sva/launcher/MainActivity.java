@@ -150,6 +150,7 @@ public final class MainActivity extends LocalizedActivity {
             return Math.max(1, bitmap.getByteCount() / 1024);
         }
     };
+    private AerialVideoView aerialWallpaper;
     private IptvRepository iptv;
     private ChannelLogoLoader logoLoader;
     private ChannelLogoLoader newsArtworkLoader;
@@ -241,6 +242,8 @@ public final class MainActivity extends LocalizedActivity {
     private TextView guideEmpty;
     private Button guideToggle;
     private String pendingReminderChannelKey, pendingReminderStreamUrl;
+    private ChannelRow liveChannelGrid;
+    private android.os.Parcelable liveGridState;
     private final LinkedHashMap<String, ChannelRow> channelRowMap = new LinkedHashMap<>();
     private final LinkedHashMap<String, Button> channelTabMap = new LinkedHashMap<>();
     private List<String> renderedCategories = new ArrayList<>();
@@ -308,6 +311,7 @@ public final class MainActivity extends LocalizedActivity {
         else registerReceiver(packageReceiver, packages);
         packageReceiverRegistered = true;
         if (state != null) {
+            liveGridState = state.getParcelable("liveGridState");
             focusedPackage = state.getString("focusedPackage");
             savedListState = state.getParcelable("savedListState");
             gamesListState = state.getParcelable("gamesListState");
@@ -379,6 +383,8 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     @Override protected void onSaveInstanceState(Bundle outState) {
+        if (liveChannelGrid != null) outState.putParcelable("liveGridState",
+                liveChannelGrid.list.getLayoutManager().onSaveInstanceState());
         if (settingsScreen != null) {
             outState.putBoolean("restoreSettings", true);
             outState.putInt("restoreSettingsSection", settingsScreen.section);
@@ -586,6 +592,7 @@ public final class MainActivity extends LocalizedActivity {
     @Override protected void onResume() {
         super.onResume();
         screenActive = true;
+        updateAerialWallpaper();
         if (!preferences.getBoolean("accessibilityDisclosureShownV1", false)) {
             preferences.edit().putBoolean("accessibilityDisclosureShownV1", true).apply();
             showAccessibilityDisclosure(null);
@@ -637,6 +644,7 @@ public final class MainActivity extends LocalizedActivity {
 
     @Override protected void onPause() {
         screenActive = false;
+        if (aerialWallpaper != null) aerialWallpaper.stop();
         handler.removeCallbacks(newsCarouselTick);
         if (newsCarousel != null) {
             newsCarousel.animate().cancel();
@@ -663,6 +671,7 @@ public final class MainActivity extends LocalizedActivity {
             packageReceiverRegistered = false;
         }
         lifecycleWork.close();
+        if (aerialWallpaper != null) aerialWallpaper.stop();
         if (activitiesPanel != null) activitiesPanel.close();
         if (clockTick != null) handler.removeCallbacks(clockTick);
         if (guideRefreshTick != null) handler.removeCallbacks(guideRefreshTick);
@@ -734,6 +743,9 @@ public final class MainActivity extends LocalizedActivity {
         heroFrame.addView(wallpaperImage, new FrameLayout.LayoutParams(-1, -1));
         heroFrame.addView(slideA, new FrameLayout.LayoutParams(-1, -1));
         heroFrame.addView(slideB, new FrameLayout.LayoutParams(-1, -1));
+        aerialWallpaper = new AerialVideoView(this, false);
+        aerialWallpaper.setVisibility(View.GONE);
+        heroFrame.addView(aerialWallpaper, new FrameLayout.LayoutParams(-1, -1));
         showCachedBackgroundImmediately();
         GradientDrawable shadow = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 light ? new int[]{0x00000000, 0x00000000, 0x00000000, 0x00000000}
@@ -949,7 +961,7 @@ public final class MainActivity extends LocalizedActivity {
         addTopIcon(systemShortcuts, AppLanguage.get(R.string.ui_android_settings), R.drawable.ic_android_settings, this::openAndroidSettings);
         addTopIcon(systemShortcuts, AppLanguage.get(R.string.ui_launcher_settings), R.drawable.ic_launcher_settings, this::showSettings);
         FrameLayout viewport = new FrameLayout(this);
-        viewport.setClipChildren(false);
+        viewport.setClipChildren(true);
         viewport.setClipToPadding(false);
         tabShell.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
         tabPages[TAB_HOME] = page;
@@ -1255,7 +1267,15 @@ public final class MainActivity extends LocalizedActivity {
         liveContent.addView(status);
         if (liveStatus != null) status.setText(liveStatus);
         status.setVisibility(liveStatusVisible ? View.VISIBLE : View.GONE);
-
+        ScrollView oldPage = (ScrollView) tabPages[TAB_TV];
+        ViewGroup viewport = (ViewGroup)oldPage.getParent();
+        int pageIndex = viewport.indexOfChild(oldPage);
+        oldPage.removeView(liveContent);
+        liveContent.setPadding(0, dp(24), 0, dp(8));
+        liveChannelGrid = createChannelRow();
+        viewport.removeView(oldPage);
+        tabPages[TAB_TV] = liveChannelGrid.list;
+        viewport.addView(liveChannelGrid.list, pageIndex, new FrameLayout.LayoutParams(-1, -1));
     }
 
     private void buildSavedTab() {
@@ -1521,7 +1541,7 @@ public final class MainActivity extends LocalizedActivity {
         page.setVerticalScrollBarEnabled(false);
         page.setBackgroundColor(Color.TRANSPARENT);
         page.setClipChildren(true);
-        page.setClipToPadding(false);
+        page.setClipToPadding(tab == TAB_TV);
         page.setOverScrollMode(View.OVER_SCROLL_NEVER);
         if (tab == TAB_NEWS || tab == TAB_ACTIVITIES) {
             page.setPadding(0, 0, 0, dp(12));
@@ -1661,12 +1681,29 @@ public final class MainActivity extends LocalizedActivity {
                         }
                     }
                     ChannelRow channelRow = channelRowMap.get(selectedChannelCategory);
-                    if (channelRow != null && isWithinPage(focused, channelRow.container)) {
+                    if (channelRow != null && isWithinPage(focused, channelRow.container)
+                            && !isWithinPage(focused, liveContent)) {
+                        if (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN) {
+                            View item = channelRow.list.findContainingItemView(focused);
+                            int position = item == null ? RecyclerView.NO_POSITION
+                                    : channelRow.list.getChildAdapterPosition(item) - 1;
+                            if (channelRow.pendingFocus != RecyclerView.NO_POSITION) position = channelRow.pendingFocus;
+                            int columns = ((androidx.recyclerview.widget.GridLayoutManager)
+                                    channelRow.list.getLayoutManager()).getSpanCount();
+                            int count = channelRow.adapter.getItemCount();
+                            boolean anotherRow = position != RecyclerView.NO_POSITION && (direction == View.FOCUS_DOWN
+                                    ? position / columns < (count - 1) / columns : position >= columns);
+                            if (anotherRow) {
+                                focusChannelPosition(channelRow, Math.min(count - 1,
+                                        position + (direction == View.FOCUS_DOWN ? columns : -columns)));
+                                return true;
+                            }
+                        }
                         if (direction == View.FOCUS_UP) {
                             Button categoryTab = channelTabMap.get(selectedChannelCategory);
                             if (categoryTab == null && channelCategoryTabs != null && channelCategoryTabs.getChildCount() > 0)
                                 categoryTab = (Button) channelCategoryTabs.getChildAt(0);
-                            if (categoryTab != null && categoryTab.requestFocus()) return true;
+                            if (categoryTab != null && focusLiveHeader(categoryTab)) return true;
                         } else if (direction == View.FOCUS_DOWN) {
                             Button destination = navigationButton(TAB_TV);
                             if (destination != null && destination.requestFocus()) return true;
@@ -1858,7 +1895,13 @@ public final class MainActivity extends LocalizedActivity {
             View focused = oldPage.findFocus();
             if (focused != null) tabFocus[activeTab] = focused;
         }
-        if (activeTab != selectedTab) { gameFocusGeneration++; pendingGameFocus = RecyclerView.NO_POSITION; }
+        if (activeTab != selectedTab) {
+            gameFocusGeneration++; pendingGameFocus = RecyclerView.NO_POSITION;
+            if (liveChannelGrid != null) {
+                liveChannelGrid.focusGeneration++;
+                liveChannelGrid.pendingFocus = RecyclerView.NO_POSITION;
+            }
+        }
         activeTab = selectedTab;
         tabsInitialized = true;
         switchingTabs = true;
@@ -1895,7 +1938,7 @@ public final class MainActivity extends LocalizedActivity {
             if (animatePage) Motion.reveal(selectedPage);
             selectedPage.post(() -> {
                 if (activeTab != selectedTab) return;
-                if (selectedTab != TAB_HOME) selectedPage.scrollTo(0, tabScroll[selectedTab]);
+                if (selectedTab != TAB_HOME && selectedTab != TAB_TV) selectedPage.scrollTo(0, tabScroll[selectedTab]);
                 View previous = tabFocus[selectedTab];
                 if (focusTabButton) navigationButton(selectedTab).requestFocus();
                 else if (!keepNavigationFocus && previous != null && previous.isAttachedToWindow() && previous.isShown()) previous.requestFocus();
@@ -4460,6 +4503,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
                 channelRows.addView(channelsEmpty);
                 renderedCategories.clear();
                 selectedChannelCategory = null;
+                liveChannelGrid.adapter.setChannels(Collections.emptyList());
             }
             renderGuide();
             return;
@@ -4474,11 +4518,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             renderedCategories = nextCategories;
             if (!renderedCategories.contains(selectedChannelCategory)) selectedChannelCategory = renderedCategories.get(0);
             channelRows.addView(channelCategoryScroll, new LinearLayout.LayoutParams(-1, dp(50)));
-            ChannelRow row = createChannelRow();
+            ChannelRow row = liveChannelGrid;
             channelRowMap.put(selectedChannelCategory, row);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
-            params.setMargins(0, dp(4), 0, dp(6));
-            channelRows.addView(row.container, params);
             for (String category : renderedCategories) {
                 Button tab = createChannelCategoryTab(category);
                 channelTabMap.put(category, tab);
@@ -4541,6 +4582,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             channelRowMap.clear();
             channelRowMap.put(selectedChannelCategory, row);
             queueChannelRowUpdate(row, category, channelsForCategory(category));
+            row.list.scrollToPosition(0);
         }
         renderGuide();
         channelCategoryScroll.smoothScrollTo(Math.max(0, view.getLeft() - dp(24)), 0);
@@ -4554,7 +4596,13 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             if (row.pendingUpdateGeneration != generation
                     || !category.equals(selectedChannelCategory)
                     || channelRowMap.get(category) != row) return;
+            row.pendingFocus = RecyclerView.NO_POSITION;
+            ++row.focusGeneration;
             row.adapter.setChannels(snapshot, favorites);
+            if (liveGridState != null && !snapshot.isEmpty()) {
+                row.list.getLayoutManager().onRestoreInstanceState(liveGridState);
+                liveGridState = null;
+            }
         });
     }
 
@@ -4588,23 +4636,41 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         }
     }
 
+    private void focusChannelPosition(ChannelRow row, int position) {
+        row.pendingFocus = position;
+        int generation = ++row.focusGeneration;
+        row.list.scrollToPosition(position + 1);
+        row.list.post(new Runnable() {
+            int attempts;
+            @Override public void run() {
+                if (generation != row.focusGeneration || activeTab != TAB_TV || !lifecycleWork.active()) return;
+                RecyclerView.ViewHolder holder = row.list.findViewHolderForAdapterPosition(position + 1);
+                if (holder != null && holder.itemView.requestFocus()) row.pendingFocus = RecyclerView.NO_POSITION;
+                else if (++attempts < 8) row.list.postOnAnimation(this);
+                else row.pendingFocus = RecyclerView.NO_POSITION;
+            }
+        });
+    }
+
+    private boolean focusLiveHeader(View target) {
+        if (liveChannelGrid == null) return false;
+        if (target.isAttachedToWindow() && target.requestFocus()) return true;
+        liveChannelGrid.list.scrollToPosition(0);
+        liveChannelGrid.list.post(new Runnable() {
+            int attempts;
+            @Override public void run() {
+                if (activeTab != TAB_TV || !lifecycleWork.active()) return;
+                if (target.isAttachedToWindow() && target.requestFocus()) return;
+                if (++attempts < 8) liveChannelGrid.list.postOnAnimation(this);
+            }
+        });
+        return true;
+    }
+
     private ChannelRow createChannelRow() {
-        LinearLayout container = new LinearLayout(this);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setClipChildren(false);
-        container.setClipToPadding(false);
-        RecyclerView list = new RecyclerView(this);
-        list.setClipChildren(false);
-        list.setClipToPadding(false);
-        list.setPadding(dp(4), dp(4), dp(4), dp(4));
-        list.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
-        list.setHasFixedSize(true);
-        list.setItemViewCacheSize(4);
-        list.setOverScrollMode(View.OVER_SCROLL_NEVER);
         ChannelAdapter adapter = new ChannelAdapter(this, logoLoader, glassBackdrop, this::playChannel, this::toggleFavoriteChannel);
-        list.setAdapter(adapter);
-        container.addView(list, new LinearLayout.LayoutParams(-1, dp(250)));
-        return new ChannelRow(container, list, adapter);
+        LiveChannelGrid list = new LiveChannelGrid(this, liveContent, adapter);
+        return new ChannelRow(list, list, adapter);
     }
 
     private void loadBackgroundFolder(Uri treeUri, boolean userSelected) {
@@ -4874,8 +4940,20 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
         if (screenActive && settingsScreen == null) showNextBackgroundPhoto();
     }
 
+    private void updateAerialWallpaper() {
+        if (aerialWallpaper == null) return;
+        boolean enabled = preferences.getBoolean(AerialCatalog.WALLPAPER, false);
+        aerialWallpaper.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        if (enabled && screenActive && settingsScreen == null) {
+            if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
+            backgroundImageGeneration++;
+            aerialWallpaper.start();
+        } else aerialWallpaper.stop();
+    }
+
     private void scheduleNextBackgroundPhoto() {
-        if (slideshowTick == null || !screenActive || settingsScreen != null || backgroundPhotos.size() < 2) return;
+        if (slideshowTick == null || !screenActive || settingsScreen != null
+                || preferences.getBoolean(AerialCatalog.WALLPAPER, false) || backgroundPhotos.size() < 2) return;
         handler.removeCallbacks(slideshowTick);
         long interval = scheduleValue(SchedulePreferences.SLIDESHOW,
                 SchedulePreferences.SLIDESHOW_VALUES, SchedulePreferences.DEFAULT_SLIDESHOW);
@@ -4887,7 +4965,8 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private void showNextBackgroundPhoto() {
-        if (backgroundPhotos.isEmpty() || !screenActive || settingsScreen != null || isFinishing()) return;
+        if (backgroundPhotos.isEmpty() || !screenActive || settingsScreen != null || isFinishing()
+                || preferences.getBoolean(AerialCatalog.WALLPAPER, false)) return;
         if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
         int index = backgroundIndex % backgroundPhotos.size();
         BackgroundPhoto photo = backgroundPhotos.get(index);
@@ -4940,27 +5019,34 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
     }
 
     private static final class ChannelRow {
-        final LinearLayout container;
+        final ViewGroup container;
         final RecyclerView list;
         final ChannelAdapter adapter;
         int pendingUpdateGeneration;
-        ChannelRow(LinearLayout container, RecyclerView list, ChannelAdapter adapter) {
+        int pendingFocus = RecyclerView.NO_POSITION;
+        int focusGeneration;
+        ChannelRow(ViewGroup container, RecyclerView list, ChannelAdapter adapter) {
             this.container = container;
             this.list = list;
             this.adapter = adapter;
         }
 
         boolean requestFocus() {
-            if (list != null) {
-                View focused = list.getFocusedChild();
-                if (focused != null && focused.requestFocus()) return true;
-                if (list.getChildCount() > 0) {
-                    View first = list.getChildAt(0);
-                    if (first != null && first.requestFocus()) return true;
+            View focused = list.getFocusedChild();
+            if (focused != null && list.getChildAdapterPosition(focused) > 0 && focused.requestFocus()) return true;
+            if (adapter.getItemCount() == 0) return false;
+            RecyclerView.ViewHolder first = list.findViewHolderForAdapterPosition(1);
+            if (first != null && first.itemView.requestFocus()) return true;
+            list.scrollToPosition(1);
+            list.post(new Runnable() {
+                int attempts;
+                @Override public void run() {
+                    RecyclerView.ViewHolder holder = list.findViewHolderForAdapterPosition(1);
+                    if (holder != null && holder.itemView.requestFocus()) return;
+                    if (++attempts < 8) list.postOnAnimation(this);
                 }
-                if (list.requestFocus()) return true;
-            }
-            return container != null && container.requestFocus();
+            });
+            return true;
         }
     }
 
@@ -5402,6 +5488,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             dialog.setOnDismissListener(ignored -> {
                 if (channelAdapter != null) channelAdapter.cancelSearch();
                 if (settingsScreen == this) settingsScreen = null;
+                updateAerialWallpaper();
                 if (appsChanged || !appsLoaded) renderApps();
                 Set<String> freshHidden = HiddenChannels.load(preferences);
                 Set<String> freshFavorites = FavoriteChannels.load(preferences);
@@ -5422,6 +5509,7 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             });
             renderSection();
             Motion.dialog(dialog); dialog.show();
+            updateAerialWallpaper();
             BackNavigation.install(dialog, this::requestClose);
             if (slideshowTick != null) handler.removeCallbacks(slideshowTick);
             backgroundImageGeneration++;
@@ -6467,13 +6555,53 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
             }
         }
 
+        private void showXtreamLogin() {
+            LinearLayout fields = new LinearLayout(MainActivity.this);
+            fields.setOrientation(LinearLayout.VERTICAL);
+            fields.setPadding(dp(16), dp(8), dp(16), dp(8));
+            EditText server = addInput(fields, AppLanguage.get(R.string.ui_xtream_server),
+                    "https://provider.example:8080", "", false);
+            EditText username = addInput(fields, AppLanguage.get(R.string.ui_xtream_username), "", "", false);
+            username.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+            EditText password = addInput(fields, AppLanguage.get(R.string.ui_xtream_password), "", "", false);
+            password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            TextView feedback = label(AppLanguage.get(R.string.ui_xtream_live_only), 13,
+                    SettingsUi.muted(MainActivity.this), false);
+            fields.addView(feedback);
+            ScrollView scroll = new ScrollView(MainActivity.this);
+            scroll.addView(fields);
+            AlertDialog dialog = new AlertDialog.Builder(new android.view.ContextThemeWrapper(MainActivity.this,
+                    LiquidTheme.isLight(MainActivity.this) ? android.R.style.Theme_Material_Light_Dialog_Alert
+                            : android.R.style.Theme_Material_Dialog_Alert))
+                    .setTitle(AppLanguage.get(R.string.ui_add_xtream_codes)).setView(scroll)
+                    .setPositiveButton(AppLanguage.get(R.string.ui_xtream_add_account), null)
+                    .setNegativeButton(android.R.string.cancel, null).create();
+            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                try {
+                    XtreamCodes account = new XtreamCodes(server.getText().toString(),
+                            username.getText().toString(), password.getText().toString());
+                    List<String> sources = IptvRepository.sourceUrls(playlistField.getText().toString());
+                    List<String> guides = IptvRepository.sourceUrls(guideField.getText().toString());
+                    if (!sources.contains(account.api("get_live_streams"))) sources.add(account.api("get_live_streams"));
+                    if (!guides.contains(account.guide())) guides.add(account.guide());
+                    playlistField.setText(android.text.TextUtils.join("\n", sources));
+                    guideField.setText(android.text.TextUtils.join("\n", guides));
+                    captureDrafts();
+                    dialog.dismiss();
+                    if (liveFeedback != null) liveFeedback.setText(AppLanguage.get(R.string.ui_xtream_save_hint));
+                } catch (IllegalArgumentException error) { feedback.setText(error.getMessage()); }
+            }));
+            dialog.show();
+        }
+
         private void renderLive(LinearLayout page) {
             LinearLayout form = scrollForm(page);
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_playlist_guide_urls));
-            playlistField = addInput(form, AppLanguage.get(R.string.ui_m3u_playlists_one_url_per_line), "https://example.com/playlist.m3u", draftPlaylist, true);
+            playlistField = addInput(form, AppLanguage.get(R.string.ui_live_sources_one_url_per_line), "https://example.com/playlist.m3u", draftPlaylist, true);
             guideField = addInput(form, AppLanguage.get(R.string.ui_programme_guides_one_url_per_line), "https://www.epgschedule.com/data/index-lite.json", draftGuide, true);
             addFormHint(form, AppLanguage.get(R.string.ui_channels_from_all_playlists_are_combined_guide_schedules_from_al));
             addFormHint(form, AppLanguage.get(R.string.ui_xmltv_matches_by_tvg_id_json_guides_match_channel_ids_or_a_uniqu));
+            addFormButton(form, AppLanguage.get(R.string.ui_add_xtream_codes), v -> showXtreamLogin());
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_cache_guide_status));
             cacheSummary = label(cacheSummaryText(), 14, SettingsUi.muted(MainActivity.this), false);
             cacheSummary.setPadding(dp(14), dp(8), dp(14), dp(8));
@@ -6562,6 +6690,11 @@ private void updateCalendarDetails(List<PublicCalendarRepository.Event> events) 
 
         private void renderAppearance(LinearLayout page) {
             LinearLayout form = scrollForm(page);
+            addFormSectionHeader(form, AppLanguage.get(R.string.aerial_title));
+            addFormHint(form, AppLanguage.get(R.string.aerial_description));
+            addFormButton(form, AppLanguage.get(R.string.aerial_settings), v ->
+                    startActivity(new Intent(MainActivity.this, AerialSettingsActivity.class)));
+
             // — Theme ——————————————————————————————————————————————————————————
             addFormSectionHeader(form, AppLanguage.get(R.string.ui_theme));
             addFormHint(form, AppLanguage.get(R.string.ui_follow_your_tv_s_theme_or_choose_a_light_or_dark_appearance));
