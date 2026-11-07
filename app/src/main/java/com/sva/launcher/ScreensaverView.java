@@ -35,6 +35,7 @@ final class ScreensaverView extends View {
     private long changedAt, startedAt;
     private int index, frame, theme;
     private boolean stopped, loading, started;
+    private boolean overlayOnly;
     private String status = "", caption;
     private long clockMinute = -1;
     private String clockLabel = "", dateLabel = "";
@@ -63,11 +64,18 @@ final class ScreensaverView extends View {
         setBackgroundColor(Color.BLACK);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
     }
+    ScreensaverView(Context context, boolean overlayOnly) {
+        this(context);
+        this.overlayOnly = overlayOnly;
+        if (overlayOnly) { theme = 0; setBackgroundColor(Color.TRANSPARENT); }
+    }
+
     void start() {
         if (started || stopped) return;
         started = true;
         startedAt = SystemClock.uptimeMillis();
         main.post(redraw);
+        if (overlayOnly) return;
         String album = ScreensaverPreferences.album(prefs);
         worker.execute(() -> {
             List<String> cached = photos.cached(album);
@@ -226,7 +234,13 @@ final class ScreensaverView extends View {
     }
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (current == null || stopped) return;
+        if (stopped) return;
+        if (overlayOnly) {
+            float time = (SystemClock.uptimeMillis() - startedAt) / 1000f;
+            drawInformation(canvas, getWidth(), getHeight(), time, false);
+            return;
+        }
+        if (current == null) return;
         float w = getWidth(), h = getHeight();
         float age = (SystemClock.uptimeMillis() - changedAt) / 1000f;
         float time = (SystemClock.uptimeMillis() - startedAt) / 1000f;

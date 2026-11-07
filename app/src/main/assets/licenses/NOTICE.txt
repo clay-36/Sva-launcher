@@ -36,3 +36,8 @@ or personal photo albums are packaged in the application APK.
 Bundled visual assets and documentation screenshots are covered by the maintainer's
 redistribution confirmation recorded in docs/ASSET_PROVENANCE.md. Third-party
 marks and content visible in screenshots retain their respective owners' rights.
+
+Aerial catalogue metadata and adapted provider logic: Aerial Views contributors,
+including Neil Turner, GPL-3.0. Source: https://github.com/theothernt/AerialViews
+Pinned source and changes: third_party/aerialviews/NOTICE.md.
+Videos remain the property of their respective owners and are not bundled.

@@ -7,12 +7,12 @@ public final class ScreensaverService extends DreamService {
     @Override protected void attachBaseContext(android.content.Context base) {
         super.attachBaseContext(AppLanguage.wrap(base));
     }
-    private ScreensaverView slideshow;
+    private ScreensaverContent slideshow;
     private boolean dreaming;
     @Override public void onConfigurationChanged(android.content.res.Configuration config) {
         super.onConfigurationChanged(config);
         if (slideshow != null) slideshow.stop();
-        slideshow = new ScreensaverView(AppLanguage.wrap(this));
+        slideshow = new ScreensaverContent(AppLanguage.wrap(this));
         setContentView(slideshow);
         if (dreaming) slideshow.start();
     }
@@ -21,14 +21,14 @@ public final class ScreensaverService extends DreamService {
         setInteractive(false);
         setFullscreen(true);
         setScreenBright(false);
-        slideshow = new ScreensaverView(this);
+        slideshow = new ScreensaverContent(this);
         setContentView(slideshow);
     }
     @Override public void onDreamingStarted() {
         super.onDreamingStarted();
         dreaming = true;
         if (slideshow == null) {
-            slideshow = new ScreensaverView(this);
+            slideshow = new ScreensaverContent(this);
             setContentView(slideshow);
         }
         if (slideshow != null) slideshow.start();

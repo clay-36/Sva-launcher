@@ -18,3 +18,9 @@ retain their owners' rights; the app's GPL license does not relicense that conte
 Future contributed images must include their source, author, license or explicit
 redistribution permission. Use demonstration data and avoid credentials or private
 family photographs in public screenshots.
+
+The `aerial_*.json` catalogues and location strings are unmodified metadata from
+Aerial Views at the revision recorded in
+[third_party/aerialviews/NOTICE.md](../third_party/aerialviews/NOTICE.md).
+They reference third-party videos, which are streamed rather than bundled.
+The source-code license does not relicense the video content.

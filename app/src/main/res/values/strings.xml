@@ -719,4 +719,30 @@
     <string name="accessibility_disclosure_message">Sva Launcher uses the Android AccessibilityService API for the optional Home override feature. When your TV opens its built-in launcher, this service automatically opens Sva Launcher instead, including while another app is in use.\n\nWhile enabled, it accesses window-change events and the package name identifying the app opening a window to detect the built-in launcher. It does not read screen contents or typed text. This event data is processed only on your TV; it is not stored, collected off the device, or shared.\n\nChoose Agree to consent and open Android Accessibility settings, where you can enable Sva Launcher. You can disable the service there at any time. Choose No thanks to continue using Sva Launcher without Home override.</string>
     <string name="accessibility_disclosure_agree">Agree and open settings</string>
     <string name="accessibility_disclosure_decline">No thanks</string>
+    <string name="ui_add_xtream_codes">Add Xtream Codes</string>
+    <string name="ui_xtream_server">Server URL</string>
+    <string name="ui_xtream_username">Username</string>
+    <string name="ui_xtream_password">Password</string>
+    <string name="ui_xtream_add_account">Add account</string>
+    <string name="ui_xtream_live_only">Live TV channels, categories, and programme guide only.</string>
+    <string name="ui_xtream_save_hint">Account added. Save changes to load Live TV channels and guide.</string>
+    <string name="ui_live_sources_one_url_per_line">Live TV sources (one URL per line)</string>
+    <string name="aerial_title">Aerial videos</string>
+    <string name="aerial_description">Scenic videos for your wallpaper and idle screen.</string>
+    <string name="aerial_settings">Aerial video settings</string>
+    <string name="aerial_wallpaper">Use aerial videos as wallpaper</string>
+    <string name="aerial_screensaver">Use aerial videos as screensaver</string>
+    <string name="aerial_source">Video collection</string>
+    <string name="aerial_all">All collections</string>
+    <string name="aerial_preview">Preview aerial videos</string>
+    <string name="aerial_loading">Loading aerial video…</string>
+    <string name="aerial_unavailable">Videos unavailable. Showing landscape. Check your internet connection.</string>
+    <string name="aerial_photo_hint">When aerial videos are off, the photo album and atmosphere below are used.</string>
+    <string name="aerial_streaming_hint">Streams muted 1080p SDR videos over the internet. Videos can use substantial data. Playback stops when you leave Sva. Changes are saved automatically.</string>
+    <string name="aerial_credits">Credits</string>
+    <string name="aerial_credit_text" translatable="false">Powered by catalogue and provider logic adapted from Aerial Views by Neil Turner and contributors (GPLv3). github.com/theothernt/AerialViews. Videos belong to their respective owners: Apple, Amazon, Jetson Creative, and Robin Fourcade.</string>
+    <string name="aerial_license">Aerial Views open-source license</string>
+    <string name="ui_xtream_invalid_server">Enter a valid HTTP or HTTPS server URL, including the port if required.</string>
+    <string name="ui_xtream_missing_credentials">Enter both username and password.</string>
+    <string name="ui_xtream_load_failed">Could not load Xtream Codes Live TV. Check the server, credentials, and account status.</string>
 </resources>

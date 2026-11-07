@@ -40,3 +40,13 @@ vendored core, native bridge, Gradle build files and license files. Keep this
 inventory and bundled notices in sync when dependencies change. Run
 `python3 scripts/update-notices.py` after updating native sources or the root notices;
 use `--check` to verify them. Set `ANDROID_HOME` to include the pinned NDK notices.
+
+## Aerial Views
+
+Aerial video catalogue data and adapted provider selection logic come from
+[theothernt/AerialViews](https://github.com/theothernt/AerialViews), pinned at
+`b8ec8d3e81b7354ef8b0aae8ca9a1ba592089f65` (GPL-3.0). See
+[the integration notice](../third_party/aerialviews/NOTICE.md) for the original
+files, modifications and video ownership. Attribution and the GPL text are
+available in Aerial video settings; the text is bundled in the APK.
+Video files are streamed from their hosts and are not bundled in Sva.
